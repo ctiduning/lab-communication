@@ -25,9 +25,12 @@
 
 <script setup>
 import { ref, reactive } from 'vue';
+import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { User, Lock } from '@element-plus/icons-vue';
 import { authAPI } from '../api';
+
+const router = useRouter();
 
 const loginForm = reactive({
   email: '',
@@ -59,7 +62,7 @@ const handleLogin = async () => {
 
     ElMessage.success('登录成功');
     setTimeout(() => {
-      window.location.href = '/';
+      router.push('/');
     }, 800);
   } catch (error) {
     ElMessage.error(error.message || '登录失败');

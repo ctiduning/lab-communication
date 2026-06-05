@@ -82,8 +82,11 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { useRouter } from 'vue-router';
 import { ChatDotSquare, Bell, Setting, User, OfficeBuilding } from '@element-plus/icons-vue';
 import { supabase } from '../utils/supabase';
+
+const router = useRouter();
 import { authAPI, announcementAPI, getRoleCategory } from '../api';
 import BusinessInitiate from './BusinessInitiate.vue';
 import BusinessReceive from './BusinessReceive.vue';
@@ -143,13 +146,13 @@ const logout = async () => {
   }
   localStorage.removeItem('token');
   localStorage.removeItem('user');
-  window.location.href = '/login';
+  router.push('/login');
 };
 
 const loadUser = async () => {
   const { data: { user: authUser } } = await supabase.auth.getUser()
   if (!authUser) {
-    window.location.href = '/login';
+    router.push('/login');
     return;
   }
 
