@@ -43,7 +43,7 @@
                 <el-tag v-else type="success" size="small">正常</el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="220" fixed="right">
+            <el-table-column label="操作" width="280" fixed="right">
               <template #default="scope">
                 <el-button
                   v-if="!scope.row.isDisabled && scope.row.role !== 'admin'"
@@ -57,6 +57,12 @@
                   type="success"
                   @click="handleEnable(scope.row)"
                 >启用</el-button>
+                <el-button
+                  v-if="scope.row.role !== 'admin'"
+                  size="small"
+                  type="info"
+                  @click="handleResetPassword(scope.row)"
+                >重置密码</el-button>
                 <el-button
                   v-if="scope.row.role !== 'admin'"
                   size="small"
@@ -420,15 +426,31 @@ const handleEnable = async (user) => {
 const handleDeleteAccount = async (user) => {
   try {
     await ElMessageBox.confirm(
-      `确定要删除用户「${user.name}(${user.employeeId})」的账号吗？\n\n⚠️ 此操作将清除该用户的所有注册信息（姓名、电话、邮箱等），该用户将无法登录。但该用户的历史沟通记录会保留。`,
+      `确定要删除用户「${user.name}(${user.employeeId})」的账号吗？\n\n⚠️ 此操作将清除该用户的所有注册信息（姓名、电话、邮箱等），该用户将无法登录。但该用户的历史沟通记录会保留。\n\n删除后该邮箱可以重新注册。`,
       '确认删除账号',
       { confirmButtonText: '确定删除', cancelButtonText: '取消', type: 'error', confirmButtonClass: 'el-button--danger' }
     );
     await userAPI.deleteAccount(user.id);
-    ElMessage.success('用户账号已删除，沟通记录已保留');
+    ElMessage.success('用户账号已删除，沟通记录已保留，该邮箱可重新注册');
     loadUsers();
   } catch (error) {
     if (error !== 'cancel') ElMessage.error('删除失败：' + (error.message || '未知错误'));
+  }
+};
+
+// 重置用户密码
+const handleResetPassword = async (user) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要重置用户「${user.name}(${user.employeeId})」的密码吗？\n\n密码将被重置为：cti123\n该用户下次登录后需要修改密码。`,
+      '确认重置密码',
+      { confirmButtonText: '确定重置', cancelButtonText: '取消', type: 'warning' }
+    );
+    await userAPI.resetPassword(user.id);
+    ElMessage.success('密码已重置为 cti123，用户下次登录需修改密码');
+    loadUsers();
+  } catch (error) {
+    if (error !== 'cancel') ElMessage.error('重置失败：' + (error.message || '未知错误'));
   }
 };
 

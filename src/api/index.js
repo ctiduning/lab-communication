@@ -266,33 +266,42 @@ export const userAPI = {
 
   // 管理员删除用户账号（清除注册信息，保留沟通记录）
   async deleteAccount(id) {
-    // 清除 profiles 中的个人信息但保留记录（FK 引用不断）
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .update({
-        name: '已删除用户',
-        username: 'deleted_' + id.substring(0, 8),
-        phone: '',
-        email: 'deleted_' + id.substring(0, 8) + '@deleted',
-        region: '',
-        department: '',
-        is_disabled: true
-      })
-      .eq('id', id)
-
-    if (profileError) throw profileError
-
-    // 删除 auth.users（需要用 RPC 调用 SECURITY DEFINER 函数）
+    // 通过 RPC 调用 SECURITY DEFINER 函数，一次性完成 profiles 清理 + auth 彻底删除
     const { error: rpcError } = await supabase.rpc('delete_user_account', {
       target_user_id: id
     })
 
-    // 如果 RPC 失败（可能是权限问题），至少 profile 已经清除了
     if (rpcError) {
-      console.warn('RPC delete_user_account failed, but profile cleaned:', rpcError.message)
+      // RPC 失败时，至少尝试清除 profile
+      console.warn('RPC delete_user_account failed:', rpcError.message)
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          name: '已删除用户',
+          username: 'deleted_' + id.substring(0, 8),
+          phone: '',
+          email: 'deleted_' + id.substring(0, 8) + '@deleted',
+          region: '',
+          department: '',
+          is_disabled: true
+        })
+        .eq('id', id)
+      if (profileError) throw profileError
+      throw new Error('账号删除不完整，auth记录可能残留，请联系技术支持')
     }
 
     return { data: { message: '用户账号已删除，沟通记录已保留' } }
+  },
+
+  // 管理员重置用户密码为 cti123
+  async resetPassword(id) {
+    const { error } = await supabase.rpc('reset_user_password', {
+      target_user_id: id,
+      new_password: 'cti123'
+    })
+
+    if (error) throw error
+    return { data: { message: '密码已重置为 cti123' } }
   }
 }
 
