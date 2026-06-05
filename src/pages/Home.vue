@@ -31,6 +31,10 @@
                 <el-icon><ChatDotSquare /></el-icon>
                 <span>接收消息</span>
               </el-menu-item>
+              <el-menu-item index="sent">
+                <el-icon><Promotion /></el-icon>
+                <span>已发送消息</span>
+              </el-menu-item>
               <el-menu-item index="organization">
                 <el-icon><OfficeBuilding /></el-icon>
                 <span>组织架构</span>
@@ -46,6 +50,10 @@
               <el-menu-item index="lab-receive">
                 <el-icon><ChatDotSquare /></el-icon>
                 <span>接收消息</span>
+              </el-menu-item>
+              <el-menu-item index="sent">
+                <el-icon><Promotion /></el-icon>
+                <span>已发送消息</span>
               </el-menu-item>
               <el-menu-item index="organization">
                 <el-icon><OfficeBuilding /></el-icon>
@@ -83,7 +91,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { ChatDotSquare, Bell, Setting, User, OfficeBuilding } from '@element-plus/icons-vue';
+import { ChatDotSquare, Bell, Setting, User, OfficeBuilding, Promotion } from '@element-plus/icons-vue';
 import { supabase } from '../utils/supabase';
 
 const router = useRouter();
@@ -97,6 +105,7 @@ import Profile from './Profile.vue';
 import Announcements from './Announcements.vue';
 import Communications from './Communications.vue';
 import Organization from './Organization.vue';
+import SentMessages from './SentMessages.vue';
 
 const user = ref({
   name: '',
@@ -121,11 +130,13 @@ const currentComponent = computed(() => {
   if (cat === 'business') {
     if (activeMenu.value === 'initiate') return BusinessInitiate;
     if (activeMenu.value === 'receive') return BusinessReceive;
+    if (activeMenu.value === 'sent') return SentMessages;
   }
 
   if (cat === 'lab') {
     if (activeMenu.value === 'lab-initiate') return LabInitiate;
     if (activeMenu.value === 'lab-receive') return LabReceive;
+    if (activeMenu.value === 'sent') return SentMessages;
   }
 
   if (cat === 'admin') {

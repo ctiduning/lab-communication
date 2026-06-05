@@ -1130,9 +1130,15 @@ export function getRoleDisplayName(role) {
 
 // 角色 → 导航分类映射
 export function getRoleCategory(role) {
-  const labRoles = ['tech_support', 'inspection_leader', 'inspection_engineer', 'lab']
+  const labRoles = ['supervisor', 'tech_support', 'inspection_leader', 'inspection_engineer', 'customer_service', 'cs_leader', 'lab']
   const adminRoles = ['admin']
   if (adminRoles.includes(role)) return 'admin'
   if (labRoles.includes(role)) return 'lab'
-  return 'business' // business, business_assistant, supervisor, customer_service, cs_leader
+  return 'business' // business, business_assistant
 }
+
+// 获取实验室端所有角色
+export const LAB_ROLES = ['supervisor', 'tech_support', 'inspection_leader', 'inspection_engineer', 'customer_service', 'cs_leader']
+
+// 获取业务端所有角色
+export const BIZ_ROLES = ['business', 'business_assistant']
