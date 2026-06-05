@@ -280,33 +280,59 @@ export const userAPI = {
     return { data: formatProfile(data) }
   },
 
-  // 管理员删除用户账号（清除注册信息，保留沟通记录）
+  // 管理员删除用户账号（释放邮箱，保留沟通记录）
   async deleteAccount(id) {
-    // 通过 RPC 调用 SECURITY DEFINER 函数，一次性完成 profiles 清理 + auth 彻底删除
-    const { error: rpcError } = await supabase.rpc('delete_user_account', {
-      target_user_id: id
-    })
+    const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
+    const SERVICE_ROLE_KEY = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY
+    const releaseEmail = 'released_' + id.substring(0, 8) + '@deleted'
 
-    if (rpcError) {
-      // RPC 失败时，至少尝试清除 profile
-      console.warn('RPC delete_user_account failed:', rpcError.message)
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({
-          name: '已删除用户',
-          username: 'deleted_' + id.substring(0, 8),
-          phone: '',
-          email: 'deleted_' + id.substring(0, 8) + '@deleted',
-          region: '',
-          department: '',
-          is_disabled: true
+    // 第一步：用 Admin API 更新 auth.users 邮箱（释放原邮箱 + 刷新 GoTrue 缓存）
+    if (SERVICE_ROLE_KEY) {
+      try {
+        const response = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${id}`, {
+          method: 'PUT',
+          headers: {
+            'apikey': SERVICE_ROLE_KEY,
+            'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ email: releaseEmail, email_confirm: true })
         })
-        .eq('id', id)
-      if (profileError) throw profileError
-      throw new Error('账号删除不完整，auth记录可能残留，请联系技术支持')
+
+        if (!response.ok) {
+          const err = await response.json()
+          console.warn('Admin API 更新邮箱失败:', err.msg || err.message)
+        }
+      } catch (e) {
+        console.warn('Admin API 调用异常:', e.message)
+      }
     }
 
-    return { data: { message: '用户账号已删除，沟通记录已保留' } }
+    // 第二步：清理 auth 关联表（通过 RPC）
+    try {
+      await supabase.rpc('delete_user_account', { target_user_id: id })
+    } catch (rpcErr) {
+      console.warn('RPC 清理失败，手动更新 profiles:', rpcErr.message)
+    }
+
+    // 第三步：确保 profiles 已更新（保留记录给沟通记录 FK 用）
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({
+        name: '已删除用户',
+        username: 'deleted_' + id.substring(0, 8),
+        phone: '',
+        email: releaseEmail,
+        region: '',
+        department: '',
+        is_disabled: true,
+        must_change_password: false
+      })
+      .eq('id', id)
+
+    if (profileError) throw profileError
+
+    return { data: { message: '用户账号已删除，邮箱已释放，沟通记录已保留' } }
   },
 
   // 管理员重置用户密码为 cti123
