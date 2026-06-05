@@ -41,30 +41,26 @@
           v-model="form.recipients" 
           multiple 
           filterable
-          placeholder="搜索姓名、地区..."
+          :filter-method="filterRecipient"
+          placeholder="输入姓名/拼音/地区搜索..."
           style="width: 100%;"
           :teleported="false"
           :popper-append-to-body="false"
         >
-          <el-option-group label="业务">
+          <el-option-group v-for="group in filteredGroups" :key="group.label" :label="group.label">
             <el-option 
-              v-for="u in businessUsers.filter(u => u.role === 'business')" 
+              v-for="u in group.users" 
               :key="u.id" 
               :label="u.name + ' (' + (u.region || '-') + ')'" 
               :value="u.id"
-            />
-          </el-option-group>
-          <el-option-group label="业务助理">
-            <el-option 
-              v-for="u in businessUsers.filter(u => u.role === 'business_assistant')" 
-              :key="u.id" 
-              :label="u.name + ' (' + (u.region || '-') + ')'" 
-              :value="u.id"
-            />
+            >
+              <span>{{ u.name }}</span>
+              <span style="color:#999;font-size:12px;margin-left:8px;">{{ u.region || '-' }} · {{ u._roleName || '-' }}</span>
+            </el-option>
           </el-option-group>
         </el-select>
         <div style="color: #999; font-size: 12px; margin-top: 4px;">
-          已选择 {{ form.recipients.length }} 人（可输入姓名/地区搜索）
+          已选择 {{ form.recipients.length }} 人（支持拼音首字母/全拼/地区搜索）
         </div>
       </el-form-item>
       
@@ -82,10 +78,11 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted } from 'vue';
 import { ElMessage } from 'element-plus';
 import { communicationAPI, storageAPI } from '../api';
 import { supabase } from '../utils/supabase';
+import { buildSearchKeys, filterGroups } from '../utils/pinyinSearch';
 
 const form = reactive({
   type: '',
@@ -97,6 +94,16 @@ const form = reactive({
 const showImagePreview = ref(false);
 const previewImageUrl = ref('');
 const businessUsers = ref([]);
+const recipientGroups = ref([]);
+const searchQuery = ref('');
+
+const filteredGroups = computed(() => {
+  return filterGroups(searchQuery.value, recipientGroups.value);
+});
+
+const filterRecipient = (query) => {
+  searchQuery.value = query;
+};
 
 const previewImage = (url) => {
   previewImageUrl.value = url;
@@ -152,6 +159,22 @@ const loadBusinessUsers = async () => {
       .order('name')
     if (error) throw error
     businessUsers.value = data || []
+
+    // 按角色分组，构建搜索关键词
+    const roleNameMap = { business: '业务', business_assistant: '业务助理' }
+    const groups = {}
+    const roleOrder = ['business', 'business_assistant']
+    data.forEach(u => {
+      const label = roleNameMap[u.role] || u.role
+      const userWithKeys = buildSearchKeys(u, roleNameMap)
+      userWithKeys._roleName = label
+      if (!groups[label]) groups[label] = { label, users: [] }
+      groups[label].users.push(userWithKeys)
+    })
+    recipientGroups.value = roleOrder
+      .map(r => roleNameMap[r])
+      .filter(label => groups[label])
+      .map(label => groups[label])
   } catch (error) {
     ElMessage.error('加载业务用户失败');
   }

@@ -83,22 +83,26 @@
           v-model="form.recipients" 
           multiple 
           filterable
-          placeholder="搜索姓名、部门、角色..."
+          :filter-method="filterRecipient"
+          placeholder="输入姓名/拼音/部门/角色搜索..."
           style="width: 100%;"
           :teleported="false"
           :popper-append-to-body="false"
         >
-          <el-option-group v-for="group in recipientGroups" :key="group.label" :label="group.label">
+          <el-option-group v-for="group in filteredGroups" :key="group.label" :label="group.label">
             <el-option 
               v-for="u in group.users" 
               :key="u.id" 
-              :label="u.name + ' (' + (u.department || '-') + ')'" 
+              :label="u.name + ' (' + (u.department || '-') + ' · ' + (u._roleName || '-') + ')'" 
               :value="u.id"
-            />
+            >
+              <span>{{ u.name }}</span>
+              <span style="color:#999;font-size:12px;margin-left:8px;">{{ u.department || '-' }} · {{ u._roleName || '-' }}</span>
+            </el-option>
           </el-option-group>
         </el-select>
         <div style="color: #999; font-size: 12px; margin-top: 4px;">
-          已选择 {{ form.recipients.length }} 人（可输入姓名/部门搜索）
+          已选择 {{ form.recipients.length }} 人（支持拼音首字母/全拼/部门/角色搜索）
         </div>
       </el-form-item>
       
@@ -111,10 +115,11 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted } from 'vue';
 import { ElMessage } from 'element-plus';
 import { communicationAPI, storageAPI } from '../api';
 import { supabase } from '../utils/supabase';
+import { buildSearchKeys, filterGroups } from '../utils/pinyinSearch';
 
 const form = reactive({
   type: '',
@@ -135,6 +140,15 @@ const form = reactive({
 
 const labUsers = ref([]);
 const recipientGroups = ref([]);
+const searchQuery = ref('');
+
+const filteredGroups = computed(() => {
+  return filterGroups(searchQuery.value, recipientGroups.value);
+});
+
+const filterRecipient = (query) => {
+  searchQuery.value = query;
+};
 
 const handleUpload = async (file) => {
   try {
@@ -212,8 +226,11 @@ const loadLabUsers = async () => {
     
     data.forEach(u => {
       const label = roleNameMap[u.role] || u.role
+      // 为每个用户构建搜索关键词
+      const userWithKeys = buildSearchKeys(u, roleNameMap)
+      userWithKeys._roleName = label
       if (!groups[label]) groups[label] = { label, users: [] }
-      groups[label].users.push(u)
+      groups[label].users.push(userWithKeys)
     })
     
     recipientGroups.value = roleOrder
