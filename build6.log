@@ -1,0 +1,37 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+[36mvite v5.4.21 [32mbuilding for production...[36m[39m
+transforming...
+node_modules/@vueuse/core/dist/index.js (3362:0): A comment
+
+"/* #__PURE__ */"
+
+in "node_modules/@vueuse/core/dist/index.js" contains an annotation that Rollup cannot interpret due to the position of the comment. The comment will be removed to avoid issues.
+node_modules/@vueuse/core/dist/index.js (5780:22): A comment
+
+"/* #__PURE__ */"
+
+in "node_modules/@vueuse/core/dist/index.js" contains an annotation that Rollup cannot interpret due to the position of the comment. The comment will be removed to avoid issues.
+src/pages/Orders.vue (12:9): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+[32m✓[39m 1663 modules transformed.
+[31mx[39m Build failed in 7.09s
+[31merror during build:
+[31msrc/pages/Orders.vue (12:9): "Home" is not exported by "node_modules/@element-plus/icons-vue/dist/index.js", imported by "src/pages/Orders.vue".[31m
+file: [36mD:/game/实验室沟通/frontend/src/pages/Orders.vue:12:9[31m
+[33m
+10: import { ref, reactive, computed, onMounted } from 'vue';
+11: import { useRouter } from 'vue-router';
+12: import { Home, Document, Message, Bell, Setting } from '@element-plus/icons-vue';
+             ^
+13: import { ElMessage } from 'element-plus';
+14: import { orderAPI, communicationAPI } from '../api';
+[31m
+    at getRollupError (file:///D:/game/%E5%AE%9E%E9%AA%8C%E5%AE%A4%E6%B2%9F%E9%80%9A/frontend/node_modules/rollup/dist/es/shared/parseAst.js:317:41)
+    at error (file:///D:/game/%E5%AE%9E%E9%AA%8C%E5%AE%A4%E6%B2%9F%E9%80%9A/frontend/node_modules/rollup/dist/es/shared/parseAst.js:313:42)
+    at Module.error (file:///D:/game/%E5%AE%9E%E9%AA%8C%E5%AE%A4%E6%B2%9F%E9%80%9A/frontend/node_modules/rollup/dist/es/shared/node-entry.js:17391:16)
+    at Module.traceVariable (file:///D:/game/%E5%AE%9E%E9%AA%8C%E5%AE%A4%E6%B2%9F%E9%80%9A/frontend/node_modules/rollup/dist/es/shared/node-entry.js:17824:29)
+    at ModuleScope.findVariable (file:///D:/game/%E5%AE%9E%E9%AA%8C%E5%AE%A4%E6%B2%9F%E9%80%9A/frontend/node_modules/rollup/dist/es/shared/node-entry.js:15414:39)
+    at ChildScope.findVariable (file:///D:/game/%E5%AE%9E%E9%AA%8C%E5%AE%A4%E6%B2%9F%E9%80%9A/frontend/node_modules/rollup/dist/es/shared/node-entry.js:5682:38)
+    at FunctionScope.findVariable (file:///D:/game/%E5%AE%9E%E9%AA%8C%E5%AE%A4%E6%B2%9F%E9%80%9A/frontend/node_modules/rollup/dist/es/shared/node-entry.js:5682:38)
+    at FunctionBodyScope.findVariable (file:///D:/game/%E5%AE%9E%E9%AA%8C%E5%AE%A4%E6%B2%9F%E9%80%9A/frontend/node_modules/rollup/dist/es/shared/node-entry.js:5682:38)
+    at ReturnValueScope.findVariable (file:///D:/game/%E5%AE%9E%E9%AA%8C%E5%AE%A4%E6%B2%9F%E9%80%9A/frontend/node_modules/rollup/dist/es/shared/node-entry.js:5682:38)
+    at FunctionBodyScope.findVariable (file:///D:/game/%E5%AE%9E%E9%AA%8C%E5%AE%A4%E6%B2%9F%E9%80%9A/frontend/node_modules/rollup/dist/es/shared/node-entry.js:5682:38)[39m
