@@ -16,6 +16,14 @@
         >
           {{ showCreateForm ? '收起发布' : '+ 发布通知' }}
         </el-button>
+        <el-button
+          v-if="isAdmin && selectedAnnouncements.length > 0"
+          type="danger"
+          size="small"
+          @click="handleBatchDelete"
+        >
+          批量删除 ({{ selectedAnnouncements.length }})
+        </el-button>
       </div>
     </div>
 
@@ -65,6 +73,7 @@
 
     <!-- 收件箱表格 -->
     <el-table
+      ref="annTableRef"
       :data="filteredAnnouncements"
       stripe
       style="width: 100%"
@@ -72,7 +81,9 @@
       :row-class-name="tableRowClassName"
       v-loading="loading"
       empty-text="暂无通知公告"
+      @selection-change="handleSelectionChange"
     >
+      <el-table-column v-if="isAdmin" type="selection" width="45" />
       <el-table-column width="50" align="center">
         <template #default="scope">
           <div class="unread-dot" v-if="!scope.row.isRead"></div>
@@ -309,6 +320,43 @@ const reactionDetailList = ref([])
 
 // 实时订阅
 let channel = null
+
+// 批量选择
+const annTableRef = ref(null)
+const selectedAnnouncements = ref([])
+
+const handleSelectionChange = (selection) => {
+  selectedAnnouncements.value = selection
+}
+
+// 批量删除
+const handleBatchDelete = async () => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除选中的 ${selectedAnnouncements.value.length} 条公告吗？此操作不可撤销。`,
+      '批量删除确认',
+      { confirmButtonText: '确定删除', cancelButtonText: '取消', type: 'warning' }
+    )
+    let successCount = 0
+    let failCount = 0
+    for (const ann of selectedAnnouncements.value) {
+      try {
+        await announcementAPI.delete(ann.id)
+        successCount++
+      } catch (e) {
+        failCount++
+      }
+    }
+    if (failCount === 0) {
+      ElMessage.success(`成功删除 ${successCount} 条公告`)
+    } else {
+      ElMessage.warning(`${successCount} 条删除成功，${failCount} 条删除失败`)
+    }
+    loadAnnouncements()
+  } catch (error) {
+    // 用户取消
+  }
+}
 
 // 过滤后的列表
 const filteredAnnouncements = computed(() => announcements.value)
