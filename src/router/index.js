@@ -57,6 +57,7 @@ router.beforeEach(async (to, from, next) => {
   if (to.meta.requiresAuth && !isAuthenticated) {
     localStorage.removeItem('token')
     localStorage.removeItem('user')
+    localStorage.removeItem('sb-qgoqhjwekairknkuqisi-auth-token')
     next('/login')
     return
   }

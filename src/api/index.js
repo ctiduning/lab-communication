@@ -42,6 +42,9 @@ export const authAPI = {
   async register(userData) {
     const { username, password, name, role, employeeId, phone, email, region, department, priority, mustChangePwd } = userData
 
+    // 保存当前管理员 session
+    const { data: { session: adminSession } } = await supabase.auth.getSession()
+
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
@@ -76,12 +79,25 @@ export const authAPI = {
       await supabase.from('profiles').update({ must_change_password: true }).eq('id', authData.user.id)
     }
 
+    // 恢复管理员 session（signUp 可能会覆盖当前 session）
+    if (adminSession) {
+      await supabase.auth.setSession({
+        access_token: adminSession.access_token,
+        refresh_token: adminSession.refresh_token
+      })
+    }
+
     return { data: { user: authData.user, message: '注册成功' } }
   },
 
   // 登录
   async login(credentials) {
     const { email, password } = credentials
+
+    // 先清除旧 session，防止串号
+    await supabase.auth.signOut()
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
 
     const { data, error } = await supabase.auth.signInWithPassword({
       email,

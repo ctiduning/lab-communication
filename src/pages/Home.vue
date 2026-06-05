@@ -157,6 +157,8 @@ const logout = async () => {
   }
   localStorage.removeItem('token');
   localStorage.removeItem('user');
+  // 清除 Supabase 本地存储
+  localStorage.removeItem('sb-qgoqhjwekairknkuqisi-auth-token');
   router.push('/login');
 };
 
@@ -241,6 +243,15 @@ onMounted(async () => {
   await loadUser();
   loadUnreadCount();
   subscribeAnnouncements();
+
+  // 监听 auth 状态变化，防止串号
+  supabase.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_OUT' || !session) {
+      router.push('/login');
+    } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+      loadUser();
+    }
+  });
 });
 
 onUnmounted(() => {
