@@ -14,6 +14,7 @@
         <el-radio-button label="replied">已回复 ({{ repliedCount }})</el-radio-button>
         <el-radio-button label="allCompleted">全部完结 ({{ allCompletedCount }})</el-radio-button>
         <el-radio-button label="completed">发起人完结 ({{ completedCount }})</el-radio-button>
+        <el-radio-button label="recalled">已撤回 ({{ recalledCount }})</el-radio-button>
       </el-radio-group>
       <el-button 
         size="small" 
@@ -37,7 +38,7 @@
       />
     </div>
 
-    <el-table :data="filteredCommunications" border stripe v-loading="loading" empty-text="暂无发送记录">
+    <el-table :data="filteredCommunications" border stripe v-loading="loading" empty-text="暂无发送记录" v-if="activeFilter !== 'recalled'">
       <el-table-column label="状态" width="110" align="center">
         <template #default="scope">
           <el-tag v-if="scope.row.isCompleted" size="small" type="info">发起人完结</el-tag>
@@ -77,6 +78,54 @@
       <el-table-column label="操作" width="80" align="center">
         <template #default="scope">
           <el-button size="small" @click="viewDetail(scope.row)">查看</el-button>
+        </template>
+      </el-table-column>
+    </el-table>
+
+    <!-- 已撤回消息表格 -->
+    <el-table 
+      v-if="activeFilter === 'recalled'" 
+      :data="recalledMessages" 
+      border 
+      stripe 
+      v-loading="recalledLoading"
+      empty-text="暂无已撤回消息"
+      style="margin-top: 16px;"
+    >
+      <el-table-column label="撤回时间" width="160">
+        <template #default="scope">
+          {{ formatTime(scope.row.recalled_at) }}
+        </template>
+      </el-table-column>
+      <el-table-column label="原发送时间" width="160">
+        <template #default="scope">
+          {{ formatTime(scope.row.created_at) }}
+        </template>
+      </el-table-column>
+      <el-table-column label="沟通类型" width="110">
+        <template #default="scope">
+          {{ getTypeName(scope.row.type) }}
+        </template>
+      </el-table-column>
+      <el-table-column label="内容预览" min-width="200" show-overflow-tooltip>
+        <template #default="scope">
+          {{ scope.row.content || '-' }}
+        </template>
+      </el-table-column>
+      <el-table-column label="撤回原因" min-width="150" show-overflow-tooltip>
+        <template #default="scope">
+          {{ scope.row.recall_reason || '-' }}
+        </template>
+      </el-table-column>
+      <el-table-column label="接收人" min-width="150">
+        <template #default="scope">
+          {{ (scope.row.recipientDetails || []).map(r => r.name || '').join('、') || '-' }}
+        </template>
+      </el-table-column>
+      <el-table-column label="操作" width="200" align="center" fixed="right">
+        <template #default="scope">
+          <el-button size="small" type="primary" @click="editAndResend(scope.row)">编辑重发</el-button>
+          <el-button size="small" type="danger" @click="deleteRecalled(scope.row)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -146,10 +195,43 @@
           >
             取消整体完结
           </el-button>
+          
+          <!-- 撤回按钮：仅发送人可见，且5分钟内可撤回 -->
+          <el-button
+            v-if="canRecall(selectedComm)"
+            type="warning"
+            size="small"
+            @click="showRecallDialog(selectedComm)"
+            style="margin-left: 8px;"
+          >
+            撤回消息
+          </el-button>
         </div>
       </div>
       <template #footer>
         <el-button @click="detailVisible = false">关闭</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 撤回原因弹窗 -->
+    <el-dialog title="撤回消息" v-model="recallDialogVisible" width="500px" :close-on-click-modal="false">
+      <div>
+        <p>请输入撤回原因（可选）：</p>
+        <el-input
+          v-model="recallReason"
+          type="textarea"
+          :rows="3"
+          placeholder="例如：发错人了、内容有误、需要补充信息等"
+          maxlength="200"
+          show-word-limit
+        />
+        <p style="font-size: 12px; color: #999; margin-top: 8px;">
+          注意：撤回后，发件人和所有收件人将收到系统通知。
+        </p>
+      </div>
+      <template #footer>
+        <el-button @click="recallDialogVisible = false">取消</el-button>
+        <el-button type="warning" @click="confirmRecall()" :loading="recallLoading">确认撤回</el-button>
       </template>
     </el-dialog>
   </div>
@@ -163,12 +245,20 @@ import { communicationAPI } from '../api'
 import { supabase } from '../utils/supabase'
 
 const communications = ref([])
+const recalledMessages = ref([])
+const recalledLoading = ref(false)
 const loading = ref(false)
 const activeFilter = ref('all')
 const detailVisible = ref(false)
 const selectedComm = ref(null)
 const searchKeyword = ref('')  // 搜索关键词
 const refreshTimer = ref(null)  // 自动刷新定时器
+
+// 撤回相关
+const recallDialogVisible = ref(false)
+const recallReason = ref('')
+const recallLoading = ref(false)
+const currentRecallingMsg = ref(null)
 
 const typeMap = {
   paid_urgent: '付费加急',
@@ -208,9 +298,24 @@ const partialCount = computed(() => communications.value.filter(c => computeRepl
 const repliedCount = computed(() => communications.value.filter(c => computeReplyStatus(c) === 'replied').length)
 const completedCount = computed(() => communications.value.filter(c => computeReplyStatus(c) === 'completed').length)
 const allCompletedCount = computed(() => communications.value.filter(c => computeReplyStatus(c) === 'allCompleted').length)
+const recalledCount = computed(() => recalledMessages.value.length)
+
+// 判断消息是否在5分钟撤回窗口内
+const canRecall = (comm) => {
+  if (!comm || !comm.createdAt) return false
+  const now = new Date()
+  const createdAt = new Date(comm.createdAt)
+  const diffMinutes = (now - createdAt) / (1000 * 60)
+  return diffMinutes <= 5 && !comm.isRecalled
+}
 
 // 筛选（支持模糊搜索 + 状态过滤）
 const filteredCommunications = computed(() => {
+  // 如果当前在"已撤回"标签，直接返回已撤回消息
+  if (activeFilter.value === 'recalled') {
+    return recalledMessages.value
+  }
+  
   let result = communications.value
 
   // 状态过滤
@@ -236,13 +341,9 @@ const filteredCommunications = computed(() => {
   }
 
   return result
-})
+  })
 
-const filterList = () => {
-  // 筛选由 computed 自动处理
-}
-
-const viewDetail = (comm) => {
+  const viewDetail = (comm) => {
   selectedComm.value = comm
   detailVisible.value = true
 }
@@ -312,6 +413,102 @@ onUnmounted(() => {
     refreshTimer.value = null
   }
 })
+
+// 加载已撤回的消息
+const loadRecalledMessages = async () => {
+  recalledLoading.value = true
+  try {
+    const { data } = await communicationAPI.getRecalledMessages()
+    recalledMessages.value = data || []
+  } catch (error) {
+    console.error('加载已撤回消息失败:', error)
+    recalledMessages.value = []
+    ElMessage.error('加载已撤回消息失败')
+  } finally {
+    recalledLoading.value = false
+  }
+}
+
+// 显示撤回原因弹窗
+const showRecallDialog = (msg) => {
+  currentRecallingMsg.value = msg
+  recallReason.value = ''
+  recallDialogVisible.value = true
+}
+
+// 确认撤回
+const confirmRecall = async () => {
+  if (!currentRecallingMsg.value) return
+  
+  recallLoading.value = true
+  try {
+    await communicationAPI.recallMessage(currentRecallingMsg.value.id, recallReason.value)
+    ElMessage.success('消息已撤回')
+    recallDialogVisible.value = false
+    detailVisible.value = false
+    // 刷新列表
+    await loadCommunications()
+  } catch (error) {
+    ElMessage.error('撤回失败：' + (error.message || '未知错误'))
+  } finally {
+    recallLoading.value = false
+  }
+}
+
+// 编辑并重发已撤回的消息
+const editAndResend = (msg) => {
+  // 将消息数据存储到 localStorage，然后跳转到发起沟通页面
+  const editData = {
+    type: msg.type,
+    customerName: msg.customerName || '',
+    sampleCode: msg.sampleCode || '',
+    content: msg.content || '',
+    recipientIds: (msg.recipientDetails || []).map(r => r.recipient_id || r.id),
+    isRecalledEdit: true,
+    recalledId: msg.id
+  }
+  
+  localStorage.setItem('recalledMessageEdit', JSON.stringify(editData))
+  // 跳转到发起沟通页面（根据当前路由判断是商务还是实验室）
+  const currentPath = window.location.hash
+  if (currentPath.includes('lab')) {
+    window.location.href = '#/lab-communicate'
+  } else {
+    window.location.href = '#/business-communicate'
+  }
+}
+
+// 删除已撤回的消息
+const deleteRecalled = async (msg) => {
+  try {
+    await ElMessageBox.confirm('确定要删除这条已撤回的消息吗？删除后无法恢复。', '确认删除', {
+      confirmButtonText: '确定删除',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    
+    const { error } = await supabase
+      .from('communications')
+      .delete()
+      .eq('id', msg.id)
+    
+    if (error) throw error
+    
+    ElMessage.success('已删除')
+    await loadRecalledMessages()
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error('删除失败：' + (error.message || '未知错误'))
+    }
+  }
+}
+
+// 监听标签页切换，加载已撤回消息
+const filterList = () => {
+  if (activeFilter.value === 'recalled') {
+    loadRecalledMessages()
+  }
+}
 </script>
 
 <style scoped>

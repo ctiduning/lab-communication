@@ -791,8 +791,8 @@ export const communicationAPI = {
     return { data: communications || [] };
   },
 
-  // 撤回消息（2分钟内可撤回）
-  async recallMessage(communicationId) {
+  // 撤回消息（5分钟内可撤回）
+  async recallMessage(communicationId, reason = '') {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('未登录');
 
@@ -807,20 +807,122 @@ export const communicationAPI = {
     if (!comm) throw new Error('消息不存在');
     if (comm.sender_id !== user.id) throw new Error('只能撤回自己发送的消息');
 
-    // 检查是否超过2分钟
+    // 检查是否超过5分钟（改为5分钟）
     const createdAt = new Date(comm.created_at);
     const now = new Date();
     const diffMinutes = (now - createdAt) / (1000 * 60);
-    if (diffMinutes > 2) throw new Error('超过2分钟，无法撤回');
+    if (diffMinutes > 5) throw new Error('超过5分钟，无法撤回');
 
-    // 软删除
+    // 标记为已撤回（而不是软删除）
     const { error } = await supabase
       .from('communications')
-      .update({ is_deleted: true })
+      .update({ 
+        is_recalled: true,
+        recall_reason: reason || null,
+        recalled_at: new Date().toISOString()
+      })
       .eq('id', communicationId);
 
     if (error) throw error;
+
+    // 发送系统通知给发件人和所有收件人
+    try {
+      // 获取消息详情（用于通知内容）
+      const { data: commDetail } = await supabase
+        .from('communications')
+        .select(`
+          id, title, content, created_at, sender_id,
+          sender:profiles!communications_sender_id_fkey(name),
+          recipients:communication_recipients(recipient_id)
+        `)
+        .eq('id', communicationId)
+        .single();
+
+      if (commDetail) {
+        const senderName = commDetail.sender?.name || '未知用户';
+        const sendTime = new Date(commDetail.created_at).toLocaleString('zh-CN');
+        const recallTime = new Date().toLocaleString('zh-CN');
+        const contentPreview = (commDetail.content || '').substring(0, 50) + 
+                            ((commDetail.content || '').length > 50 ? '...' : '');
+        
+        const notificationContent = `${senderName}于${recallTime}撤回了${sendTime}发送的消息，消息内容：${contentPreview}`;
+        
+        // 获取所有需要通知的用户ID（发件人 + 所有收件人）
+        const notifyUserIds = [
+          commDetail.sender_id,
+          ...(commDetail.recipients || []).map(r => r.recipient_id)
+        ];
+
+        // 为每个用户创建系统通知（写入 communications 表，is_system_notification = true）
+        for (const userId of notifyUserIds) {
+          const { error: notifError } = await supabase
+            .from('communications')
+            .insert([{
+              title: '消息撤回通知',
+              content: notificationContent,
+              initiator_role: 'system',
+              sender_id: user.id, // 系统用户（实际是操作人）
+              is_system_notification: true,
+              created_at: new Date().toISOString()
+            }])
+            .select()
+            .single();
+
+          if (!notifError) {
+            // 获取刚插入的通知ID
+            const { data: notif } = await supabase
+              .from('communications')
+              .select('id')
+              .eq('title', '消息撤回通知')
+              .eq('content', notificationContent)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .single();
+
+            if (notif) {
+              // 创建接收人记录
+              await supabase
+                .from('communication_recipients')
+                .insert([{
+                  communication_id: notif.id,
+                  recipient_id: userId
+                }]);
+            }
+          }
+        }
+      }
+    } catch (notifError) {
+      console.error('发送撤回通知失败:', notifError);
+      // 不影响主流程，继续返回成功
+    }
+
     return { data: { message: '消息已撤回' } };
+  },
+
+  // 获取已撤回的消息（发件人视角）
+  async getRecalledMessages() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('未登录');
+
+    const { data, error } = await supabase
+      .from('communications')
+      .select(`
+        *,
+        sender:profiles!communications_sender_id_fkey(id, name, employee_id, role, avatar),
+        recipients:communication_recipients(
+          recipient:profiles(id, name, employee_id, role)
+        ),
+        replies:communication_replies(
+          id, content, created_at,
+          sender:profiles(id, name, employee_id, role, avatar)
+        )
+      `)
+      .eq('sender_id', user.id)
+      .eq('is_recalled', true)
+      .order('recalled_at', { ascending: false });
+
+    if (error) throw error;
+    return { data: data || [] };
   },
 
   // 编辑消息（2分钟内可编辑）

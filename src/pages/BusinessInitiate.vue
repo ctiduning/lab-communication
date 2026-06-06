@@ -335,6 +335,25 @@ onMounted(() => {
       preselectRecipients.value = [];
       ElMessage.success(`已自动选中 ${form.recipients.length} 位接收人`);
     }
+    
+    // 检查是否有已撤回消息需要编辑重发
+    const recalledEditData = localStorage.getItem('recalledMessageEdit');
+    if (recalledEditData) {
+      try {
+        const editData = JSON.parse(recalledEditData);
+        form.type = editData.type || '';
+        form.customerName = editData.customerName || '';
+        form.sampleCode = editData.sampleCode || '';
+        form.content = editData.content || '';
+        form.recipients = editData.recipientIds || [];
+        ElMessage.info('已加载撤回消息的内容，请编辑后重新发送');
+        // 清除 localStorage，避免刷新后重复加载
+        localStorage.removeItem('recalledMessageEdit');
+      } catch (e) {
+        console.error('解析撤回消息数据失败:', e);
+        localStorage.removeItem('recalledMessageEdit');
+      }
+    }
   });
 });
 </script>
