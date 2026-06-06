@@ -10,15 +10,7 @@
               @dragover.prevent
               @drop.prevent="handleExcelDrop"
             >
-              <el-upload
-                ref="uploadRef"
-                :auto-upload="false"
-                :show-file-list="false"
-                accept="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
-                :on-change="handleExcelImport"
-              >
-                <el-button type="success">导入Excel批量注册</el-button>
-              </el-upload>
+              <el-button type="success" @click="handlePickExcel">导入Excel批量注册</el-button>
             </div>
             <el-button type="text" @click="downloadTemplate" style="margin-left: 8px; color: #888; font-size: 12px;">下载模板</el-button>
             <div class="search-box">
@@ -468,6 +460,27 @@ const handleDeleteNotification = async (notif) => {
     loadNotifications();
   } catch (error) {
     if (error !== 'cancel') ElMessage.error('删除失败：' + (error.message || '未知错误'));
+  }
+};
+
+// 用 File System Access API 打开文件选择器（支持桌面等任意路径）
+const handlePickExcel = async () => {
+  try {
+    if (!window.showOpenFilePicker) {
+      ElMessage.warning('当前浏览器不支持高级文件选择，请拖拽文件到按钮上，或复制文件到项目目录后重试');
+      return;
+    }
+    const [fileHandle] = await window.showOpenFilePicker({
+      types: [
+        { description: 'Excel 文件', accept: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'], 'application/vnd.ms-excel': ['.xls'] } }
+      ],
+      excludeAcceptAllOption: false,
+      multiple: false
+    });
+    const file = await fileHandle.getFile();
+    handleExcelImport({ raw: file, name: file.name });
+  } catch (err) {
+    if (err.name !== 'AbortError') ElMessage.error('选择文件失败：' + err.message);
   }
 };
 
