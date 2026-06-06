@@ -409,6 +409,9 @@ export const communicationAPI = {
         has_replied: r.has_replied
       })) || [],
       isCompleted: c.is_completed || false,  // 沟通记录是否已完结（全局）
+      isRecalled: c.is_recalled || false,
+      recallReason: c.recall_reason || '',
+      recalledAt: c.recalled_at || null,
       replyCount: c.replies?.length || 0,
       attachments: c.attachments || [],
       replies: c.replies?.map(r => ({
@@ -922,7 +925,33 @@ export const communicationAPI = {
       .order('recalled_at', { ascending: false });
 
     if (error) throw error;
-    return { data: data || [] };
+    
+    // 映射字段（与 getAll() 保持一致）
+    const formatted = (data || []).map(c => ({
+      id: c.id,
+      senderId: c.sender_id,
+      type: c.type,
+      customerName: c.customer_name || '',
+      sampleCode: c.sample_code || '',
+      content: c.content || '',
+      isRecalled: c.is_recalled || false,
+      recallReason: c.recall_reason || '',
+      recalledAt: c.recalled_at || null,
+      createdAt: c.created_at,
+      recipientDetails: c.recipients?.map(r => ({
+        ...r.recipient,
+        recipient_id: r.recipient?.id
+      })) || [],
+      replies: c.replies?.map(r => ({
+        id: r.id,
+        senderId: r.sender_id,
+        senderName: r.sender?.name || '',
+        content: r.content,
+        createdAt: r.created_at
+      })) || []
+    }));
+    
+    return { data: formatted };
   },
 
   // 编辑消息（2分钟内可编辑）
