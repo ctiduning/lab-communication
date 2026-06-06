@@ -1,8 +1,30 @@
 <template>
   <div class="org-page">
     <div class="page-header">
-      <h2>🏗️ 组织架构</h2>
-      <p class="page-desc">查找人员联系方式，了解组织结构</p>
+      <div class="header-left">
+        <h2>🏗️ 组织架构</h2>
+        <p class="page-desc">查找人员联系方式，了解组织结构</p>
+      </div>
+      <el-button
+        v-if="totalSelected > 0"
+        type="primary"
+        @click="startCommunication"
+        class="header-comm-btn"
+      >
+        💬 快捷发起沟通 ({{ totalSelected }})
+      </el-button>
+    </div>
+
+    <!-- 已选人员展示 -->
+    <div v-if="totalSelected > 0" class="selected-persons-bar">
+      <div class="selected-title">已选人员 ({{ totalSelected }})：</div>
+      <div class="selected-persons-list">
+        <div v-for="p in selectedPersons" :key="p.id" class="selected-person-card">
+          <div class="selected-avatar" :class="getAvatarClass(p.role)">{{ (p.name || '?')[0] }}</div>
+          <span class="selected-name">{{ p.name }}</span>
+          <span class="remove-btn" @click="removeSelected(p)">×</span>
+        </div>
+      </div>
     </div>
 
     <!-- 搜索栏 -->
@@ -20,8 +42,12 @@
     <div v-if="searchText" class="search-results">
       <h3>搜索结果（{{ filteredAll.length }}人）</h3>
       <div class="person-grid-search">
-        <div v-for="p in filteredAll" :key="p.id" class="person-card-search" @click="showDetail(p)">
-          <div class="person-avatar" :class="getAvatarClass(p.role)">{{ (p.name || '?')[0] }}</div>
+        <div v-for="p in filteredAll" :key="p.id" class="person-card-search" :class="{ selected: isSelected(p.id) }">
+          <div class="select-btn" @click.stop="toggleSelectFromSearch(p)">
+            <span v-if="isSelected(p.id)" class="check-icon">✓</span>
+            <span v-else class="plus-icon">+</span>
+          </div>
+          <div class="person-avatar" :class="getAvatarClass(p.role)" @click="showDetail(p)">{{ (p.name || '?')[0] }}</div>
           <div class="person-info">
             <div class="person-name">
               {{ p.name || '-' }}
@@ -43,21 +69,13 @@
       <!-- 业务端 -->
       <div class="org-column">
         <div class="org-dept business-dept">
-          <div class="dept-header">
-            <div class="dept-header-left">
-              <span class="dept-icon">💼</span>
-              <span class="dept-title">业务端</span>
-              <span class="dept-count">{{ businessUsers.length }}人</span>
-            </div>
-            <el-button
-              v-if="selectedBizIds.length > 0"
-              type="primary"
-              size="small"
-              @click="startCommunication('business')"
-            >
-              💬 快捷发起沟通 ({{ selectedBizIds.length }})
-            </el-button>
+        <div class="dept-header">
+          <div class="dept-header-left">
+            <span class="dept-icon">💼</span>
+            <span class="dept-title">业务端</span>
+            <span class="dept-count">{{ businessUsers.length }}人</span>
           </div>
+        </div>
           <div class="dept-body">
             <div class="person-grid">
               <div
@@ -88,21 +106,13 @@
       <!-- 实验室端 -->
       <div class="org-column">
         <div class="org-dept lab-dept">
-          <div class="dept-header">
-            <div class="dept-header-left">
-              <span class="dept-icon">🔬</span>
-              <span class="dept-title">实验室端</span>
-              <span class="dept-count">{{ labUsersTotal }}人</span>
-            </div>
-            <el-button
-              v-if="selectedLabIds.length > 0"
-              type="primary"
-              size="small"
-              @click="startCommunication('lab')"
-            >
-              💬 快捷发起沟通 ({{ selectedLabIds.length }})
-            </el-button>
+        <div class="dept-header">
+          <div class="dept-header-left">
+            <span class="dept-icon">🔬</span>
+            <span class="dept-title">实验室端</span>
+            <span class="dept-count">{{ labUsersTotal }}人</span>
           </div>
+        </div>
           <div class="dept-body">
 
             <!-- 主管 -->
@@ -293,6 +303,7 @@ import { ElMessage } from 'element-plus'
 import { supabase } from '../utils/supabase'
 
 const router = useRouter()
+const route = useRoute()
 
 const users = ref([])
 const searchText = ref('')
@@ -302,6 +313,15 @@ const selectedPerson = ref(null)
 // 多选状态
 const selectedBizIds = ref([])
 const selectedLabIds = ref([])
+
+// 总选择人数
+const totalSelected = computed(() => selectedBizIds.value.length + selectedLabIds.value.length)
+
+// 已选人员列表
+const selectedPersons = computed(() => {
+  const ids = [...selectedBizIds.value, ...selectedLabIds.value]
+  return users.value.filter(u => ids.includes(u.id))
+})
 
 const toggleSelect = (userId, side) => {
   if (side === 'business') {
@@ -321,18 +341,59 @@ const toggleSelect = (userId, side) => {
   }
 }
 
+// 判断人员是否被选中
+const isSelected = (userId) => {
+  return selectedBizIds.value.includes(userId) || selectedLabIds.value.includes(userId)
+}
+
+// 从搜索结果中切换选择状态
+const toggleSelectFromSearch = (person) => {
+  const userId = person.id
+  const role = person.role
+  // 判断属于业务端还是实验室端
+  if (role === 'business' || role === 'business_assistant') {
+    const idx = selectedBizIds.value.indexOf(userId)
+    if (idx > -1) {
+      selectedBizIds.value.splice(idx, 1)
+    } else {
+      selectedBizIds.value.push(userId)
+    }
+  } else {
+    // 实验室端
+    const idx = selectedLabIds.value.indexOf(userId)
+    if (idx > -1) {
+      selectedLabIds.value.splice(idx, 1)
+    } else {
+      selectedLabIds.value.push(userId)
+    }
+  }
+}
+
+// 移除已选人员
+const removeSelected = (person) => {
+  const userId = person.id
+  const bizIdx = selectedBizIds.value.indexOf(userId)
+  if (bizIdx > -1) {
+    selectedBizIds.value.splice(bizIdx, 1)
+  }
+  const labIdx = selectedLabIds.value.indexOf(userId)
+  if (labIdx > -1) {
+    selectedLabIds.value.splice(labIdx, 1)
+  }
+}
+
 // 快捷发起沟通
-const startCommunication = (side) => {
-  const ids = side === 'business' ? selectedBizIds.value : selectedLabIds.value
-  if (ids.length === 0) {
+const startCommunication = () => {
+  const allIds = [...selectedBizIds.value, ...selectedLabIds.value]
+  if (allIds.length === 0) {
     ElMessage.warning('请先选择要沟通的人员')
     return
   }
   // 存储选中的用户ID
-  sessionStorage.setItem('preselectRecipients', JSON.stringify(ids))
+  sessionStorage.setItem('preselectRecipients', JSON.stringify(allIds))
   // 跳转到首页
   router.push('/')
-  ElMessage.success(`已选择 ${ids.length} 人，正在跳转...`)
+  ElMessage.success(`已选择 ${allIds.length} 人，正在跳转...`)
 }
 
 const expandedSections = reactive({
@@ -463,10 +524,18 @@ onMounted(() => {
 }
 
 .page-header {
-  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  gap: 16px;
 }
 
-.page-header h2 {
+.header-left {
+  flex: 1;
+}
+
+.header-left h2 {
   margin: 0 0 6px 0;
   font-size: 22px;
 }
@@ -475,6 +544,93 @@ onMounted(() => {
   color: #888;
   font-size: 14px;
   margin: 0;
+}
+
+.header-comm-btn {
+  flex-shrink: 0;
+  height: 40px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* 已选人员展示栏 */
+.selected-persons-bar {
+  background: white;
+  border: 1px solid #409eff;
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.15);
+}
+
+.selected-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #409eff;
+  margin-bottom: 10px;
+}
+
+.selected-persons-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.selected-person-card {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 4px;
+  background: #f0f7ff;
+  border: 1px solid #b3d8ff;
+  border-radius: 20px;
+  font-size: 12px;
+  transition: all 0.2s;
+}
+
+.selected-person-card:hover {
+  background: #e0efff;
+  box-shadow: 0 2px 6px rgba(64, 158, 255, 0.2);
+}
+
+.selected-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.selected-name {
+  font-weight: 500;
+  color: #333;
+  white-space: nowrap;
+}
+
+.remove-btn {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #f56c6c;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.2s;
+  line-height: 1;
+}
+
+.remove-btn:hover {
+  background: #e44d4d;
+  transform: scale(1.1);
 }
 
 .search-bar {
