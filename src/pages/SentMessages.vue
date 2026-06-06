@@ -17,6 +17,17 @@
       </el-radio-group>
     </div>
 
+    <!-- 搜索栏 -->
+    <div class="search-bar">
+      <el-input
+        v-model="searchKeyword"
+        placeholder="搜索沟通内容、客户名称、样品短号..."
+        clearable
+        style="width: 300px;"
+        :prefix-icon="Search"
+      />
+    </div>
+
     <el-table :data="filteredCommunications" border stripe v-loading="loading" empty-text="暂无发送记录">
       <el-table-column label="状态" width="110" align="center">
         <template #default="scope">
@@ -78,19 +89,28 @@
         <el-table :data="selectedComm.recipientDetails || []" border size="small">
           <el-table-column prop="name" label="接收人" width="100"></el-table-column>
           <el-table-column prop="department" label="部门" width="120"></el-table-column>
-          <el-table-column label="回复状态" width="100" align="center">
+          <el-table-column label="最新回复" min-width="200">
+            <template #default="scope">
+              <span v-if="getLatestReply(scope.row.recipient_id)" 
+                :class="getReplyClass(getLatestReply(scope.row.recipient_id))">
+                {{ getLatestReply(scope.row.recipient_id) }}
+              </span>
+              <span v-else style="color:#999;">-</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="回复状态" width="90" align="center">
             <template #default="scope">
               <el-tag v-if="scope.row.has_replied" size="small" type="success">已回复</el-tag>
               <el-tag v-else size="small" type="danger">未回复</el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="已读" width="70" align="center">
+          <el-table-column label="已读" width="60" align="center">
             <template #default="scope">
               <span v-if="scope.row.is_read" style="color:#67c23a;">✓</span>
               <span v-else style="color:#f56c6c;">✗</span>
             </template>
           </el-table-column>
-          <el-table-column label="个人完结" width="100" align="center">
+          <el-table-column label="个人完结" width="90" align="center">
             <template #default="scope">
               <el-tag v-if="scope.row.is_completed" size="small" type="info">已完结</el-tag>
               <el-tag v-else size="small" type="warning">未完结</el-tag>
@@ -136,6 +156,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { Search } from '@element-plus/icons-vue'
 import { communicationAPI } from '../api'
 import { supabase } from '../utils/supabase'
 
@@ -144,6 +165,7 @@ const loading = ref(false)
 const activeFilter = ref('all')
 const detailVisible = ref(false)
 const selectedComm = ref(null)
+const searchKeyword = ref('')  // 搜索关键词
 
 const typeMap = {
   paid_urgent: '付费加急',
@@ -184,10 +206,33 @@ const repliedCount = computed(() => communications.value.filter(c => computeRepl
 const completedCount = computed(() => communications.value.filter(c => computeReplyStatus(c) === 'completed').length)
 const allCompletedCount = computed(() => communications.value.filter(c => computeReplyStatus(c) === 'allCompleted').length)
 
-// 筛选
+// 筛选（支持模糊搜索 + 状态过滤）
 const filteredCommunications = computed(() => {
-  if (activeFilter.value === 'all') return communications.value
-  return communications.value.filter(c => computeReplyStatus(c) === activeFilter.value)
+  let result = communications.value
+
+  // 状态过滤
+  if (activeFilter.value !== 'all') {
+    result = result.filter(c => computeReplyStatus(c) === activeFilter.value)
+  }
+
+  // 模糊搜索
+  const kw = searchKeyword.value.trim().toLowerCase()
+  if (kw) {
+    result = result.filter(c => {
+      // 搜索字段：沟通内容、客户名称、样品短号、沟通类型、回复内容
+      const replyTexts = (c.replies || []).map(r => r.content || '').join(' ')
+      const fields = [
+        c.content || '',
+        c.customerName || '',
+        c.sampleCode || '',
+        getTypeName(c.type),
+        replyTexts
+      ].map(f => f.toLowerCase())
+      return fields.some(f => f.includes(kw))
+    })
+  }
+
+  return result
 })
 
 const filterList = () => {
@@ -209,6 +254,24 @@ const toggleGlobalCompleted = async (comm, isCompleted) => {
   } catch (e) {
     ElMessage.error('操作失败');
   }
+}
+
+// 获取某个接收人的最新回复
+const getLatestReply = (recipientId) => {
+  if (!selectedComm.value || !selectedComm.value.replies) return null
+  const recipientReplies = selectedComm.value.replies.filter(r => r.senderId === recipientId)
+  if (recipientReplies.length === 0) return null
+  // 按时间排序，取最新的
+  const latest = recipientReplies.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0]
+  return latest.content
+}
+
+// 获取回复内容的样式类
+const getReplyClass = (content) => {
+  if (!content) return ''
+  if (content === '同意') return 'reply-agree'
+  if (content === '拒绝') return 'reply-reject'
+  return 'reply-normal'
 }
 
 const loadCommunications = async () => {
@@ -254,6 +317,13 @@ onMounted(() => {
 
 .filter-bar {
   margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.search-bar {
+  margin-bottom: 16px;
 }
 
 .recipient-row {
@@ -290,5 +360,19 @@ onMounted(() => {
   padding: 20px;
   background: #f9f9f9;
   border-radius: 8px;
+}
+
+.reply-agree {
+  color: #67c23a;
+  font-weight: 600;
+}
+
+.reply-reject {
+  color: #f56c6c;
+  font-weight: 600;
+}
+
+.reply-normal {
+  color: #606266;
 }
 </style>
