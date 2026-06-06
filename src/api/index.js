@@ -802,7 +802,7 @@ export const communicationAPI = {
     // 检查消息是否存在且是本人发送
     const { data: comm, error: checkError } = await supabase
       .from('communications')
-      .select('id, sender_id, created_at')
+      .select('id, sender_id, created_at, content')
       .eq('id', communicationId)
       .single();
 
@@ -810,13 +810,13 @@ export const communicationAPI = {
     if (!comm) throw new Error('消息不存在');
     if (comm.sender_id !== user.id) throw new Error('只能撤回自己发送的消息');
 
-    // 检查是否超过5分钟（改为5分钟）
+    // 检查是否超过5分钟
     const createdAt = new Date(comm.created_at);
     const now = new Date();
     const diffMinutes = (now - createdAt) / (1000 * 60);
     if (diffMinutes > 5) throw new Error('超过5分钟，无法撤回');
 
-    // 标记为已撤回（而不是软删除）
+    // 标记为已撤回
     const { error } = await supabase
       .from('communications')
       .update({ 
@@ -831,72 +831,68 @@ export const communicationAPI = {
     // 发送系统通知给发件人和所有收件人
     try {
       // 获取消息详情（用于通知内容）
-      const { data: commDetail } = await supabase
+      const { data: commDetail, error: detailError } = await supabase
         .from('communications')
         .select(`
-          id, title, content, created_at, sender_id,
+          id, content, created_at, sender_id,
           sender:profiles!communications_sender_id_fkey(name),
-          recipients:communication_recipients(recipient_id)
+          communication_recipients(recipient_id)
         `)
         .eq('id', communicationId)
         .single();
 
-      if (commDetail) {
-        const senderName = commDetail.sender?.name || '未知用户';
-        const sendTime = new Date(commDetail.created_at).toLocaleString('zh-CN');
-        const recallTime = new Date().toLocaleString('zh-CN');
-        const contentPreview = (commDetail.content || '').substring(0, 50) + 
-                            ((commDetail.content || '').length > 50 ? '...' : '');
-        
-        const notificationContent = `${senderName}于${recallTime}撤回了${sendTime}发送的消息，消息内容：${contentPreview}`;
-        
-        // 获取所有需要通知的用户ID（发件人 + 所有收件人）
-        const notifyUserIds = [
-          commDetail.sender_id,
-          ...(commDetail.recipients || []).map(r => r.recipient_id)
-        ];
+      if (detailError) throw detailError;
+      if (!commDetail) throw new Error('获取消息详情失败');
 
-        // 为每个用户创建系统通知（写入 communications 表，is_system_notification = true）
-        for (const userId of notifyUserIds) {
-          const { error: notifError } = await supabase
-            .from('communications')
+      const senderName = commDetail.sender?.name || '未知用户';
+      const sendTime = new Date(commDetail.created_at).toLocaleString('zh-CN');
+      const recallTime = new Date().toLocaleString('zh-CN');
+      const contentPreview = (commDetail.content || '').substring(0, 50) + 
+                           ((commDetail.content || '').length > 50 ? '...' : '');
+      
+      const notificationContent = `${senderName}于${recallTime}撤回了${sendTime}发送的消息，消息内容：${contentPreview}`;
+      
+      // 获取所有需要通知的用户ID（发件人 + 所有收件人），去重
+      const recipientIds = (commDetail.communication_recipients || []).map(r => r.recipient_id);
+      const notifyUserIds = [...new Set([commDetail.sender_id, ...recipientIds])];
+
+      // 为每位用户创建一条系统通知
+      for (const userId of notifyUserIds) {
+        // 插入通知消息，并直接获取返回的 ID
+        const { data: notif, error: insertError } = await supabase
+          .from('communications')
+          .insert([{
+            title: '消息撤回通知',
+            content: notificationContent,
+            initiator_role: 'system',
+            sender_id: user.id,
+            is_system_notification: true
+          }])
+          .select('id')
+          .single();
+
+        if (insertError) {
+          console.error('插入通知失败:', insertError);
+          continue;
+        }
+
+        if (notif && notif.id) {
+          // 创建接收人记录
+          const { error: recError } = await supabase
+            .from('communication_recipients')
             .insert([{
-              title: '消息撤回通知',
-              content: notificationContent,
-              initiator_role: 'system',
-              sender_id: user.id, // 系统用户（实际是操作人）
-              is_system_notification: true,
-              created_at: new Date().toISOString()
-            }])
-            .select()
-            .single();
+              communication_id: notif.id,
+              recipient_id: userId
+            }]);
 
-          if (!notifError) {
-            // 获取刚插入的通知ID
-            const { data: notif } = await supabase
-              .from('communications')
-              .select('id')
-              .eq('title', '消息撤回通知')
-              .eq('content', notificationContent)
-              .order('created_at', { ascending: false })
-              .limit(1)
-              .single();
-
-            if (notif) {
-              // 创建接收人记录
-              await supabase
-                .from('communication_recipients')
-                .insert([{
-                  communication_id: notif.id,
-                  recipient_id: userId
-                }]);
-            }
+          if (recError) {
+            console.error('创建通知接收人失败:', recError);
           }
         }
       }
     } catch (notifError) {
       console.error('发送撤回通知失败:', notifError);
-      // 不影响主流程，继续返回成功
+      // 不影响主流程，撤回本身已成功
     }
 
     return { data: { message: '消息已撤回' } };

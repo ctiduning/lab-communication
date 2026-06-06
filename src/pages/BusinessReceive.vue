@@ -610,7 +610,7 @@ const loadMessages = async () => {
     const { data: { user: authUser } } = await supabase.auth.getUser();
     if (authUser) {
       const mine = response.data.filter(c => 
-        c.recipients && c.recipients.includes(authUser.id)
+        c.recipients && c.recipients.includes(authUser.id) && !c.isRecalled
       );
       // 为每个沟通添加我的状态
       messages.value = mine.map(c => {
