@@ -1496,4 +1496,45 @@ export const backupAPI = {
     
     return { data: result };
   }
+};
+
+// ==========================================
+// 消息已读回执
+// ==========================================
+export const messageReadsAPI = {
+  // 标记消息已读
+  async markAsRead(communicationId) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { data: { message: '未登录' } };
+    
+    const { error } = await supabase
+      .from('message_reads')
+      .upsert({
+        communication_id: communicationId,
+        user_id: user.id,
+        read_at: new Date().toISOString()
+      }, { onConflict: 'communication_id, user_id' });
+    
+    if (error) {
+      console.error('标记已读失败:', error);
+      return { data: { message: '标记失败' } };
+    }
+    return { data: { message: '已标记已读' } };
+  },
+  
+  // 获取消息的已读回执（管理员用）
+  async getReads(communicationId) {
+    const { data, error } = await supabase
+      .from('message_reads')
+      .select(`
+        user_id,
+        read_at,
+        profile:user_id(name, employee_id)
+      `)
+      .eq('communication_id', communicationId)
+      .order('read_at', { ascending: true });
+    
+    if (error) throw error;
+    return { data: data || [] };
+  }
 };;

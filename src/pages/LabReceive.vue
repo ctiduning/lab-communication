@@ -335,7 +335,7 @@
         <div v-if="selectedMessage.attachments && selectedMessage.attachments.length > 0" class="attachment-list">
           <div v-for="(file, idx) in selectedMessage.attachments" :key="idx" class="attachment-item">
             <el-icon :size="16"><Document /></el-icon>
-            <a :href="getDownloadUrl(file)" target="_blank" rel="noopener">{{ file.name }}</a>
+            <a href="javascript:void(0)" @click.prevent="downloadFile(file)">{{ file.name }}</a>
           </div>
         </div>
         <div v-else class="no-attachment">暂无附件</div>
@@ -527,6 +527,45 @@ const getDownloadUrl = (file) => {
   if (!file) return '#';
   if (typeof file === 'string') return file;
   return file.url || '#';
+};
+
+// 下载文件（使用签名 URL）
+const downloadFile = async (file) => {
+  if (!file) return;
+  try {
+    let filePath = '';
+    if (typeof file === 'string') {
+      filePath = file;
+    } else {
+      filePath = file.path || file.name || '';
+    }
+    
+    if (!filePath) {
+      ElMessage.error('文件路径为空');
+      return;
+    }
+    
+    // 创建签名 URL（有效期 60 分钟）
+    const { data, error } = await supabase.storage
+      .from('attachments')
+      .createSignedUrl(filePath, 60 * 60);
+    
+    if (error) {
+      console.error('创建签名 URL 失败:', error);
+      ElMessage.error('下载失败：' + (error.message || '未知错误'));
+      return;
+    }
+    
+    // 打开签名 URL
+    if (data?.signedUrl) {
+      window.open(data.signedUrl, '_blank');
+    } else {
+      ElMessage.error('获取下载链接失败');
+    }
+  } catch (e) {
+    console.error('下载文件异常:', e);
+    ElMessage.error('下载失败：' + (e.message || '未知错误'));
+  }
 };
 
 const loadCurrentUser = async () => {
