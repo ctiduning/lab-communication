@@ -39,11 +39,11 @@ export const uploadAPI = {
 // ==========================================
 export const authAPI = {
   // 管理员注册用户（仅供 Admin 页面调用）
+  // 使用数据库函数 admin_create_user，不影响当前管理员 session
   async register(userData) {
     const { username, password, name, role, employeeId, phone, email, region, department, priority, mustChangePwd } = userData
 
-    // 检查是否有"已删除用户"占用了相同的邮箱或用户名
-    // 只查 profiles 表，不碰 auth.users
+    // 检查邮箱或用户名是否已被注册（查 profiles 表）
     const { data: existingProfiles } = await supabase
       .from('profiles')
       .select('id, email, username, is_disabled')
@@ -55,65 +55,37 @@ export const authAPI = {
       if (activeUser) {
         throw new Error('该邮箱或用户名已被注册')
       }
-      // 所有匹配的都是已删除用户 -> 彻底清理旧记录，允许重新注册
+      // 所有匹配的都是已删除用户 -> 先清理旧记录（释放 auth.users 邮箱 + 删除 profiles）
+      // 这样新注册时 admin_create_user 插入 auth.users 就不会冲突
       for (const deletedUser of existingProfiles) {
-        // 尝试释放 auth.users 邮箱
         try {
           await supabase.rpc('delete_user_and_release_email', { target_user_id: deletedUser.id })
         } catch (e) {
-          console.warn('释放旧用户邮箱失败:', e.message)
+          // 函数不存在则忽略
         }
-        // 删除旧的 profiles 记录
         await supabase.from('profiles').delete().eq('id', deletedUser.id)
       }
     }
 
-    // 保存当前管理员 session
-    const { data: { session: adminSession } } = await supabase.auth.getSession()
-
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          username,
-          name,
-          role,
-          employee_id: employeeId,
-          phone,
-          email,
-          region,
-          department,
-          priority: priority === 'leader' ? 1 : (priority === 'member' ? 2 : 2),
-          must_change_password: mustChangePwd ? true : false
-        }
-      }
+    // 调用数据库函数创建用户（在数据库内完成，不影响前端 session）
+    const { data, error } = await supabase.rpc('admin_create_user', {
+      p_email: email,
+      p_password: password,
+      p_username: username,
+      p_name: name,
+      p_role: role,
+      p_employee_id: employeeId || '',
+      p_phone: phone || '',
+      p_region: region || '',
+      p_department: department || '',
+      p_must_change_pwd: mustChangePwd ? true : false
     })
 
-    if (authError) {
-      if (authError.message.includes('already registered')) {
-        throw new Error('该邮箱已被注册')
-      }
-      throw authError
+    if (error) {
+      throw new Error('注册失败：' + error.message)
     }
 
-    // 等待触发器创建 profile
-    await new Promise(resolve => setTimeout(resolve, 1000))
-
-    // 如果要求强制改密码，更新 profiles 表标记
-    if (mustChangePwd && authData.user) {
-      await supabase.from('profiles').update({ must_change_password: true }).eq('id', authData.user.id)
-    }
-
-    // 恢复管理员 session（signUp 可能会覆盖当前 session）
-    if (adminSession) {
-      await supabase.auth.setSession({
-        access_token: adminSession.access_token,
-        refresh_token: adminSession.refresh_token
-      })
-    }
-
-    return { data: { user: authData.user, message: '注册成功' } }
+    return { data: { user: data, message: '注册成功' } }
   },
 
   // 登录
