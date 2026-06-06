@@ -737,42 +737,192 @@ onMounted(() => {
 
 <style scoped>
 .admin-page {
-  padding: 0;
+  padding: 24px;
+  min-height: 100vh;
+  background: #f5f7fa;
 }
 
-.tab-content {
+.page-header {
+  background: white;
+  border-radius: 16px;
+  padding: 24px 32px;
+  margin-bottom: 24px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+.page-header h1 {
+  font-size: 24px;
+  color: #303133;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.page-header p {
+  font-size: 14px;
+  color: #909399;
+  margin: 0;
+}
+
+.page-content {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.beautiful-tabs {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  padding: 24px;
+}
+
+/* Tab 标签栏 - 增加间距 */
+:deep(.el-tabs--card > .el-tabs__header) {
+  margin-bottom: 24px;
+  padding: 8px 16px 0;
+}
+
+:deep(.el-tabs--card > .el-tabs__header .el-tabs__nav) {
+  border-radius: 10px 10px 0 0;
+  gap: 4px;
+}
+
+:deep(.el-tabs--card > .el-tabs__header .el-tabs__item) {
+  border-radius: 10px 10px 0 0;
+  padding: 12px 24px;
+  font-size: 15px;
+  font-weight: 500;
+  transition: all 0.3s;
+  height: 48px;
+  line-height: 24px;
+}
+
+:deep(.el-tabs--card > .el-tabs__header .el-tabs__item.is-active) {
+  background: linear-gradient(135deg, #409eff 0%, #3a8ee6 100%);
+  color: white;
+  border: none;
+}
+
+/* 操作栏 - 增加间距 */
+.tab-header {
+  margin-bottom: 28px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 20px;
+  padding: 4px 0;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.search-input {
+  width: 300px;
+}
+
+.search-input :deep(.el-input__wrapper) {
+  border-radius: 10px;
+  padding: 4px 12px;
+}
+
+.beautiful-card {
   background: white;
   border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
   padding: 20px;
 }
 
-.tab-header {
-  margin-bottom: 20px;
-  display: flex;
-  gap: 10px;
-  align-items: center;
+:deep(.el-table) {
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
 }
 
-.search-box {
-  margin-left: auto;
-  display: flex;
-  gap: 10px;
+:deep(.el-table th.el-table__cell) {
+  background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);
+  color: #303133;
+  font-weight: 600;
+  font-size: 14px;
+  padding: 16px 12px;
 }
 
-.search-box .el-input {
-  width: 250px;
+:deep(.el-table td.el-table__cell) {
+  padding: 14px 12px;
+}
+
+:deep(.el-button) {
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all 0.3s;
+  padding: 10px 20px;
+  height: 40px;
+}
+
+:deep(.el-button--primary) {
+  background: linear-gradient(135deg, #409eff 0%, #3a8ee6 100%);
+  border: none;
+}
+
+:deep(.el-button--primary:hover) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.4);
+}
+
+:deep(.el-button--success) {
+  background: linear-gradient(135deg, #67c23a 0%, #5daf34 100%);
+  border: none;
+}
+
+:deep(.el-button--success:hover) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(103, 194, 58, 0.4);
+}
+
+:deep(.el-tag) {
+  border-radius: 6px;
+  font-weight: 500;
+  padding: 4px 12px;
+}
+
+:deep(.el-dialog) {
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+:deep(.el-dialog__header) {
+  background: linear-gradient(135deg, #409eff 0%, #3a8ee6 100%);
+  color: white;
+  padding: 20px 24px;
+  margin: 0;
+}
+
+:deep(.el-dialog__title) {
+  color: white;
+  font-weight: 600;
+}
+
+:deep(.el-pagination) {
+  margin-top: 24px;
+  justify-content: center;
 }
 
 .record-count {
-  color: #666;
+  color: #606266;
   font-size: 14px;
+  font-weight: 500;
 }
 
 .stats-content {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
   padding: 20px;
 }
 
@@ -780,25 +930,32 @@ onMounted(() => {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 20px;
+  margin-top: 20px;
 }
 
 .stat-card {
   background: white;
-  border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
   text-align: center;
+  transition: all 0.3s;
+}
+
+.stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
 }
 
 .stat-value {
-  font-size: 28px;
+  font-size: 32px;
   font-weight: 600;
-  color: #333;
-  margin-bottom: 4px;
+  color: #409eff;
+  margin-bottom: 8px;
 }
 
 .stat-label {
   font-size: 14px;
-  color: #999;
+  color: #909399;
 }
 </style>
