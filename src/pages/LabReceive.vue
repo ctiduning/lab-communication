@@ -22,10 +22,10 @@
 
         <el-table :data="pendingMessages" border stripe v-loading="loading" :row-class-name="tableRowClassName">
           <!-- 状态列 - 移到最前面 -->
-          <el-table-column label="状态" width="90" align="center" fixed="left">
+          <el-table-column label="状态" width="100" align="center" fixed="left">
             <template #default="scope">
-              <el-tag v-if="scope.row.isCompleted" size="small" type="info">已完结</el-tag>
-              <el-tag v-else-if="scope.row.hasReplied" size="small" type="success">已处理</el-tag>
+              <el-tag v-if="scope.row.myCompleted || scope.row.isCompleted" size="small" type="info">已完结</el-tag>
+              <el-tag v-else-if="scope.row.hasReplied" size="small" type="success">已回复</el-tag>
               <el-tag v-else size="small" type="warning">待处理</el-tag>
             </template>
           </el-table-column>
@@ -81,12 +81,20 @@
                 {{ scope.row.hasFlagged ? '取消红旗' : '红旗' }}
               </el-button>
               <el-button 
-                v-if="!scope.row.isCompleted"
+                v-if="!scope.row.myCompleted && !scope.row.isCompleted"
                 size="small" 
                 type="success"
-                @click="toggleCompleted(scope.row, true)"
+                @click="toggleMyCompleted(scope.row, true)"
               >
                 完结
+              </el-button>
+              <el-button 
+                v-if="scope.row.myCompleted && !scope.row.isCompleted"
+                size="small" 
+                type="info"
+                @click="toggleMyCompleted(scope.row, false)"
+              >
+                取消完结
               </el-button>
             </template>
           </el-table-column>
@@ -113,10 +121,10 @@
 
         <el-table :data="processedMessages" border stripe v-loading="loading">
           <!-- 状态列 - 移到最前面 -->
-          <el-table-column label="状态" width="90" align="center" fixed="left">
+          <el-table-column label="状态" width="100" align="center" fixed="left">
             <template #default="scope">
-              <el-tag v-if="scope.row.isCompleted" size="small" type="info">已完结</el-tag>
-              <el-tag v-else-if="scope.row.hasReplied" size="small" type="success">已处理</el-tag>
+              <el-tag v-if="scope.row.myCompleted || scope.row.isCompleted" size="small" type="info">已完结</el-tag>
+              <el-tag v-else-if="scope.row.hasReplied" size="small" type="success">已回复</el-tag>
               <el-tag v-else size="small" type="warning">待处理</el-tag>
             </template>
           </el-table-column>
@@ -172,12 +180,20 @@
                 {{ scope.row.hasFlagged ? '取消红旗' : '红旗' }}
               </el-button>
               <el-button 
-                v-if="!scope.row.isCompleted"
+                v-if="!scope.row.myCompleted && !scope.row.isCompleted"
                 size="small" 
                 type="success"
-                @click="toggleCompleted(scope.row, true)"
+                @click="toggleMyCompleted(scope.row, true)"
               >
                 完结
+              </el-button>
+              <el-button 
+                v-if="scope.row.myCompleted && !scope.row.isCompleted"
+                size="small" 
+                type="info"
+                @click="toggleMyCompleted(scope.row, false)"
+              >
+                取消完结
               </el-button>
             </template>
           </el-table-column>
@@ -370,16 +386,16 @@
           {{ myRecipient.is_flagged ? '取消红旗' : '标记红旗' }}
         </el-button>
         <el-button 
-          v-if="!selectedMessage?.isCompleted"
+          v-if="!selectedMessage?.myCompleted && !selectedMessage?.isCompleted"
           type="success" 
-          @click="toggleCompletedFromDetail(true)"
+          @click="toggleMyCompletedFromDetail(true)"
         >
           标记完结
         </el-button>
         <el-button 
-          v-if="selectedMessage?.isCompleted"
+          v-if="selectedMessage?.myCompleted && !selectedMessage?.isCompleted"
           type="info" 
-          @click="toggleCompletedFromDetail(false)"
+          @click="toggleMyCompletedFromDetail(false)"
         >
           取消完结
         </el-button>
@@ -496,9 +512,11 @@ const loadMessages = async () => {
           ...c,
           myRead: myRec?.is_read || false,
           hasReplied: myRec?.has_replied || false,  // 我已回复
+          myCompleted: myRec?.is_completed || false,  // 我个人已完结
           isCompleted: c.isCompleted || false,  // 沟通记录已完结（全局）
           hasFlagged: myRec?.is_flagged || false,
-          replyCount: c.replies?.length || 0
+          replyCount: c.replies?.length || 0,
+          allRecipientsCompleted: recipients.every(r => r.is_completed)  // 所有人都已完结
         };
       });
     }
@@ -509,10 +527,10 @@ const loadMessages = async () => {
   }
 };
 
-// 待处理消息：未回复 且 未完结
+// 待处理消息：未回复 且 我个人未完结 且 全局未完结
 const pendingMessages = computed(() => {
   let result = messages.value.filter(m => 
-    !m.hasReplied && !m.isCompleted
+    !m.hasReplied && !m.myCompleted && !m.isCompleted
   );
 
   // 红旗过滤
@@ -539,10 +557,10 @@ const pendingMessages = computed(() => {
   return result;
 });
 
-// 已处理消息：已回复 且 未完结
+// 已处理消息：已回复 且 我个人未完结 且 全局未完结
 const processedMessages = computed(() => {
   let result = messages.value.filter(m => 
-    m.hasReplied && !m.isCompleted
+    m.hasReplied && !m.myCompleted && !m.isCompleted
   );
 
   // 模糊搜索
@@ -564,10 +582,10 @@ const processedMessages = computed(() => {
   return result;
 });
 
-// 已完结消息：沟通记录已完结（任何人标记完结，所有人都看到已完结）
+// 已完结消息：我个人已完结 或 全局已完结
 const completedMessages = computed(() => {
   let result = messages.value.filter(m => 
-    m.isCompleted
+    m.myCompleted || m.isCompleted
   );
 
   // 模糊搜索
@@ -591,7 +609,7 @@ const completedMessages = computed(() => {
 
 // 表格行样式：待处理消息显示淡蓝色底色
 const tableRowClassName = ({ row }) => {
-  if (!row.hasReplied && !row.isCompleted) {
+  if (!row.hasReplied && !row.myCompleted && !row.isCompleted) {
     return 'pending-row';
   }
   return '';
@@ -718,11 +736,21 @@ const toggleFlagFromDetail = async () => {
   }
 };
 
-// 标记完结（全局，更新 communications 表）
-const toggleCompleted = async (msg, isCompleted) => {
+// 切换我个人完结状态
+const toggleMyCompleted = async (msg, isCompleted) => {
   try {
-    await communicationAPI.toggleCommCompleted(msg.id, isCompleted);
-    msg.isCompleted = isCompleted;
+    await communicationAPI.toggleRecipientCompleted(msg.id, currentUserId.value, isCompleted);
+    msg.myCompleted = isCompleted;
+    // 检查是否所有人都完结了
+    const allDone = msg.recipientDetails?.every(r => 
+      r.recipient_id === currentUserId.value ? isCompleted : r.is_completed
+    );
+    if (allDone) {
+      // 所有人都完结了，标记全局完结
+      await communicationAPI.toggleCommCompleted(msg.id, true);
+      msg.isCompleted = true;
+      msg.allRecipientsCompleted = true;
+    }
     ElMessage.success(isCompleted ? '已标记完结' : '已取消完结');
     loadMessages(); // 刷新列表
   } catch (e) {
@@ -730,12 +758,23 @@ const toggleCompleted = async (msg, isCompleted) => {
   }
 };
 
-// 从详情弹窗标记完结
-const toggleCompletedFromDetail = async (isCompleted) => {
+// 从详情弹窗标记我个人完结
+const toggleMyCompletedFromDetail = async (isCompleted) => {
   if (!selectedMessage.value) return;
   try {
-    await communicationAPI.toggleCommCompleted(selectedMessage.value.id, isCompleted);
-    selectedMessage.value.isCompleted = isCompleted;
+    await communicationAPI.toggleRecipientCompleted(selectedMessage.value.id, currentUserId.value, isCompleted);
+    selectedMessage.value.myCompleted = isCompleted;
+    if (myRecipient.value) myRecipient.value.is_completed = isCompleted;
+    // 检查是否所有人都完结了
+    const allRecipients = selectedMessage.value.recipientDetails || [];
+    const allDone = allRecipients.every(r => 
+      r.recipient_id === currentUserId.value ? isCompleted : r.is_completed
+    );
+    if (allDone) {
+      await communicationAPI.toggleCommCompleted(selectedMessage.value.id, true);
+      selectedMessage.value.isCompleted = true;
+      selectedMessage.value.allRecipientsCompleted = true;
+    }
     ElMessage.success(isCompleted ? '已标记完结' : '已取消完结');
     loadMessages(); // 刷新列表
   } catch (e) {

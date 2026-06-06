@@ -134,8 +134,8 @@ let announcementChannel = null;
 const realRoleCategory = computed(() => getRoleCategory(user.value.role));
 // 视图角色（用于菜单渲染）
 const roleCategory = computed(() => viewRole.value);
-// 是否是管理员
-const isAdmin = computed(() => user.value.role === 'admin');
+// 是否是管理员（使用真实角色判断）
+const isAdmin = computed(() => realRoleCategory.value === 'admin');
 // 视图角色标签
 const viewRoleLabel = computed(() => {
   if (viewRole.value === 'admin') return '管理员视图';
@@ -303,6 +303,25 @@ const switchRole = (role) => {
   }
 };
 
+// 处理从通讯录跳转来的快捷发起沟通
+const handleSwitchToInitiate = () => {
+  const preselect = sessionStorage.getItem('preselectRecipients');
+  if (preselect) {
+    try {
+      preselectRecipients.value = JSON.parse(preselect);
+      sessionStorage.removeItem('preselectRecipients');
+      // 切换到发起沟通页面
+      if (viewRole.value === 'lab') {
+        activeMenu.value = 'lab-initiate';
+      } else {
+        activeMenu.value = 'initiate';
+      }
+    } catch (e) {
+      console.error('解析预选中用户失败:', e);
+    }
+  }
+};
+
 // 实时订阅新公告（新增时刷新未读数）
 const subscribeAnnouncements = () => {
   announcementChannel = supabase
@@ -322,6 +341,9 @@ onMounted(async () => {
   loadUnreadCount();
   subscribeAnnouncements();
 
+  // 监听从通讯录跳转来的快捷发起沟通事件
+  window.addEventListener('switch-to-initiate', handleSwitchToInitiate);
+
   // 监听 auth 状态变化，防止串号
   supabase.auth.onAuthStateChange((event, session) => {
     if (event === 'SIGNED_OUT' || !session) {
@@ -336,6 +358,7 @@ onUnmounted(() => {
   if (announcementChannel) {
     supabase.removeChannel(announcementChannel);
   }
+  window.removeEventListener('switch-to-initiate', handleSwitchToInitiate);
 });
 </script>
 

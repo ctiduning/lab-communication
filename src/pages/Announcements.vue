@@ -84,6 +84,7 @@
       @selection-change="handleSelectionChange"
     >
       <el-table-column v-if="isAdmin" type="selection" width="45" />
+      <el-table-column type="index" label="序号" width="60" align="center" />
       <el-table-column width="50" align="center">
         <template #default="scope">
           <div class="unread-dot" v-if="!scope.row.isRead"></div>

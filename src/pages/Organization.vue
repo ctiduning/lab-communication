@@ -390,8 +390,8 @@ const startCommunication = () => {
   }
   // 存储选中的用户ID
   sessionStorage.setItem('preselectRecipients', JSON.stringify(allIds))
-  // 跳转到首页
-  router.push('/')
+  // 派发事件通知父组件Home.vue立即切换
+  window.dispatchEvent(new CustomEvent('switch-to-initiate'))
   ElMessage.success(`已选择 ${allIds.length} 人，正在跳转...`)
 }
 

@@ -30,6 +30,9 @@
             ></el-input>
           </el-form-item>
           <el-form-item>
+            <el-checkbox v-model="rememberMe">记住我</el-checkbox>
+          </el-form-item>
+          <el-form-item>
             <el-button 
               type="primary" 
               @click="handleLogin" 
@@ -48,7 +51,7 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue';
+import { ref, reactive, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { User, Lock } from '@element-plus/icons-vue';
@@ -57,9 +60,24 @@ import { authAPI } from '../api';
 const router = useRouter();
 const loading = ref(false);
 
+const rememberMe = ref(false);
+
 const loginForm = reactive({
   email: '',
   password: ''
+});
+
+// 页面加载时检查是否有保存的账号
+onMounted(() => {
+  const savedEmail = localStorage.getItem('savedEmail');
+  const savedPassword = localStorage.getItem('savedPassword');
+  if (savedEmail) {
+    loginForm.email = savedEmail;
+    rememberMe.value = true;
+  }
+  if (savedPassword) {
+    loginForm.password = savedPassword;
+  }
 });
 
 const handleLogin = async () => {
@@ -82,6 +100,15 @@ const handleLogin = async () => {
     // 检查是否需要强制修改密码
     if (result.data?.user?.mustChangePassword) {
       ElMessage.warning('首次登录，请先修改密码');
+    }
+
+    // 记住我逻辑
+    if (rememberMe.value) {
+      localStorage.setItem('savedEmail', loginForm.email);
+      localStorage.setItem('savedPassword', loginForm.password);
+    } else {
+      localStorage.removeItem('savedEmail');
+      localStorage.removeItem('savedPassword');
     }
 
     ElMessage.success('登录成功');

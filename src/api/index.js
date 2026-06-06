@@ -657,6 +657,33 @@ export const communicationAPI = {
 
     if (error) throw error
     return { data }
+  },
+
+  // 切换接收人个人的完结状态（基于 communication_recipients 表，每接收人独立）
+  async toggleRecipientCompleted(communicationId, recipientId, isCompleted) {
+    const { data, error } = await supabase
+      .from('communication_recipients')
+      .update({ is_completed: isCompleted })
+      .eq('communication_id', communicationId)
+      .eq('recipient_id', recipientId)
+      .select()
+      .single()
+
+    if (error) throw error
+    return { data }
+  },
+
+  // 切换全局完结状态（发起人使用）
+  async toggleCommCompleted(communicationId, isCompleted) {
+    const { data, error } = await supabase
+      .from('communications')
+      .update({ is_completed: isCompleted })
+      .eq('id', communicationId)
+      .select()
+      .single()
+
+    if (error) throw error
+    return { data }
   }
 }
 
