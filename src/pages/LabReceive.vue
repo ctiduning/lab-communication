@@ -44,16 +44,15 @@
             </template>
           </el-table-column>
 
-          <el-table-column label="发送人">
+          <el-table-column label="沟通内容" min-width="200" show-overflow-tooltip>
             <template #default="scope">
-              {{ getSenderName(scope.row.senderId) }}
+              {{ scope.row.content || '-' }}
             </template>
           </el-table-column>
 
-          <el-table-column label="是否已读" width="90" align="center">
+          <el-table-column label="发送人">
             <template #default="scope">
-              <el-icon v-if="scope.row.myRead" color="#67c23a"><CircleCheck /></el-icon>
-              <el-icon v-else color="#f56c6c"><CircleClose /></el-icon>
+              {{ getSenderName(scope.row.senderId) }}
             </template>
           </el-table-column>
 
@@ -63,39 +62,52 @@
             </template>
           </el-table-column>
 
-          <el-table-column label="操作" width="240" align="center">
+          <el-table-column label="操作" width="280" align="center" fixed="right">
             <template #default="scope">
-              <el-button size="small" @click="viewDetail(scope.row)">查看</el-button>
-              <el-button 
-                size="small" 
-                type="primary"
-                @click="replyFromTable(scope.row)"
-              >
-                回复
-              </el-button>
-              <el-button 
-                size="small" 
-                :type="scope.row.hasFlagged ? 'warning' : 'default'"
-                @click="toggleFlag(scope.row)"
-              >
-                {{ scope.row.hasFlagged ? '取消红旗' : '红旗' }}
-              </el-button>
-              <el-button 
-                v-if="!scope.row.myCompleted && !scope.row.isCompleted"
-                size="small" 
-                type="success"
-                @click="toggleMyCompleted(scope.row, true)"
-              >
-                完结
-              </el-button>
-              <el-button 
-                v-if="scope.row.myCompleted && !scope.row.isCompleted"
-                size="small" 
-                type="info"
-                @click="toggleMyCompleted(scope.row, false)"
-              >
-                取消完结
-              </el-button>
+              <div class="row-op-btns">
+                <el-button size="small" @click="viewDetail(scope.row)">查看</el-button>
+                <el-button 
+                  v-if="!scope.row.myCompleted && !scope.row.isCompleted"
+                  size="small" 
+                  class="quick-btn agree-btn"
+                  @click="sendQuickReplyFromRow(scope.row, '同意')"
+                >同意</el-button>
+                <el-button 
+                  v-if="!scope.row.myCompleted && !scope.row.isCompleted"
+                  size="small" 
+                  class="quick-btn reject-btn"
+                  @click="sendQuickReplyFromRow(scope.row, '拒绝')"
+                >拒绝</el-button>
+                <el-button 
+                  v-if="!scope.row.myCompleted && !scope.row.isCompleted"
+                  size="small" 
+                  class="quick-btn pending-btn"
+                  @click="sendQuickReplyFromRow(scope.row, '等我确认后回复')"
+                >等我确认</el-button>
+                <el-button 
+                  size="small" 
+                  :type="scope.row.hasFlagged ? 'warning' : 'default'"
+                  @click="toggleFlag(scope.row)"
+                >
+                  {{ scope.row.hasFlagged ? '取消红旗' : '红旗' }}
+                </el-button>
+                <el-button 
+                  v-if="!scope.row.myCompleted && !scope.row.isCompleted"
+                  size="small" 
+                  type="success"
+                  @click="toggleMyCompleted(scope.row, true)"
+                >
+                  完结
+                </el-button>
+                <el-button 
+                  v-if="scope.row.myCompleted && !scope.row.isCompleted"
+                  size="small" 
+                  type="info"
+                  @click="toggleMyCompleted(scope.row, false)"
+                >
+                  取消完结
+                </el-button>
+              </div>
             </template>
           </el-table-column>
         </el-table>
@@ -377,29 +389,52 @@
         <el-input type="textarea" v-model="replyContent" placeholder="请输入回复内容" :rows="3"></el-input>
       </div>
       <template #footer>
-        <el-button @click="detailVisible = false">关闭</el-button>
-        <el-button 
-          v-if="myRecipient"
-          :type="myRecipient.is_flagged ? 'warning' : 'default'"
-          @click="toggleFlagFromDetail"
-        >
-          {{ myRecipient.is_flagged ? '取消红旗' : '标记红旗' }}
-        </el-button>
-        <el-button 
-          v-if="!selectedMessage?.myCompleted && !selectedMessage?.isCompleted"
-          type="success" 
-          @click="toggleMyCompletedFromDetail(true)"
-        >
-          标记完结
-        </el-button>
-        <el-button 
-          v-if="selectedMessage?.myCompleted && !selectedMessage?.isCompleted"
-          type="info" 
-          @click="toggleMyCompletedFromDetail(false)"
-        >
-          取消完结
-        </el-button>
-        <el-button type="primary" @click="submitReplyFromDetail" :loading="replyLoading">发送回复</el-button>
+        <div class="detail-footer-btns">
+          <!-- 快捷回复按钮 -->
+          <el-button 
+            v-if="!selectedMessage?.myCompleted && !selectedMessage?.isCompleted"
+            type="success" 
+            class="quick-btn agree-btn"
+            @click="sendQuickReply('同意')"
+            :loading="replyLoading"
+          >同意</el-button>
+          <el-button 
+            v-if="!selectedMessage?.myCompleted && !selectedMessage?.isCompleted"
+            type="danger" 
+            class="quick-btn reject-btn"
+            @click="sendQuickReply('拒绝')"
+            :loading="replyLoading"
+          >拒绝</el-button>
+          <el-button 
+            v-if="!selectedMessage?.myCompleted && !selectedMessage?.isCompleted"
+            class="quick-btn pending-btn"
+            @click="sendQuickReply('等我确认后回复')"
+            :loading="replyLoading"
+          >等我确认后回复</el-button>
+          <el-button 
+            v-if="myRecipient"
+            :type="myRecipient.is_flagged ? 'warning' : 'default'"
+            @click="toggleFlagFromDetail"
+          >
+            {{ myRecipient.is_flagged ? '取消红旗' : '标记红旗' }}
+          </el-button>
+          <el-button 
+            v-if="!selectedMessage?.myCompleted && !selectedMessage?.isCompleted"
+            type="success" 
+            @click="toggleMyCompletedFromDetail(true)"
+          >
+            标记完结
+          </el-button>
+          <el-button 
+            v-if="selectedMessage?.myCompleted && !selectedMessage?.isCompleted"
+            type="info" 
+            @click="toggleMyCompletedFromDetail(false)"
+          >
+            取消完结
+          </el-button>
+          <el-button type="primary" @click="submitReplyFromDetail" :loading="replyLoading">发送回复</el-button>
+          <el-button type="primary" plain @click="detailVisible = false">关闭</el-button>
+        </div>
       </template>
     </el-dialog>
   </div>
@@ -792,10 +827,20 @@ const submitReplyFromDetail = async () => {
     ElMessage.error('请输入回复内容');
     return;
   }
+  await doSendReply(replyContent.value);
+};
+
+// 发送快捷回复
+const sendQuickReply = async (content) => {
+  await doSendReply(content);
+};
+
+// 实际发送回复
+const doSendReply = async (content) => {
   replyLoading.value = true;
   try {
     await communicationAPI.createReply(selectedMessage.value.id, {
-      content: replyContent.value
+      content: content
     });
     ElMessage.success('回复成功');
     replyContent.value = '';
@@ -897,5 +942,31 @@ onMounted(() => {
 
 ::deep(.pending-row:hover) {
   background-color: #d9ecff !important;
+}
+
+/* 详情弹窗底部按钮 */
+.detail-footer-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.quick-btn {
+  font-weight: 600;
+}
+.agree-btn {
+  background: #67c23a !important;
+  border-color: #67c23a !important;
+  color: white !important;
+}
+.reject-btn {
+  background: #f56c6c !important;
+  border-color: #f56c6c !important;
+  color: white !important;
+}
+.pending-btn {
+  background: #d4a574 !important;
+  border-color: #d4a574 !important;
+  color: white !important;
 }
 </style>

@@ -68,32 +68,38 @@
                 <el-tag v-else type="success" size="small">正常</el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="210" fixed="right">
+            <el-table-column label="操作" width="160" fixed="right" align="center">
               <template #default="scope">
-                <el-button
-                  v-if="!scope.row.isDisabled && scope.row.role !== 'admin'"
-                  size="small"
-                  type="warning"
-                  @click="handleDisable(scope.row)"
-                >禁用</el-button>
-                <el-button
-                  v-if="scope.row.isDisabled"
-                  size="small"
-                  type="success"
-                  @click="handleEnable(scope.row)"
-                >启用</el-button>
-                <el-button
-                  v-if="scope.row.role !== 'admin'"
-                  size="small"
-                  type="info"
-                  @click="handleResetPassword(scope.row)"
-                >重置密码</el-button>
-                <el-button
-                  v-if="scope.row.role !== 'admin'"
-                  size="small"
-                  type="danger"
-                  @click="handleDeleteAccount(scope.row)"
-                >删除</el-button>
+                <div class="op-btns">
+                  <el-button
+                    v-if="!scope.row.isDisabled && scope.row.role !== 'admin'"
+                    size="small"
+                    type="warning"
+                    class="op-btn"
+                    @click="handleDisable(scope.row)"
+                  >禁用</el-button>
+                  <el-button
+                    v-if="scope.row.isDisabled"
+                    size="small"
+                    type="success"
+                    class="op-btn"
+                    @click="handleEnable(scope.row)"
+                  >启用</el-button>
+                  <el-button
+                    v-if="scope.row.role !== 'admin'"
+                    size="small"
+                    type="info"
+                    class="op-btn"
+                    @click="handleResetPassword(scope.row)"
+                  >重置密码</el-button>
+                  <el-button
+                    v-if="scope.row.role !== 'admin'"
+                    size="small"
+                    type="danger"
+                    class="op-btn"
+                    @click="handleDeleteAccount(scope.row)"
+                  >删除</el-button>
+                </div>
               </template>
             </el-table-column>
           </el-table>
@@ -862,6 +868,21 @@ onMounted(() => {
   transition: all 0.3s;
   padding: 10px 20px;
   height: 40px;
+}
+
+/* 用户管理操作栏按钮 - 更紧凑 */
+.op-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: center;
+}
+.op-btns .op-btn {
+  padding: 2px 8px !important;
+  height: 26px !important;
+  font-size: 12px !important;
+  min-height: 26px !important;
+  border-radius: 4px !important;
 }
 
 :deep(.el-button--primary) {

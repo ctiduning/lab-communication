@@ -5,7 +5,7 @@
       <p class="page-desc">查看历史上主动发出的沟通记录及回复状态</p>
     </div>
 
-    <!-- 筛选标签 -->
+    <!-- 筛选标签 + 刷新按钮 -->
     <div class="filter-bar">
       <el-radio-group v-model="activeFilter" @change="filterList">
         <el-radio-button label="all">全部 ({{ communications.length }})</el-radio-button>
@@ -15,6 +15,15 @@
         <el-radio-button label="allCompleted">全部完结 ({{ allCompletedCount }})</el-radio-button>
         <el-radio-button label="completed">发起人完结 ({{ completedCount }})</el-radio-button>
       </el-radio-group>
+      <el-button 
+        size="small" 
+        :icon="Refresh" 
+        @click="loadCommunications"
+        :loading="loading"
+        style="margin-left: 12px;"
+      >
+        刷新
+      </el-button>
     </div>
 
     <!-- 搜索栏 -->
@@ -154,9 +163,9 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Search } from '@element-plus/icons-vue'
+import { Search, Refresh } from '@element-plus/icons-vue'
 import { communicationAPI } from '../api'
 import { supabase } from '../utils/supabase'
 
@@ -166,6 +175,7 @@ const activeFilter = ref('all')
 const detailVisible = ref(false)
 const selectedComm = ref(null)
 const searchKeyword = ref('')  // 搜索关键词
+const refreshTimer = ref(null)  // 自动刷新定时器
 
 const typeMap = {
   paid_urgent: '付费加急',
@@ -292,6 +302,19 @@ const loadCommunications = async () => {
 
 onMounted(() => {
   loadCommunications()
+  
+  // 设置自动刷新（每30秒）
+  refreshTimer.value = setInterval(() => {
+    loadCommunications()
+  }, 30000)
+})
+
+onUnmounted(() => {
+  // 清理定时器
+  if (refreshTimer.value) {
+    clearInterval(refreshTimer.value)
+    refreshTimer.value = null
+  }
 })
 </script>
 

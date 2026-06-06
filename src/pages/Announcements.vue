@@ -85,39 +85,27 @@
     >
       <el-table-column v-if="isAdmin" type="selection" width="45" />
       <el-table-column type="index" label="序号" width="60" align="center" />
-      <el-table-column width="50" align="center">
-        <template #default="scope">
-          <div class="unread-dot" v-if="!scope.row.isRead"></div>
-        </template>
-      </el-table-column>
-      <el-table-column label="标题" min-width="300">
+      <el-table-column label="标题" min-width="200">
         <template #default="scope">
           <span :class="{ 'is-unread-text': !scope.row.isRead }">{{ scope.row.title }}</span>
           <span v-if="scope.row.attachments && scope.row.attachments.length > 0" class="attach-icon">📎</span>
         </template>
       </el-table-column>
-      <el-table-column label="发布人" width="120" align="center">
+      <el-table-column label="通知内容" min-width="300">
+        <template #default="scope">
+          <span class="content-preview" :class="{ 'is-unread-text': !scope.row.isRead }">
+            {{ truncateContent(scope.row.content, 300) }}
+          </span>
+        </template>
+      </el-table-column>
+      <el-table-column label="发布人" width="100" align="center">
         <template #default="scope">
           <span>{{ scope.row.senderName }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="发布时间" width="170" align="center">
+      <el-table-column label="发布时间" width="160" align="center">
         <template #default="scope">
           <span>{{ formatTime(scope.row.createdAt) }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="👍" width="70" align="center">
-        <template #default="scope">
-          <span class="reaction-num" @click.stop="handleReaction('announcement', scope.row.id, 'like')">
-            {{ getLikeCount('announcement', scope.row.id) }}
-          </span>
-        </template>
-      </el-table-column>
-      <el-table-column label="👎" width="70" align="center">
-        <template #default="scope">
-          <span class="reaction-num" @click.stop="handleReaction('announcement', scope.row.id, 'dislike')">
-            {{ getDislikeCount('announcement', scope.row.id) }}
-          </span>
         </template>
       </el-table-column>
       <el-table-column label="状态" width="80" align="center">
@@ -375,6 +363,13 @@ const formatTime = (t) => {
 // 表格行样式
 const tableRowClassName = ({ row }) => {
   return row.isRead ? '' : 'unread-row'
+}
+
+// 截断内容
+const truncateContent = (content, maxLen) => {
+  if (!content) return '-'
+  if (content.length <= maxLen) return content
+  return content.substring(0, maxLen) + '...'
 }
 
 // 获取点赞数
@@ -712,15 +707,29 @@ onUnmounted(() => {
   margin: 0 auto;
 }
 
-/* 未读行高亮 */
+/* 未读行高亮 - 红色背景 */
 :deep(.unread-row) {
-  background: #fffcf5 !important;
+  background: #fef0f0 !important;
   font-weight: 500;
+}
+:deep(.unread-row td) {
+  color: #f56c6c;
 }
 
 .is-unread-text {
   font-weight: 700;
   color: #f56c6c;
+}
+
+.content-preview {
+  color: #606266;
+  font-size: 13px;
+  line-height: 1.6;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .attach-icon {
