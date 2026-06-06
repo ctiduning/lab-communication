@@ -1203,6 +1203,8 @@ function formatProfile(p) {
     department: p.department,
     priority: p.priority === 1 ? 'leader' : 'member',
     isDisabled: p.is_disabled === true,
+    last_active_at: p.last_active_at || null,    // 新增：最后活跃时间
+    last_sign_in_at: p.last_sign_in_at || null,  // 新增：最后登录时间
     createdAt: p.created_at
   }
 }

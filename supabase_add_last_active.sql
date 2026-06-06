@@ -1,8 +1,17 @@
 -- 添加 last_active_at 字段到 profiles 表
 -- 用于跟踪用户最后活跃时间，实现"是否在线"状态显示
 
-ALTER TABLE profiles 
-ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMPTZ DEFAULT NULL;
+-- PostgreSQL 不支持 ADD COLUMN IF NOT EXISTS，使用 DO 块实现幂等
+DO $$ 
+BEGIN 
+  BEGIN
+    ALTER TABLE profiles ADD COLUMN last_active_at TIMESTAMPTZ DEFAULT NULL;
+    RAISE NOTICE '字段 last_active_at 已添加';
+  EXCEPTION
+    WHEN duplicate_column THEN 
+      RAISE NOTICE '字段 last_active_at 已存在，跳过';
+  END;
+END $$;
 
 -- 创建索引，加快查询
 CREATE INDEX IF NOT EXISTS idx_profiles_last_active_at 
