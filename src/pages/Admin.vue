@@ -562,15 +562,25 @@ const handleExcelImport = async (file) => {
       }
 
       const roleMap = {
+        // 新角色名（15个）
         '业务': 'business',
         '业务助理': 'business_assistant',
-        '技术支持': 'tech_support',
-        '主管': 'supervisor',
-        '检测组长': 'inspection_leader',
-        '检测工程师': 'inspection_engineer',
+        '实验室主管': 'supervisor',
+        '实验室主管助理': 'supervisor_assistant',
         '客服': 'customer_service',
         '客服组长': 'cs_leader',
+        '客服组长助理': 'cs_leader_assistant',
+        '检测组长': 'inspection_leader',
+        '检测组长助理': 'inspection_leader_assistant',
+        '检测工程师': 'inspection_engineer',
+        '制样组组长': 'sample_prep_leader',
+        '报告组组长': 'report_leader',
+        '数据二审': 'data_review',
+        '报告编制': 'report_compiler',
+        '技术支持': 'tech_support',
         '管理员': 'admin',
+        // 向后兼容：保留旧角色名
+        '主管': 'supervisor',
         '实验室': 'lab'
       };
 
@@ -639,17 +649,26 @@ const handleExcelImport = async (file) => {
   reader.readAsArrayBuffer(file.raw);
 };
 
-// 下载 Excel 模板（新8角色）
+// 下载 Excel 模板（新15角色）
 const downloadTemplate = () => {
   const templateData = [
     {
       '姓名': '张三',
       '工号': 'CTI001',
-      '角色': '业务（可选：业务/业务助理/技术支持/主管/检测组长/检测工程师/客服/客服组长/管理员）',
+      '角色': '业务',
       '部门': '理化检测组',
       '地区': '青岛',
       '电话': '13800138000',
       '邮箱': 'zhangsan@cti-cert.com'
+    },
+    {
+      '姓名': '（以下为可选角色示例，实际填写时删除本行）',
+      '工号': '',
+      '角色': '业务、业务助理、实验室主管、实验室主管助理、客服、客服组长、客服组长助理、检测组长、检测组长助理、检测工程师、制样组组长、报告组组长、数据二审、报告编制、技术支持、管理员',
+      '部门': '',
+      '地区': '',
+      '电话': '',
+      '邮箱': ''
     }
   ];
   const ws = XLSX.utils.json_to_sheet(templateData);
