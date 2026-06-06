@@ -226,7 +226,7 @@ const sidebarCollapsed = ref(false);
 
 const checkMobile = () => {
   isMobile.value = window.innerWidth < 768;
-  if (isMobile.value) sidebarCollapsed.value = true;
+  if (isMobile.value) sidebarCollapsed.value = false; // 移动端默认关闭抽屉
 };
 
 const onMobileMenuSelect = (index) => {
