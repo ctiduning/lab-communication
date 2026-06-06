@@ -2,7 +2,7 @@
   <div class="org-page">
     <div class="page-header">
       <div class="header-left">
-        <h2>🏗️ 组织架构</h2>
+        <h2>🏗️ 通讯录</h2>
         <p class="page-desc">查找人员联系方式，了解组织结构</p>
       </div>
       <el-button
@@ -64,7 +64,7 @@
       <div v-if="filteredAll.length === 0" class="empty-tip">未找到匹配的人员</div>
     </div>
 
-    <!-- 组织架构 - 左右固定两栏 -->
+    <!-- 通讯录 - 左右固定两栏 -->
     <div v-else class="org-layout">
       <!-- 业务端 -->
       <div class="org-column">
@@ -504,7 +504,7 @@ const loadUsers = async () => {
     users.value = data || []
   } catch (error) {
     console.error('加载用户失败:', error)
-    ElMessage.error('加载组织架构失败')
+    ElMessage.error('加载通讯录失败')
   }
 }
 
