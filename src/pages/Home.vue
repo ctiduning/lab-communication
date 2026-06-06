@@ -37,7 +37,7 @@
               </el-menu-item>
               <el-menu-item index="organization">
                 <el-icon><OfficeBuilding /></el-icon>
-                <span>组织架构</span>
+                <span>通讯录</span>
               </el-menu-item>
             </template>
             
@@ -57,7 +57,7 @@
               </el-menu-item>
               <el-menu-item index="organization">
                 <el-icon><OfficeBuilding /></el-icon>
-                <span>组织架构</span>
+                <span>通讯录</span>
               </el-menu-item>
             </template>
             
@@ -69,7 +69,7 @@
               </el-menu-item>
               <el-menu-item index="organization">
                 <el-icon><OfficeBuilding /></el-icon>
-                <span>组织架构</span>
+                <span>通讯录</span>
               </el-menu-item>
             </template>
             
@@ -143,7 +143,7 @@ const currentComponent = computed(() => {
     if (activeMenu.value === 'admin') return Admin;
   }
 
-  // 组织架构 - 所有角色通用
+  // 通讯录 - 所有角色通用
   if (activeMenu.value === 'organization') return Organization;
 
   return BusinessInitiate;
@@ -209,7 +209,7 @@ const loadUser = async () => {
   }
 
   const cat = getRoleCategory(user.value.role);
-  // 检查是否有预选中用户（从组织架构页面跳转过来）
+  // 检查是否有预选中用户（从通讯录页面跳转过来）
   const preselect = sessionStorage.getItem('preselectRecipients');
   if (preselect) {
     try {
