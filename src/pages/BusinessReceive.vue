@@ -71,18 +71,21 @@
                   size="small" 
                   class="quick-btn agree-btn"
                   @click="sendQuickReplyFromRow(scope.row, '同意')"
+                  :loading="scope.row._replyLoading"
                 >同意</el-button>
-                <el-button 
+                <el-button
                   v-if="!scope.row.myCompleted && !scope.row.isCompleted"
-                  size="small" 
+                  size="small"
                   class="quick-btn reject-btn"
                   @click="sendQuickReplyFromRow(scope.row, '拒绝')"
+                  :loading="scope.row._replyLoading"
                 >拒绝</el-button>
-                <el-button 
+                <el-button
                   v-if="!scope.row.myCompleted && !scope.row.isCompleted"
-                  size="small" 
+                  size="small"
                   class="quick-btn pending-btn"
                   @click="sendQuickReplyFromRow(scope.row, '等我确认后回复')"
+                  :loading="scope.row._replyLoading"
                 >等我确认</el-button>
                 <el-button 
                   size="small" 
@@ -182,18 +185,21 @@
                   size="small" 
                   class="quick-btn agree-btn"
                   @click="sendQuickReplyFromRow(scope.row, '同意')"
+                  :loading="scope.row._replyLoading"
                 >同意</el-button>
-                <el-button 
+                <el-button
                   v-if="!scope.row.myCompleted && !scope.row.isCompleted"
-                  size="small" 
+                  size="small"
                   class="quick-btn reject-btn"
                   @click="sendQuickReplyFromRow(scope.row, '拒绝')"
+                  :loading="scope.row._replyLoading"
                 >拒绝</el-button>
-                <el-button 
+                <el-button
                   v-if="!scope.row.myCompleted && !scope.row.isCompleted"
-                  size="small" 
+                  size="small"
                   class="quick-btn pending-btn"
                   @click="sendQuickReplyFromRow(scope.row, '等我确认后回复')"
+                  :loading="scope.row._replyLoading"
                 >等我确认</el-button>
                 <el-button 
                   size="small" 
@@ -446,7 +452,7 @@
             取消完结
           </el-button>
           <el-button type="primary" @click="submitReplyFromDetail" :loading="replyLoading">发送回复</el-button>
-          <el-button type="primary" plain @click="detailVisible = false">关闭</el-button>
+          <el-button type="info" plain @click="detailVisible = false">关闭</el-button>
         </div>
       </template>
     </el-dialog>
@@ -807,15 +813,24 @@ const replyFromTable = (msg) => {
 
 // 从列表行发送快捷回复
 const sendQuickReplyFromRow = async (msg, content) => {
+  // 设置当前行的 loading 状态
+  msg._replyLoading = true;
   try {
     await communicationAPI.createReply(msg.id, { content });
     ElMessage.success('回复成功');
-    // 更新本地状态
-    msg.hasReplied = true;
-    // 刷新列表
-    loadMessages();
+    // 更新本地状态（使用 Object.assign 确保响应式）
+    Object.assign(msg, { hasReplied: true });
+    // 刷新列表（从服务器重新加载确保数据同步）
+    await loadMessages();
+    // 如果点了同意或拒绝，自动切换到已处理标签页
+    if (content === '同意' || content === '拒绝') {
+      activeTab.value = 'processed';
+    }
+    // 如果点了待确认，保持在待处理标签页（不需要切换）
   } catch (error) {
     ElMessage.error('回复失败：' + (error.message || '未知错误'));
+  } finally {
+    msg._replyLoading = false;
   }
 };
 

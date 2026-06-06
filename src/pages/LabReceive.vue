@@ -66,23 +66,26 @@
             <template #default="scope">
               <div class="row-op-btns">
                 <el-button size="small" @click="viewDetail(scope.row)">查看</el-button>
-                <el-button 
+                <el-button
                   v-if="!scope.row.myCompleted && !scope.row.isCompleted"
-                  size="small" 
+                  size="small"
                   class="quick-btn agree-btn"
                   @click="sendQuickReplyFromRow(scope.row, '同意')"
+                  :loading="scope.row._replyLoading"
                 >同意</el-button>
-                <el-button 
+                <el-button
                   v-if="!scope.row.myCompleted && !scope.row.isCompleted"
-                  size="small" 
+                  size="small"
                   class="quick-btn reject-btn"
                   @click="sendQuickReplyFromRow(scope.row, '拒绝')"
+                  :loading="scope.row._replyLoading"
                 >拒绝</el-button>
-                <el-button 
+                <el-button
                   v-if="!scope.row.myCompleted && !scope.row.isCompleted"
-                  size="small" 
+                  size="small"
                   class="quick-btn pending-btn"
                   @click="sendQuickReplyFromRow(scope.row, '等我确认后回复')"
+                  :loading="scope.row._replyLoading"
                 >等我确认</el-button>
                 <el-button 
                   size="small" 
@@ -433,7 +436,7 @@
             取消完结
           </el-button>
           <el-button type="primary" @click="submitReplyFromDetail" :loading="replyLoading">发送回复</el-button>
-          <el-button type="primary" plain @click="detailVisible = false">关闭</el-button>
+          <el-button type="info" plain @click="detailVisible = false">关闭</el-button>
         </div>
       </template>
     </el-dialog>
@@ -814,6 +817,24 @@ const toggleMyCompletedFromDetail = async (isCompleted) => {
     loadMessages(); // 刷新列表
   } catch (e) {
     ElMessage.error('操作失败');
+  }
+};
+
+// 从表格行直接发送快捷回复
+const sendQuickReplyFromRow = async (msg, content) => {
+  msg._replyLoading = true;
+  try {
+    await communicationAPI.createReply(msg.id, { content });
+    ElMessage.success('回复成功');
+    Object.assign(msg, { hasReplied: true });
+    await loadMessages();
+    if (content === '同意' || content === '拒绝') {
+      activeTab.value = 'processed';
+    }
+  } catch (error) {
+    ElMessage.error('回复失败：' + (error.message || '未知错误'));
+  } finally {
+    msg._replyLoading = false;
   }
 };
 

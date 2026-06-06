@@ -21,7 +21,10 @@
       <div class="selected-persons-list">
         <div v-for="p in selectedPersons" :key="p.id" class="selected-person-card">
           <div class="selected-avatar" :class="getAvatarClass(p.role)">{{ (p.name || '?')[0] }}</div>
-          <span class="selected-name">{{ p.name }}</span>
+          <div class="selected-info">
+            <span class="selected-name">{{ p.name }}</span>
+            <span class="selected-role">{{ getRoleName(p.role) }}</span>
+          </div>
           <span class="remove-btn" @click="removeSelected(p)">×</span>
         </div>
       </div>
@@ -605,9 +608,21 @@ onMounted(() => {
   flex-shrink: 0;
 }
 
+.selected-info {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
 .selected-name {
   font-weight: 500;
   color: #333;
+  white-space: nowrap;
+}
+
+.selected-role {
+  font-size: 10px;
+  color: #909399;
   white-space: nowrap;
 }
 

@@ -91,6 +91,19 @@ const changingPwd = ref(false)
 
 const user = ref(JSON.parse(localStorage.getItem('user') || '{}'))
 
+// 从 localStorage 或 Supabase 获取当前用户ID
+const getCurrentUserId = async () => {
+  // 优先从 localStorage 获取
+  const cached = localStorage.getItem('user')
+  if (cached) {
+    const u = JSON.parse(cached)
+    if (u.id) return u.id
+  }
+  // 如果 localStorage 中没有，从 Supabase 获取
+  const { data: { user: authUser } } = await supabase.auth.getUser()
+  return authUser?.id || null
+}
+
 // 角色选项（排除 admin，admin 不可自行选择）
 const roleOptions = ROLE_OPTIONS.filter(r => r.value !== 'admin')
 
@@ -132,7 +145,16 @@ const pwdRules = {
 
 const loadProfile = async () => {
   try {
-    const { data } = await userAPI.getById(user.value.id)
+    const userId = await getCurrentUserId()
+    if (!userId) {
+      console.error('无法获取当前用户ID')
+      return
+    }
+    // 更新 user ref
+    const cached = localStorage.getItem('user')
+    if (cached) user.value = JSON.parse(cached)
+
+    const { data } = await userAPI.getById(userId)
     if (data) {
       Object.assign(form, {
         id: data.id,
@@ -143,7 +165,7 @@ const loadProfile = async () => {
         role: data.role || '',
         department: data.department || '',
         region: data.region || '',
-        created_at: data.created_at ? new Date(data.created_at).toLocaleString('zh-CN') : ''
+        created_at: data.createdAt ? new Date(data.createdAt).toLocaleString('zh-CN') : ''
       })
     }
   } catch (error) {

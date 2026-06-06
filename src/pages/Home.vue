@@ -189,6 +189,9 @@ const logout = async () => {
 const preselectRecipients = ref([]);
 provide('preselectRecipients', preselectRecipients);
 
+// 标志：是否已处理过 preselectRecipients（防止重复跳转）
+let hasHandledPreselect = false;
+
 const loadUser = async () => {
   const { data: { user: authUser } } = await supabase.auth.getUser()
   if (!authUser) {
@@ -232,24 +235,33 @@ const loadUser = async () => {
     };
   }
 
+  // 将用户信息同步到 localStorage，供其他页面使用
+  localStorage.setItem('user', JSON.stringify(user.value));
+
   const cat = getRoleCategory(user.value.role);
   // 检查是否有预选中用户（从通讯录页面跳转过来）
-  const preselect = sessionStorage.getItem('preselectRecipients');
-  if (preselect) {
-    try {
-      preselectRecipients.value = JSON.parse(preselect);
-      sessionStorage.removeItem('preselectRecipients');
-      // 自动切换到发起沟通页面
-      if (cat === 'lab') {
-        activeMenu.value = 'lab-initiate';
-      } else {
-        activeMenu.value = 'initiate';
+  // 只处理一次，防止 onAuthStateChange 的 TOKEN_REFRESHED 事件导致重复跳转
+  if (!hasHandledPreselect) {
+    const preselect = sessionStorage.getItem('preselectRecipients');
+    if (preselect) {
+      try {
+        preselectRecipients.value = JSON.parse(preselect);
+        sessionStorage.removeItem('preselectRecipients');
+        hasHandledPreselect = true;
+        // 自动切换到发起沟通页面
+        if (cat === 'lab') {
+          activeMenu.value = 'lab-initiate';
+        } else {
+          activeMenu.value = 'initiate';
+        }
+        return;
+      } catch (e) {
+        console.error('解析预选中用户失败:', e);
       }
-      return;
-    } catch (e) {
-      console.error('解析预选中用户失败:', e);
     }
+    hasHandledPreselect = true;
   }
+
   if (cat === 'lab') {
     activeMenu.value = 'lab-initiate';
   } else if (cat === 'admin') {

@@ -98,12 +98,14 @@
         <el-table :data="selectedComm.recipientDetails || []" border size="small">
           <el-table-column prop="name" label="接收人" width="100"></el-table-column>
           <el-table-column prop="department" label="部门" width="120"></el-table-column>
-          <el-table-column label="最新回复" min-width="200">
+          <el-table-column label="回复记录" min-width="280">
             <template #default="scope">
-              <span v-if="getLatestReply(scope.row.recipient_id)" 
-                :class="getReplyClass(getLatestReply(scope.row.recipient_id))">
-                {{ getLatestReply(scope.row.recipient_id) }}
-              </span>
+              <div v-if="getRecipientReplies(scope.row.recipient_id).length > 0">
+                <div v-for="(reply, idx) in getRecipientReplies(scope.row.recipient_id)" :key="idx" class="recipient-reply-line">
+                  <span :class="getReplyClass(reply.content)">{{ reply.content }}</span>
+                  <span class="reply-time-mini">{{ formatTime(reply.createdAt) }}</span>
+                </div>
+              </div>
               <span v-else style="color:#999;">-</span>
             </template>
           </el-table-column>
@@ -126,34 +128,25 @@
             </template>
           </el-table-column>
         </el-table>
-        
+
         <div style="margin-top: 12px;">
-          <el-button 
-            v-if="!selectedComm.isCompleted" 
-            type="success" 
+          <el-button
+            v-if="!selectedComm.isCompleted"
+            type="success"
             size="small"
             @click="toggleGlobalCompleted(selectedComm, true)"
           >
             标记整体完结
           </el-button>
-          <el-button 
-            v-if="selectedComm.isCompleted" 
-            type="info" 
+          <el-button
+            v-if="selectedComm.isCompleted"
+            type="info"
             size="small"
             @click="toggleGlobalCompleted(selectedComm, false)"
           >
             取消整体完结
           </el-button>
         </div>
-
-        <h4 style="margin-top: 20px;">回复记录</h4>
-        <div v-if="selectedComm.replies && selectedComm.replies.length > 0">
-          <div v-for="(reply, index) in selectedComm.replies" :key="index" class="reply-item">
-            <p><strong>{{ reply.senderName || '未知' }}：</strong>{{ reply.content }}</p>
-            <p class="reply-time">{{ formatTime(reply.createdAt) }}</p>
-          </div>
-        </div>
-        <div v-else class="no-reply">暂无回复</div>
       </div>
       <template #footer>
         <el-button @click="detailVisible = false">关闭</el-button>
@@ -267,13 +260,16 @@ const toggleGlobalCompleted = async (comm, isCompleted) => {
 }
 
 // 获取某个接收人的最新回复
-const getLatestReply = (recipientId) => {
-  if (!selectedComm.value || !selectedComm.value.replies) return null
+// 获取某个接收人的所有回复（按时间倒序）
+const getRecipientReplies = (recipientId) => {
+  if (!selectedComm.value || !selectedComm.value.replies) return []
   const recipientReplies = selectedComm.value.replies.filter(r => r.senderId === recipientId)
-  if (recipientReplies.length === 0) return null
-  // 按时间排序，取最新的
-  const latest = recipientReplies.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0]
-  return latest.content
+  return recipientReplies.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+}
+
+const getLatestReply = (recipientId) => {
+  const replies = getRecipientReplies(recipientId)
+  return replies.length > 0 ? replies[0].content : null
 }
 
 // 获取回复内容的样式类
@@ -397,5 +393,23 @@ onUnmounted(() => {
 
 .reply-normal {
   color: #606266;
+}
+
+.recipient-reply-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+  border-bottom: 1px dashed #eee;
+}
+
+.recipient-reply-line:last-child {
+  border-bottom: none;
+}
+
+.reply-time-mini {
+  color: #999;
+  font-size: 11px;
+  white-space: nowrap;
 }
 </style>
