@@ -55,9 +55,17 @@ export const authAPI = {
       if (activeUser) {
         throw new Error('该邮箱或用户名已被注册')
       }
-      // 所有匹配的都是已删除用户（is_disabled = true）
-      // 抛出明确错误，提示管理员该用户已被删除
-      throw new Error('该用户已被删除，无法重复注册。请联系技术支持。')
+      // 所有匹配的都是已删除用户 -> 彻底清理旧记录，允许重新注册
+      for (const deletedUser of existingProfiles) {
+        // 尝试释放 auth.users 邮箱
+        try {
+          await supabase.rpc('delete_user_and_release_email', { target_user_id: deletedUser.id })
+        } catch (e) {
+          console.warn('释放旧用户邮箱失败:', e.message)
+        }
+        // 删除旧的 profiles 记录
+        await supabase.from('profiles').delete().eq('id', deletedUser.id)
+      }
     }
 
     // 保存当前管理员 session

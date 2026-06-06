@@ -5,16 +5,21 @@
         <div class="tab-content">
           <div class="tab-header">
             <el-button type="primary" @click="showCreateModal = true">单个添加</el-button>
-            <el-upload
-              ref="uploadRef"
-              :auto-upload="false"
-              :show-file-list="false"
-              accept=".xlsx,.xls"
-              :on-change="handleExcelImport"
+            <div
               style="display: inline-block; margin-left: 10px;"
+              @dragover.prevent
+              @drop.prevent="handleExcelDrop"
             >
-              <el-button type="success">导入Excel批量注册</el-button>
-            </el-upload>
+              <el-upload
+                ref="uploadRef"
+                :auto-upload="false"
+                :show-file-list="false"
+                accept="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                :on-change="handleExcelImport"
+              >
+                <el-button type="success">导入Excel批量注册</el-button>
+              </el-upload>
+            </div>
             <el-button type="text" @click="downloadTemplate" style="margin-left: 8px; color: #888; font-size: 12px;">下载模板</el-button>
             <div class="search-box">
               <el-input v-model="searchKeyword" placeholder="搜索姓名、工号、部门..." clearable @clear="loadUsers"></el-input>
@@ -463,6 +468,19 @@ const handleDeleteNotification = async (notif) => {
     loadNotifications();
   } catch (error) {
     if (error !== 'cancel') ElMessage.error('删除失败：' + (error.message || '未知错误'));
+  }
+};
+
+// Excel 拖拽导入
+const handleExcelDrop = (e) => {
+  const files = e.dataTransfer.files;
+  if (files.length > 0) {
+    const file = files[0];
+    if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+      handleExcelImport({ raw: file, name: file.name });
+    } else {
+      ElMessage.error('请上传 .xlsx 或 .xls 格式的 Excel 文件');
+    }
   }
 };
 
