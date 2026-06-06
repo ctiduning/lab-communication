@@ -67,21 +67,21 @@
               <div class="row-op-btns">
                 <el-button size="small" @click="viewDetail(scope.row)">查看</el-button>
                 <el-button 
-                  v-if="!scope.row.myCompleted && !scope.row.isCompleted"
+                  v-if="!scope.row.myCompleted && !scope.row.isCompleted && !scope.row.isRecalled"
                   size="small" 
                   class="quick-btn agree-btn"
                   @click="sendQuickReplyFromRow(scope.row, '同意')"
                   :loading="scope.row._replyLoading"
                 >同意</el-button>
                 <el-button
-                  v-if="!scope.row.myCompleted && !scope.row.isCompleted"
+                  v-if="!scope.row.myCompleted && !scope.row.isCompleted && !scope.row.isRecalled"
                   size="small"
                   class="quick-btn reject-btn"
                   @click="sendQuickReplyFromRow(scope.row, '拒绝')"
                   :loading="scope.row._replyLoading"
                 >拒绝</el-button>
                 <el-button
-                  v-if="!scope.row.myCompleted && !scope.row.isCompleted"
+                  v-if="!scope.row.myCompleted && !scope.row.isCompleted && !scope.row.isRecalled"
                   size="small"
                   class="quick-btn pending-btn"
                   @click="sendQuickReplyFromRow(scope.row, '等我确认后回复')"
@@ -95,7 +95,7 @@
                   {{ scope.row.hasFlagged ? '取消红旗' : '红旗' }}
                 </el-button>
                 <el-button 
-                  v-if="!scope.row.myCompleted && !scope.row.isCompleted"
+                  v-if="!scope.row.myCompleted && !scope.row.isCompleted && !scope.row.isRecalled"
                   size="small" 
                   type="success"
                   @click="toggleMyCompleted(scope.row, true)"
@@ -103,7 +103,7 @@
                   完结
                 </el-button>
                 <el-button 
-                  v-if="scope.row.myCompleted && !scope.row.isCompleted"
+                  v-if="scope.row.myCompleted && !scope.row.isCompleted && !scope.row.isRecalled"
                   size="small" 
                   type="info"
                   @click="toggleMyCompleted(scope.row, false)"
@@ -181,21 +181,21 @@
               <div class="row-op-btns">
                 <el-button size="small" @click="viewDetail(scope.row)">查看</el-button>
                 <el-button 
-                  v-if="!scope.row.myCompleted && !scope.row.isCompleted"
+                  v-if="!scope.row.myCompleted && !scope.row.isCompleted && !scope.row.isRecalled"
                   size="small" 
                   class="quick-btn agree-btn"
                   @click="sendQuickReplyFromRow(scope.row, '同意')"
                   :loading="scope.row._replyLoading"
                 >同意</el-button>
                 <el-button
-                  v-if="!scope.row.myCompleted && !scope.row.isCompleted"
+                  v-if="!scope.row.myCompleted && !scope.row.isCompleted && !scope.row.isRecalled"
                   size="small"
                   class="quick-btn reject-btn"
                   @click="sendQuickReplyFromRow(scope.row, '拒绝')"
                   :loading="scope.row._replyLoading"
                 >拒绝</el-button>
                 <el-button
-                  v-if="!scope.row.myCompleted && !scope.row.isCompleted"
+                  v-if="!scope.row.myCompleted && !scope.row.isCompleted && !scope.row.isRecalled"
                   size="small"
                   class="quick-btn pending-btn"
                   @click="sendQuickReplyFromRow(scope.row, '等我确认后回复')"
@@ -209,7 +209,7 @@
                   {{ scope.row.hasFlagged ? '取消红旗' : '红旗' }}
                 </el-button>
                 <el-button 
-                  v-if="!scope.row.myCompleted && !scope.row.isCompleted"
+                  v-if="!scope.row.myCompleted && !scope.row.isCompleted && !scope.row.isRecalled"
                   size="small" 
                   type="success"
                   @click="toggleMyCompleted(scope.row, true)"
@@ -217,7 +217,7 @@
                   完结
                 </el-button>
                 <el-button 
-                  v-if="scope.row.myCompleted && !scope.row.isCompleted"
+                  v-if="scope.row.myCompleted && !scope.row.isCompleted && !scope.row.isRecalled"
                   size="small" 
                   type="info"
                   @click="toggleMyCompleted(scope.row, false)"
@@ -315,6 +315,60 @@
           暂无已完结消息
         </div>
       </el-tab-pane>
+
+      <!-- 已被撤回标签页 -->
+      <el-tab-pane label="已被撤回" name="recalled">
+        <div class="table-toolbar">
+          <div class="toolbar-left">
+            <el-input
+              v-model="searchKeywordRecalled"
+              placeholder="搜索..."
+              clearable
+              style="width: 300px;"
+              :prefix-icon="Search"
+            />
+          </div>
+        </div>
+
+        <el-table :data="recalledMessages" border stripe v-loading="loading">
+          <el-table-column label="撤回原因" min-width="150" show-overflow-tooltip>
+            <template #default="scope">
+              {{ scope.row.recallReason || '-' }}
+            </template>
+          </el-table-column>
+          <el-table-column label="沟通类型" width="110">
+            <template #default="scope">
+              <el-tag size="small" :type="getTypeTag(scope.row.type)">
+                {{ getTypeName(scope.row.type) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="沟通内容" min-width="200" show-overflow-tooltip>
+            <template #default="scope">
+              {{ scope.row.content || '-' }}
+            </template>
+          </el-table-column>
+          <el-table-column label="发送人" width="100">
+            <template #default="scope">
+              {{ getSenderName(scope.row.senderId) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="撤回时间" width="160">
+            <template #default="scope">
+              {{ formatTime(scope.row.recalledAt) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="80" align="center">
+            <template #default="scope">
+              <el-button size="small" @click="viewDetail(scope.row)">查看</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+
+        <div v-if="recalledMessages.length === 0 && !loading" class="empty-state">
+          暂无已被撤回的消息
+        </div>
+      </el-tab-pane>
     </el-tabs>
 
     <!-- 详情弹窗 -->
@@ -345,6 +399,13 @@
           <el-descriptions-item label="加急费用">{{ selectedMessage.urgentFee || '-' }}</el-descriptions-item>
           <el-descriptions-item label="发送时间">{{ formatTime(selectedMessage.createdAt) }}</el-descriptions-item>
           <el-descriptions-item label="备注" :span="2">{{ selectedMessage.remark || '-' }}</el-descriptions-item>
+        </el-descriptions>
+        
+        <!-- 撤回信息（仅撤回消息显示） -->
+        <h4 v-if="selectedMessage?.isRecalled" style="margin-top: 20px; color: #e6a23c;">撤回信息</h4>
+        <el-descriptions v-if="selectedMessage?.isRecalled" :column="2" border>
+          <el-descriptions-item label="撤回原因">{{ selectedMessage.recallReason || '无' }}</el-descriptions-item>
+          <el-descriptions-item label="撤回时间">{{ formatTime(selectedMessage.recalledAt) }}</el-descriptions-item>
         </el-descriptions>
         
         <h4 style="margin-top: 20px;">附件</h4>
@@ -386,8 +447,8 @@
           </el-table-column>
         </el-table>
         
-        <h4 style="margin-top: 20px;">回复记录</h4>
-        <div v-if="selectedMessage.replies && selectedMessage.replies.length > 0">
+        <h4 v-if="!selectedMessage?.isRecalled" style="margin-top: 20px;">回复记录</h4>
+        <div v-if="!selectedMessage?.isRecalled && selectedMessage.replies && selectedMessage.replies.length > 0">
           <div v-for="(reply, index) in selectedMessage.replies" :key="index" class="reply-item">
             <div class="reply-content">
               <p><strong>{{ getUserDisplayName(reply.senderId) }}：</strong>{{ reply.content }}</p>
@@ -411,16 +472,16 @@
             </div>
           </div>
         </div>
-        <div v-else class="no-reply">暂无回复</div>
-
-        <h4 style="margin-top: 20px;">回复</h4>
-        <el-input type="textarea" v-model="replyContent" placeholder="请输入回复内容" :rows="3"></el-input>
+        <div v-if="!selectedMessage?.isRecalled" class="no-reply">暂无回复</div>
+        
+        <h4 v-if="!selectedMessage?.isRecalled" style="margin-top: 20px;">回复</h4>
+        <el-input v-if="!selectedMessage?.isRecalled" type="textarea" v-model="replyContent" placeholder="请输入回复内容" :rows="3"></el-input>
       </div>
       <template #footer>
         <div class="detail-footer-btns">
           <!-- 快捷回复按钮 -->
           <el-button 
-            v-if="!selectedMessage?.myCompleted && !selectedMessage?.isCompleted"
+            v-if="!selectedMessage?.myCompleted && !selectedMessage?.isCompleted && !selectedMessage?.isRecalled"
             type="success" 
             class="quick-btn agree-btn"
             @click="sendQuickReply('同意')"
@@ -460,7 +521,7 @@
           >
             取消完结
           </el-button>
-          <el-button type="primary" @click="submitReplyFromDetail" :loading="replyLoading">发送回复</el-button>
+          <el-button type="primary" v-if="!selectedMessage?.isRecalled" @click="submitReplyFromDetail" :loading="replyLoading">发送回复</el-button>
           <el-button type="info" plain @click="detailVisible = false">关闭</el-button>
         </div>
       </template>
@@ -492,6 +553,7 @@ const myRecipient = ref(null);
 const searchKeyword = ref('');
 const searchKeywordProcessed = ref('');
 const searchKeywordCompleted = ref('');
+const searchKeywordRecalled = ref('');
 const showFlaggedOnly = ref(false);
 
 // 点赞/点踩数据 { 'reply-uuid': { likeCount, dislikeCount, myReaction } }
@@ -610,7 +672,7 @@ const loadMessages = async () => {
     const { data: { user: authUser } } = await supabase.auth.getUser();
     if (authUser) {
       const mine = response.data.filter(c => 
-        c.recipients && c.recipients.includes(authUser.id) && !c.isRecalled
+        c.recipients && c.recipients.includes(authUser.id)
       );
       // 为每个沟通添加我的状态
       messages.value = mine.map(c => {
@@ -635,10 +697,10 @@ const loadMessages = async () => {
   }
 };
 
-// 待处理消息：未回复 且 我个人未完结 且 全局未完结
+// 待处理消息：未回复 且 我个人未完结 且 全局未完结 且 未撤回
 const pendingMessages = computed(() => {
   let result = messages.value.filter(m => 
-    !m.hasReplied && !m.myCompleted && !m.isCompleted
+    !m.hasReplied && !m.myCompleted && !m.isCompleted && !m.isRecalled
   );
 
   // 红旗过滤
@@ -665,10 +727,10 @@ const pendingMessages = computed(() => {
   return result;
 });
 
-// 已处理消息：已回复 且 我个人未完结 且 全局未完结
+// 已处理消息：已回复 且 我个人未完结 且 全局未完结 且 未撤回
 const processedMessages = computed(() => {
   let result = messages.value.filter(m => 
-    m.hasReplied && !m.myCompleted && !m.isCompleted
+    m.hasReplied && !m.myCompleted && !m.isCompleted && !m.isRecalled
   );
 
   // 模糊搜索
@@ -690,10 +752,10 @@ const processedMessages = computed(() => {
   return result;
 });
 
-// 已完结消息：我个人已完结 或 全局已完结
+// 已完结消息：我个人已完结 或 全局已完结 且 未撤回
 const completedMessages = computed(() => {
   let result = messages.value.filter(m => 
-    m.myCompleted || m.isCompleted
+    (m.myCompleted || m.isCompleted) && !m.isRecalled
   );
 
   // 模糊搜索
@@ -704,6 +766,30 @@ const completedMessages = computed(() => {
       const fields = [
         r.customerName, r.sampleCode, r.sampleMatrix,
         r.testItems, r.content, r.remark,
+        getTypeName(r.type), getSenderName(r.senderId),
+        r.requestedCycle, r.chargeStatus,
+        r.urgentFee, replyTexts
+      ].map(f => (f || '').toLowerCase());
+      return fields.some(f => f.includes(kw));
+    });
+  }
+
+  return result;
+});
+
+// 已被撤回消息：isRecalled === true
+const recalledMessages = computed(() => {
+  let result = messages.value.filter(m => m.isRecalled);
+
+  // 模糊搜索
+  const kw = searchKeywordRecalled.value.trim().toLowerCase();
+  if (kw) {
+    result = result.filter(r => {
+      const replyTexts = (r.replies || []).map(rp => rp.content || '').join(' ');
+      const fields = [
+        r.customerName, r.sampleCode, r.sampleMatrix,
+        r.testItems, r.content, r.remark,
+        r.recallReason || '',
         getTypeName(r.type), getSenderName(r.senderId),
         r.requestedCycle, r.chargeStatus,
         r.urgentFee, replyTexts

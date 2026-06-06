@@ -95,12 +95,12 @@
     >
       <el-table-column label="撤回时间" width="160">
         <template #default="scope">
-          {{ formatTime(scope.row.recalled_at) }}
+          {{ formatTime(scope.row.recalledAt) }}
         </template>
       </el-table-column>
       <el-table-column label="原发送时间" width="160">
         <template #default="scope">
-          {{ formatTime(scope.row.created_at) }}
+          {{ formatTime(scope.row.createdAt) }}
         </template>
       </el-table-column>
       <el-table-column label="沟通类型" width="110">
@@ -115,7 +115,7 @@
       </el-table-column>
       <el-table-column label="撤回原因" min-width="150" show-overflow-tooltip>
         <template #default="scope">
-          {{ scope.row.recall_reason || '-' }}
+          {{ scope.row.recallReason || '-' }}
         </template>
       </el-table-column>
       <el-table-column label="接收人" min-width="150">
