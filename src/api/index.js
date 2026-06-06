@@ -42,6 +42,24 @@ export const authAPI = {
   async register(userData) {
     const { username, password, name, role, employeeId, phone, email, region, department, priority, mustChangePwd } = userData
 
+    // 检查是否有"已删除用户"占用了相同的邮箱或用户名
+    // 只查 profiles 表，不碰 auth.users
+    const { data: existingProfiles } = await supabase
+      .from('profiles')
+      .select('id, email, username, is_disabled')
+      .or(`email.eq.${email},username.eq.${username}`)
+
+    if (existingProfiles && existingProfiles.length > 0) {
+      // 检查是否有活跃用户（未禁用）
+      const activeUser = existingProfiles.find(p => !p.is_disabled)
+      if (activeUser) {
+        throw new Error('该邮箱或用户名已被注册')
+      }
+      // 所有匹配的都是已删除用户（is_disabled = true）
+      // 抛出明确错误，提示管理员该用户已被删除
+      throw new Error('该用户已被删除，无法重复注册。请联系技术支持。')
+    }
+
     // 保存当前管理员 session
     const { data: { session: adminSession } } = await supabase.auth.getSession()
 
@@ -280,59 +298,39 @@ export const userAPI = {
     return { data: formatProfile(data) }
   },
 
-  // 管理员删除用户账号（释放邮箱，保留沟通记录）
+  // 管理员删除用户账号（调用数据库函数，同时释放 auth.users 的邮箱）
   async deleteAccount(id) {
-    const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
-    const SERVICE_ROLE_KEY = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY
-    const releaseEmail = 'released_' + id.substring(0, 8) + '@deleted'
+    // 调用数据库函数：更新 auth.users.email + 更新 profiles 为已删除
+    const { error } = await supabase
+      .rpc('delete_user_and_release_email', { target_user_id: id })
 
-    // 第一步：用 Admin API 更新 auth.users 邮箱（释放原邮箱 + 刷新 GoTrue 缓存）
-    if (SERVICE_ROLE_KEY) {
-      try {
-        const response = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${id}`, {
-          method: 'PUT',
-          headers: {
-            'apikey': SERVICE_ROLE_KEY,
-            'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ email: releaseEmail, email_confirm: true })
-        })
-
-        if (!response.ok) {
-          const err = await response.json()
-          console.warn('Admin API 更新邮箱失败:', err.msg || err.message)
-        }
-      } catch (e) {
-        console.warn('Admin API 调用异常:', e.message)
+    if (error) {
+      // 如果函数不存在，降级为只更新 profiles（需要用户手动运行 SQL）
+      if (error.message.includes('does not exist') || error.message.includes('Could not find')) {
+        console.warn('delete_user_and_release_email 函数不存在，请先在 Supabase SQL 编辑器中运行 supabase_fix_delete_user.sql')
+        // 降级方案：只更新 profiles
+        const releasedEmail = `deleted_${id}@deleted.local`
+        const releasedUsername = `deleted_${id.substring(0, 8)}`
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({
+            name: '已删除用户',
+            username: releasedUsername,
+            email: releasedEmail,
+            phone: '',
+            region: '',
+            department: '',
+            is_disabled: true,
+            must_change_password: false
+          })
+          .eq('id', id)
+        if (profileError) throw new Error('删除用户失败：' + profileError.message)
+        throw new Error('删除成功，但 auth.users 邮箱未释放（函数不存在）。请先运行 supabase_fix_delete_user.sql')
       }
+      throw new Error('删除用户失败：' + error.message)
     }
 
-    // 第二步：清理 auth 关联表（通过 RPC）
-    try {
-      await supabase.rpc('delete_user_account', { target_user_id: id })
-    } catch (rpcErr) {
-      console.warn('RPC 清理失败，手动更新 profiles:', rpcErr.message)
-    }
-
-    // 第三步：确保 profiles 已更新（保留记录给沟通记录 FK 用）
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .update({
-        name: '已删除用户',
-        username: 'deleted_' + id.substring(0, 8),
-        phone: '',
-        email: releaseEmail,
-        region: '',
-        department: '',
-        is_disabled: true,
-        must_change_password: false
-      })
-      .eq('id', id)
-
-    if (profileError) throw profileError
-
-    return { data: { message: '用户账号已删除，邮箱已释放，沟通记录已保留' } }
+    return { data: { message: '用户已删除，邮箱已释放，可重新注册' } }
   },
 
   // 管理员重置用户密码为 cti123
