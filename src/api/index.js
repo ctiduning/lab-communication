@@ -340,6 +340,7 @@ export const communicationAPI = {
           is_read,
           is_flagged,
           is_completed,
+          has_replied,
           recipient:recipient_id(id, name, department)
         ),
         replies(
