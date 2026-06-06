@@ -469,7 +469,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { ElMessage } from 'element-plus';
 import { Search, CircleCheck, CircleClose, Document } from '@element-plus/icons-vue';
 import { communicationAPI, userAPI, reactionAPI } from '../api';
@@ -496,6 +496,7 @@ const showFlaggedOnly = ref(false);
 
 // 点赞/点踩数据 { 'reply-uuid': { likeCount, dislikeCount, myReaction } }
 const reactionStats = ref({});
+let messageChannel = null;
 
 const typeMap = {
   paid_urgent: '付费加急',
@@ -914,10 +915,45 @@ const doSendReply = async (content) => {
   }
 };
 
+// 实时订阅消息变化，立即刷新 UI
+const subscribeMessages = () => {
+  // 先清理旧订阅
+  if (messageChannel) {
+    supabase.removeChannel(messageChannel);
+    messageChannel = null;
+  }
+  messageChannel = supabase
+    .channel('business-receive-messages')
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'communications' },
+      () => { loadMessages(); }
+    )
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'communications' },
+      () => { loadMessages(); }
+    )
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'communication_recipients' },
+      () => { loadMessages(); }
+    )
+    .subscribe();
+};
+
 onMounted(() => {
   loadCurrentUser();
   loadUsers();
   loadMessages();
+  subscribeMessages();
+});
+
+onUnmounted(() => {
+  if (messageChannel) {
+    supabase.removeChannel(messageChannel);
+    messageChannel = null;
+  }
 });
 </script>
 

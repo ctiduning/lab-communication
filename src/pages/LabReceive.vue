@@ -453,7 +453,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { ElMessage } from 'element-plus';
 import { Search, CircleCheck, CircleClose, Document } from '@element-plus/icons-vue';
 import { communicationAPI, userAPI, reactionAPI } from '../api';
@@ -481,6 +481,7 @@ const showFlaggedOnly = ref(false);
 
 // 点赞/点踩数据
 const reactionStats = ref({});
+let messageChannel = null;
 
 const typeMap = {
   paid_urgent: '付费加急',
