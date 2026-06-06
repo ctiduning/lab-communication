@@ -41,6 +41,9 @@
           v-model="form.recipients" 
           multiple 
           filterable
+          collapse-tags
+          collapse-tags-tooltip
+          reserve-keyword
           :filter-method="filterRecipient"
           placeholder="输入姓名/拼音/地区搜索..."
           style="width: 100%;"
@@ -112,11 +115,14 @@ const previewImage = (url) => {
 
 const handleUpload = async (file) => {
   try {
+    console.log('正在上传文件:', file.name, '大小:', file.size, '类型:', file.type);
     const result = await storageAPI.upload(file.raw || file, 'communications');
     form.attachments.push(result);
     ElMessage.success('图片上传成功');
   } catch (error) {
-    ElMessage.error('上传失败: ' + error.message);
+    console.error('上传失败，详细错误:', error);
+    const errMsg = error.message || error.error_description || '未知错误';
+    ElMessage.error('上传失败: ' + errMsg);
   }
   return false;
 };
