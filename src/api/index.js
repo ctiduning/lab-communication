@@ -709,14 +709,31 @@ export const communicationAPI = {
     return { data }
   },
 
-  // 获取待处理消息数量
+  // 获取待处理消息数量（需要回复且未完成）
   async getPendingCount() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { data: { count: 0 } }
 
+    // 先查当前用户作为接收人的沟通ID列表（避免 is_deleted 字段不存在导致整条查询失败）
+    const { data: commIds, error: idError } = await supabase
+      .from('communication_recipients')
+      .select('communication_id')
+      .eq('recipient_id', user.id)
+
+    if (idError) {
+      console.error('获取接收人沟通ID失败:', idError)
+      return { data: { count: 0 } }
+    }
+
+    if (!commIds || commIds.length === 0) {
+      return { data: { count: 0 } }
+    }
+
+    const ids = [...new Set(commIds.map(r => r.communication_id))]
     const { data: communications, error } = await supabase
       .from('communications')
       .select(`
+        id,
         is_completed,
         communication_recipients(
           recipient_id,
@@ -724,9 +741,12 @@ export const communicationAPI = {
           has_replied
         )
       `)
-      .eq('isDeleted', false)
+      .in('id', ids)
 
-    if (error) throw error
+    if (error) {
+      console.error('获取待处理消息失败:', error)
+      return { data: { count: 0 } }
+    }
 
     const userId = user.id
     const count = (communications || []).filter(c => {
