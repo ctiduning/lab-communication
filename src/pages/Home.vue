@@ -8,9 +8,11 @@
             v-if="isMobile"
             class="menu-toggle"
             @click="sidebarCollapsed = !sidebarCollapsed"
-            :icon="sidebarCollapsed ? 'el-icon-s-unfold' : 'el-icon-s-fold'"
             size="small"
-          ></el-button>
+          >
+            <el-icon><Menu /></el-icon>
+            <span style="margin-left: 4px;">菜单</span>
+          </el-button>
           <h1 class="logo" :class="{ 'logo-mobile': isMobile }">青岛华测实验室沟通小程序</h1>
           <div class="user-info">
             <span v-if="!isMobile">欢迎, {{ user.name }}</span>
@@ -193,7 +195,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, provide, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
-import { ChatDotSquare, Bell, Setting, User, OfficeBuilding, Promotion, ArrowDown } from '@element-plus/icons-vue';
+import { ChatDotSquare, Bell, Setting, User, OfficeBuilding, Promotion, ArrowDown, Menu } from '@element-plus/icons-vue';
 import { supabase } from '../utils/supabase';
 
 const router = useRouter();
