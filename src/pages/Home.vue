@@ -6,6 +6,19 @@
           <h1 class="logo">青岛华测实验室沟通小程序</h1>
           <div class="user-info">
             <span>欢迎, {{ user.name }}</span>
+            <!-- 角色切换器（仅管理员可见） -->
+            <el-dropdown v-if="isAdmin" @command="switchRole" class="role-switcher">
+              <el-button type="primary" plain size="small">
+                {{ viewRoleLabel }}<el-icon class="el-icon--right"><ArrowDown /></el-icon>
+              </el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="admin">👑 管理员视图</el-dropdown-item>
+                  <el-dropdown-item command="business">💼 业务端视图</el-dropdown-item>
+                  <el-dropdown-item command="lab">🔬 实验室视图</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
             <el-button @click="logout" type="text">退出登录</el-button>
           </div>
         </div>
@@ -91,7 +104,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, provide } from 'vue';
 import { useRouter } from 'vue-router';
-import { ChatDotSquare, Bell, Setting, User, OfficeBuilding, Promotion } from '@element-plus/icons-vue';
+import { ChatDotSquare, Bell, Setting, User, OfficeBuilding, Promotion, ArrowDown } from '@element-plus/icons-vue';
 import { supabase } from '../utils/supabase';
 
 const router = useRouter();
@@ -113,11 +126,22 @@ const user = ref({
 });
 
 const activeMenu = ref('initiate');
+const viewRole = ref('admin'); // 当前视图角色
 const unreadAnnCount = ref(0);
 let announcementChannel = null;
 
-// 角色分类
-const roleCategory = computed(() => getRoleCategory(user.value.role));
+// 实际用户角色
+const realRoleCategory = computed(() => getRoleCategory(user.value.role));
+// 视图角色（用于菜单渲染）
+const roleCategory = computed(() => viewRole.value);
+// 是否是管理员
+const isAdmin = computed(() => user.value.role === 'admin');
+// 视图角色标签
+const viewRoleLabel = computed(() => {
+  if (viewRole.value === 'admin') return '管理员视图';
+  if (viewRole.value === 'business') return '业务端视图';
+  return '实验室视图';
+});
 
 const currentComponent = computed(() => {
   // 通知公告 - 所有角色通用
@@ -233,6 +257,25 @@ const loadUser = async () => {
   } else {
     activeMenu.value = 'initiate';
   }
+
+  // 加载保存的视图角色（仅管理员）
+  if (user.value.role === 'admin') {
+    const savedViewRole = localStorage.getItem('viewRole');
+    if (savedViewRole && ['admin', 'business', 'lab'].includes(savedViewRole)) {
+      viewRole.value = savedViewRole;
+      // 根据保存的视图角色设置正确的 activeMenu
+      if (savedViewRole === 'admin') {
+        activeMenu.value = 'admin';
+      } else if (savedViewRole === 'business') {
+        activeMenu.value = 'initiate';
+      } else if (savedViewRole === 'lab') {
+        activeMenu.value = 'lab-initiate';
+      }
+    }
+  } else {
+    // 非管理员强制使用实际角色
+    viewRole.value = cat;
+  }
 };
 
 // 加载未读公告数量
@@ -242,6 +285,21 @@ const loadUnreadCount = async () => {
     unreadAnnCount.value = data.count;
   } catch (error) {
     console.error('加载未读公告数失败:', error);
+  }
+};
+
+// 切换视图角色
+const switchRole = (role) => {
+  viewRole.value = role;
+  localStorage.setItem('viewRole', role);
+  
+  // 切换到对应角色的有效菜单
+  if (role === 'admin') {
+    activeMenu.value = 'admin';
+  } else if (role === 'business') {
+    activeMenu.value = 'initiate';
+  } else if (role === 'lab') {
+    activeMenu.value = 'lab-initiate';
   }
 };
 
@@ -312,6 +370,16 @@ onUnmounted(() => {
 
 .user-info span {
   font-size: 14px;
+}
+
+.role-switcher {
+  margin-left: 12px;
+}
+
+/* 让下拉菜单项有合适的间距 */
+:deep(.el-dropdown-menu__item) {
+  font-size: 13px;
+  padding: 8px 20px;
 }
 
 .sidebar {
