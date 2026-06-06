@@ -494,22 +494,24 @@ onMounted(() => {
   padding: 10px 14px;
 }
 
-/* 人员网格 */
+/* 人员网格 - 紧凑布局 */
 .person-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 8px;
 }
 
 .person-card {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
+  gap: 8px;
+  padding: 6px 10px;
   border: 1px solid #eee;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
+  height: 44px;
+  overflow: hidden;
 }
 
 .person-card:hover {
@@ -518,16 +520,16 @@ onMounted(() => {
   transform: translateY(-1px);
 }
 
-/* 头像颜色 */
+/* 头像颜色 - 缩小 */
 .person-avatar {
-  width: 38px;
-  height: 38px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   color: white;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 15px;
+  font-size: 12px;
   font-weight: 600;
   flex-shrink: 0;
 }
@@ -551,41 +553,56 @@ onMounted(() => {
 .person-info {
   flex: 1;
   min-width: 0;
+  overflow: hidden;
 }
 
 .person-name {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: #333;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.person-name span:first-child {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .person-dept {
-  font-size: 11px;
+  font-size: 10px;
   color: #aaa;
-  margin-top: 2px;
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .person-contact {
   flex-shrink: 0;
   text-align: right;
+  display: none;
 }
 
 .contact-item {
-  font-size: 12px;
-  color: #666;
+  font-size: 10px;
+  color: #888;
   white-space: nowrap;
 }
 
-/* 角色标签颜色 */
+/* 角色标签颜色 - 缩小 */
 .role-tag {
-  font-size: 11px;
-  padding: 1px 6px;
-  border-radius: 4px;
+  font-size: 9px;
+  padding: 0px 5px;
+  border-radius: 3px;
   white-space: nowrap;
   font-weight: 500;
+  flex-shrink: 0;
 }
 
 .tag-brown {
