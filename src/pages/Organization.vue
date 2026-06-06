@@ -303,7 +303,6 @@ import { ElMessage } from 'element-plus'
 import { supabase } from '../utils/supabase'
 
 const router = useRouter()
-const route = useRoute()
 
 const users = ref([])
 const searchText = ref('')
