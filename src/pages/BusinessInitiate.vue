@@ -60,6 +60,7 @@
       <el-form-item label="备注" prop="remark">
         <el-input type="textarea" v-model="form.remark" placeholder="请输入备注信息" :rows="3"></el-input>
         <div style="margin-top:8px;">
+          <!-- 标准上传（兼容所有浏览器） -->
           <el-upload
             :auto-upload="false"
             :show-file-list="false"
@@ -67,8 +68,20 @@
             :on-change="handleUpload"
             multiple
           >
-            <el-button size="small" type="default">📎 上传图片</el-button>
+            <el-button size="small" type="default">📎 选择图片</el-button>
           </el-upload>
+          
+          <!-- 高级上传（支持任意位置，仅 Chrome/Edge） -->
+          <el-button 
+            v-if="supportsFileSystemAPI" 
+            size="small" 
+            type="primary" 
+            style="margin-left:8px;"
+            @click="pickFilesWithAPI"
+          >
+            📂 从任意位置选择
+          </el-button>
+          
           <div v-if="form.attachments.length > 0" style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
             <div v-for="(att, idx) in form.attachments" :key="idx" style="position:relative;width:80px;height:80px;border:1px solid #e8e8e8;border-radius:6px;overflow:hidden;">
               <img :src="att.url" style="width:100%;height:100%;object-fit:cover;cursor:pointer;" @click="previewImage(att.url)" />
@@ -249,6 +262,36 @@ const loadLabUsers = async () => {
 };
 
 const preselectRecipients = inject('preselectRecipients', ref([]));
+
+// 是否支持 File System Access API
+const supportsFileSystemAPI = ref(typeof window !== 'undefined' && !!window.showOpenFilePicker);
+
+// 使用 File System Access API 选择并上传文件
+const pickFilesWithAPI = async () => {
+  try {
+    const handles = await window.showOpenFilePicker({
+      multiple: true,
+      types: [
+        {
+          description: '图片文件',
+          accept: { 'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp'] }
+        }
+      ]
+    });
+    
+    for (const handle of handles) {
+      const file = await handle.getFile();
+      console.log('通过 File System API 选择文件:', file.name, '大小:', file.size);
+      const result = await storageAPI.upload(file, 'communications');
+      form.attachments.push(result);
+      ElMessage.success(`已上传: ${file.name}`);
+    }
+  } catch (err) {
+    if (err.name === 'AbortError') return; // 用户取消了选择
+    console.error('File System API 上传失败:', err);
+    ElMessage.error('选择文件失败: ' + (err.message || '未知错误'));
+  }
+};
 
 onMounted(() => {
   loadLabUsers().then(() => {
