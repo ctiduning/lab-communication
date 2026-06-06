@@ -78,7 +78,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted, inject } from 'vue';
 import { ElMessage } from 'element-plus';
 import { communicationAPI, storageAPI } from '../api';
 import { supabase } from '../utils/supabase';
@@ -180,8 +180,17 @@ const loadBusinessUsers = async () => {
   }
 };
 
+const preselectRecipients = inject('preselectRecipients', ref([]));
+
 onMounted(() => {
-  loadBusinessUsers();
+  loadBusinessUsers().then(() => {
+    // 如果有预选中用户（从组织架构页面跳转过来），自动填充
+    if (preselectRecipients.value && preselectRecipients.value.length > 0) {
+      form.recipients = [...preselectRecipients.value];
+      preselectRecipients.value = [];
+      ElMessage.success(`已自动选中 ${form.recipients.length} 位接收人`);
+    }
+  });
 });
 </script>
 

@@ -19,8 +19,8 @@
     <!-- 搜索结果 -->
     <div v-if="searchText" class="search-results">
       <h3>搜索结果（{{ filteredAll.length }}人）</h3>
-      <div class="person-grid">
-        <div v-for="p in filteredAll" :key="p.id" class="person-card" @click="showDetail(p)">
+      <div class="person-grid-search">
+        <div v-for="p in filteredAll" :key="p.id" class="person-card-search" @click="showDetail(p)">
           <div class="person-avatar" :class="getAvatarClass(p.role)">{{ (p.name || '?')[0] }}</div>
           <div class="person-info">
             <div class="person-name">
@@ -38,148 +38,202 @@
       <div v-if="filteredAll.length === 0" class="empty-tip">未找到匹配的人员</div>
     </div>
 
-    <!-- 组织架构 -->
+    <!-- 组织架构 - 左右固定两栏 -->
     <div v-else class="org-layout">
       <!-- 业务端 -->
-      <div class="org-dept business-dept">
-        <div class="dept-header">
-          <span class="dept-icon">💼</span>
-          <span class="dept-title">业务端</span>
-          <span class="dept-count">{{ businessUsers.length }}人</span>
-        </div>
-        <div class="dept-body">
-          <div class="person-grid">
-            <div v-for="p in businessUsers" :key="p.id" class="person-card" @click="showDetail(p)">
-              <div class="person-avatar business-avatar">{{ (p.name || '?')[0] }}</div>
-              <div class="person-info">
-                <div class="person-name">
-                  {{ p.name || '-' }}
-                  <span class="role-tag tag-blue">{{ getRoleName(p.role) }}</span>
+      <div class="org-column">
+        <div class="org-dept business-dept">
+          <div class="dept-header">
+            <div class="dept-header-left">
+              <span class="dept-icon">💼</span>
+              <span class="dept-title">业务端</span>
+              <span class="dept-count">{{ businessUsers.length }}人</span>
+            </div>
+            <el-button
+              v-if="selectedBizIds.length > 0"
+              type="primary"
+              size="small"
+              @click="startCommunication('business')"
+            >
+              💬 快捷发起沟通 ({{ selectedBizIds.length }})
+            </el-button>
+          </div>
+          <div class="dept-body">
+            <div class="person-grid">
+              <div
+                v-for="p in businessUsers"
+                :key="p.id"
+                class="person-card"
+                :class="{ selected: selectedBizIds.includes(p.id) }"
+              >
+                <div class="select-btn" @click.stop="toggleSelect(p.id, 'business')">
+                  <span v-if="selectedBizIds.includes(p.id)" class="check-icon">✓</span>
+                  <span v-else class="plus-icon">+</span>
                 </div>
-                <div class="person-dept">{{ p.department || '-' }} · {{ p.region || '-' }}</div>
-              </div>
-              <div class="person-contact">
-                <div v-if="p.phone" class="contact-item">📞 {{ p.phone }}</div>
+                <div class="person-avatar business-avatar" @click="showDetail(p)">{{ (p.name || '?')[0] }}</div>
+                <div class="person-info" @click="showDetail(p)">
+                  <div class="person-name">
+                    {{ p.name || '-' }}
+                    <span class="role-tag tag-blue">{{ getRoleName(p.role) }}</span>
+                  </div>
+                  <div class="person-dept">{{ p.department || '-' }} · {{ p.region || '-' }}</div>
+                </div>
               </div>
             </div>
+            <div v-if="businessUsers.length === 0" class="empty-tip">暂无业务端人员</div>
           </div>
-          <div v-if="businessUsers.length === 0" class="empty-tip">暂无业务端人员</div>
         </div>
       </div>
 
       <!-- 实验室端 -->
-      <div class="org-dept lab-dept">
-        <div class="dept-header">
-          <span class="dept-icon">🔬</span>
-          <span class="dept-title">实验室端</span>
-          <span class="dept-count">{{ labUsersTotal }}人</span>
-        </div>
-        <div class="dept-body">
-
-          <!-- 主管 -->
-          <div v-if="supervisors.length > 0" class="sub-section">
-            <div class="sub-header" @click="toggleSection('supervisor')">
-              <span class="sub-title">📋 主管</span>
-              <span class="sub-count">{{ supervisors.length }}人</span>
-              <span class="sub-arrow">{{ expandedSections.supervisor ? '▲' : '▼' }}</span>
+      <div class="org-column">
+        <div class="org-dept lab-dept">
+          <div class="dept-header">
+            <div class="dept-header-left">
+              <span class="dept-icon">🔬</span>
+              <span class="dept-title">实验室端</span>
+              <span class="dept-count">{{ labUsersTotal }}人</span>
             </div>
-            <div v-show="expandedSections.supervisor" class="sub-body">
-              <div class="person-grid">
-                <div v-for="p in supervisors" :key="p.id" class="person-card" @click="showDetail(p)">
-                  <div class="person-avatar supervisor-avatar">{{ (p.name || '?')[0] }}</div>
-                  <div class="person-info">
-                    <div class="person-name">
-                      {{ p.name || '-' }}
-                      <span class="role-tag tag-brown">主管</span>
+            <el-button
+              v-if="selectedLabIds.length > 0"
+              type="primary"
+              size="small"
+              @click="startCommunication('lab')"
+            >
+              💬 快捷发起沟通 ({{ selectedLabIds.length }})
+            </el-button>
+          </div>
+          <div class="dept-body">
+
+            <!-- 主管 -->
+            <div v-if="supervisors.length > 0" class="sub-section">
+              <div class="sub-header" @click="toggleSection('supervisor')">
+                <span class="sub-title">📋 主管</span>
+                <span class="sub-count">{{ supervisors.length }}人</span>
+                <span class="sub-arrow">{{ expandedSections.supervisor ? '▲' : '▼' }}</span>
+              </div>
+              <div v-show="expandedSections.supervisor" class="sub-body">
+                <div class="person-grid">
+                  <div
+                    v-for="p in supervisors"
+                    :key="p.id"
+                    class="person-card"
+                    :class="{ selected: selectedLabIds.includes(p.id) }"
+                  >
+                    <div class="select-btn" @click.stop="toggleSelect(p.id, 'lab')">
+                      <span v-if="selectedLabIds.includes(p.id)" class="check-icon">✓</span>
+                      <span v-else class="plus-icon">+</span>
                     </div>
-                    <div class="person-dept">{{ p.department || '-' }}</div>
-                  </div>
-                  <div class="person-contact">
-                    <div v-if="p.phone" class="contact-item">📞 {{ p.phone }}</div>
+                    <div class="person-avatar supervisor-avatar" @click="showDetail(p)">{{ (p.name || '?')[0] }}</div>
+                    <div class="person-info" @click="showDetail(p)">
+                      <div class="person-name">
+                        {{ p.name || '-' }}
+                        <span class="role-tag tag-brown">主管</span>
+                      </div>
+                      <div class="person-dept">{{ p.department || '-' }}</div>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          <!-- 检测组（按部门分组） -->
-          <div v-for="(group, dept) in inspectionGroups" :key="dept" class="sub-section">
-            <div class="sub-header" @click="toggleSection('insp_' + dept)">
-              <span class="sub-title">🧪 {{ dept || '未分组' }}</span>
-              <span class="sub-count">{{ group.length }}人</span>
-              <span class="sub-arrow">{{ expandedSections['insp_' + dept] ? '▲' : '▼' }}</span>
-            </div>
-            <div v-show="expandedSections['insp_' + dept]" class="sub-body">
-              <div class="person-grid">
-                <div v-for="p in group" :key="p.id" class="person-card" @click="showDetail(p)">
-                  <div class="person-avatar" :class="p.role === 'inspection_leader' ? 'leader-avatar' : 'member-avatar'">{{ (p.name || '?')[0] }}</div>
-                  <div class="person-info">
-                    <div class="person-name">
-                      {{ p.name || '-' }}
-                      <span class="role-tag" :class="p.role === 'inspection_leader' ? 'tag-green' : 'tag-blue'">{{ p.role === 'inspection_leader' ? '检测组长' : '检测工程师' }}</span>
+            <!-- 检测组（按部门分组） -->
+            <div v-for="(group, dept) in inspectionGroups" :key="dept" class="sub-section">
+              <div class="sub-header" @click="toggleSection('insp_' + dept)">
+                <span class="sub-title">🧪 {{ dept || '未分组' }}</span>
+                <span class="sub-count">{{ group.length }}人</span>
+                <span class="sub-arrow">{{ expandedSections['insp_' + dept] ? '▲' : '▼' }}</span>
+              </div>
+              <div v-show="expandedSections['insp_' + dept]" class="sub-body">
+                <div class="person-grid">
+                  <div
+                    v-for="p in group"
+                    :key="p.id"
+                    class="person-card"
+                    :class="{ selected: selectedLabIds.includes(p.id) }"
+                  >
+                    <div class="select-btn" @click.stop="toggleSelect(p.id, 'lab')">
+                      <span v-if="selectedLabIds.includes(p.id)" class="check-icon">✓</span>
+                      <span v-else class="plus-icon">+</span>
                     </div>
-                    <div class="person-dept">{{ p.department || '-' }}</div>
-                  </div>
-                  <div class="person-contact">
-                    <div v-if="p.phone" class="contact-item">📞 {{ p.phone }}</div>
+                    <div class="person-avatar" :class="p.role === 'inspection_leader' ? 'leader-avatar' : 'member-avatar'" @click="showDetail(p)">{{ (p.name || '?')[0] }}</div>
+                    <div class="person-info" @click="showDetail(p)">
+                      <div class="person-name">
+                        {{ p.name || '-' }}
+                        <span class="role-tag" :class="p.role === 'inspection_leader' ? 'tag-green' : 'tag-blue'">{{ p.role === 'inspection_leader' ? '检测组长' : '检测工程师' }}</span>
+                      </div>
+                      <div class="person-dept">{{ p.department || '-' }}</div>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          <!-- 客服组 -->
-          <div v-if="csUsers.length > 0" class="sub-section">
-            <div class="sub-header" @click="toggleSection('cs')">
-              <span class="sub-title">📞 客服组</span>
-              <span class="sub-count">{{ csUsers.length }}人</span>
-              <span class="sub-arrow">{{ expandedSections.cs ? '▲' : '▼' }}</span>
-            </div>
-            <div v-show="expandedSections.cs" class="sub-body">
-              <div class="person-grid">
-                <div v-for="p in csUsers" :key="p.id" class="person-card" @click="showDetail(p)">
-                  <div class="person-avatar" :class="p.role === 'cs_leader' ? 'leader-avatar' : 'member-avatar'">{{ (p.name || '?')[0] }}</div>
-                  <div class="person-info">
-                    <div class="person-name">
-                      {{ p.name || '-' }}
-                      <span class="role-tag" :class="p.role === 'cs_leader' ? 'tag-green' : 'tag-blue'">{{ getRoleName(p.role) }}</span>
+            <!-- 客服组 -->
+            <div v-if="csUsers.length > 0" class="sub-section">
+              <div class="sub-header" @click="toggleSection('cs')">
+                <span class="sub-title">📞 客服组</span>
+                <span class="sub-count">{{ csUsers.length }}人</span>
+                <span class="sub-arrow">{{ expandedSections.cs ? '▲' : '▼' }}</span>
+              </div>
+              <div v-show="expandedSections.cs" class="sub-body">
+                <div class="person-grid">
+                  <div
+                    v-for="p in csUsers"
+                    :key="p.id"
+                    class="person-card"
+                    :class="{ selected: selectedLabIds.includes(p.id) }"
+                  >
+                    <div class="select-btn" @click.stop="toggleSelect(p.id, 'lab')">
+                      <span v-if="selectedLabIds.includes(p.id)" class="check-icon">✓</span>
+                      <span v-else class="plus-icon">+</span>
                     </div>
-                    <div class="person-dept">{{ p.department || '-' }}</div>
-                  </div>
-                  <div class="person-contact">
-                    <div v-if="p.phone" class="contact-item">📞 {{ p.phone }}</div>
+                    <div class="person-avatar" :class="p.role === 'cs_leader' ? 'leader-avatar' : 'member-avatar'" @click="showDetail(p)">{{ (p.name || '?')[0] }}</div>
+                    <div class="person-info" @click="showDetail(p)">
+                      <div class="person-name">
+                        {{ p.name || '-' }}
+                        <span class="role-tag" :class="p.role === 'cs_leader' ? 'tag-green' : 'tag-blue'">{{ getRoleName(p.role) }}</span>
+                      </div>
+                      <div class="person-dept">{{ p.department || '-' }}</div>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          <!-- 技术支持 -->
-          <div v-if="techSupports.length > 0" class="sub-section">
-            <div class="sub-header" @click="toggleSection('tech')">
-              <span class="sub-title">🛠️ 技术支持</span>
-              <span class="sub-count">{{ techSupports.length }}人</span>
-              <span class="sub-arrow">{{ expandedSections.tech ? '▲' : '▼' }}</span>
-            </div>
-            <div v-show="expandedSections.tech" class="sub-body">
-              <div class="person-grid">
-                <div v-for="p in techSupports" :key="p.id" class="person-card" @click="showDetail(p)">
-                  <div class="person-avatar member-avatar">{{ (p.name || '?')[0] }}</div>
-                  <div class="person-info">
-                    <div class="person-name">
-                      {{ p.name || '-' }}
-                      <span class="role-tag tag-blue">技术支持</span>
+            <!-- 技术支持 -->
+            <div v-if="techSupports.length > 0" class="sub-section">
+              <div class="sub-header" @click="toggleSection('tech')">
+                <span class="sub-title">🛠️ 技术支持</span>
+                <span class="sub-count">{{ techSupports.length }}人</span>
+                <span class="sub-arrow">{{ expandedSections.tech ? '▲' : '▼' }}</span>
+              </div>
+              <div v-show="expandedSections.tech" class="sub-body">
+                <div class="person-grid">
+                  <div
+                    v-for="p in techSupports"
+                    :key="p.id"
+                    class="person-card"
+                    :class="{ selected: selectedLabIds.includes(p.id) }"
+                  >
+                    <div class="select-btn" @click.stop="toggleSelect(p.id, 'lab')">
+                      <span v-if="selectedLabIds.includes(p.id)" class="check-icon">✓</span>
+                      <span v-else class="plus-icon">+</span>
                     </div>
-                    <div class="person-dept">{{ p.department || '-' }}</div>
-                  </div>
-                  <div class="person-contact">
-                    <div v-if="p.phone" class="contact-item">📞 {{ p.phone }}</div>
+                    <div class="person-avatar member-avatar" @click="showDetail(p)">{{ (p.name || '?')[0] }}</div>
+                    <div class="person-info" @click="showDetail(p)">
+                      <div class="person-name">
+                        {{ p.name || '-' }}
+                        <span class="role-tag tag-blue">技术支持</span>
+                      </div>
+                      <div class="person-dept">{{ p.department || '-' }}</div>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
 
+          </div>
         </div>
       </div>
     </div>
@@ -234,13 +288,52 @@
 
 <script setup>
 import { ref, computed, onMounted, reactive } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { supabase } from '../utils/supabase'
+
+const router = useRouter()
 
 const users = ref([])
 const searchText = ref('')
 const detailVisible = ref(false)
 const selectedPerson = ref(null)
+
+// 多选状态
+const selectedBizIds = ref([])
+const selectedLabIds = ref([])
+
+const toggleSelect = (userId, side) => {
+  if (side === 'business') {
+    const idx = selectedBizIds.value.indexOf(userId)
+    if (idx > -1) {
+      selectedBizIds.value.splice(idx, 1)
+    } else {
+      selectedBizIds.value.push(userId)
+    }
+  } else {
+    const idx = selectedLabIds.value.indexOf(userId)
+    if (idx > -1) {
+      selectedLabIds.value.splice(idx, 1)
+    } else {
+      selectedLabIds.value.push(userId)
+    }
+  }
+}
+
+// 快捷发起沟通
+const startCommunication = (side) => {
+  const ids = side === 'business' ? selectedBizIds.value : selectedLabIds.value
+  if (ids.length === 0) {
+    ElMessage.warning('请先选择要沟通的人员')
+    return
+  }
+  // 存储选中的用户ID
+  sessionStorage.setItem('preselectRecipients', JSON.stringify(ids))
+  // 跳转到首页
+  router.push('/')
+  ElMessage.success(`已选择 ${ids.length} 人，正在跳转...`)
+}
 
 const expandedSections = reactive({
   supervisor: true,
@@ -363,7 +456,7 @@ onMounted(() => {
 <style scoped>
 .org-page {
   padding: 24px;
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
   background: #f5f7fa;
   min-height: 100vh;
@@ -394,17 +487,19 @@ onMounted(() => {
   color: #333;
 }
 
-/* 两栏布局 */
+/* 左右固定两栏布局 */
 .org-layout {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
   gap: 20px;
+  height: calc(100vh - 200px);
+  min-height: 500px;
 }
 
-@media (max-width: 900px) {
-  .org-layout {
-    grid-template-columns: 1fr;
-  }
+.org-column {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 /* 部门块 */
@@ -412,6 +507,10 @@ onMounted(() => {
   border: 1px solid #e0e0e0;
   border-radius: 10px;
   overflow: hidden;
+  background: white;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
 .business-dept {
@@ -425,8 +524,16 @@ onMounted(() => {
 .dept-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   padding: 14px 18px;
   background: #f8f9fa;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.dept-header-left {
+  display: flex;
+  align-items: center;
   gap: 8px;
 }
 
@@ -438,7 +545,6 @@ onMounted(() => {
   font-size: 17px;
   font-weight: 700;
   color: #333;
-  flex: 1;
 }
 
 .dept-count {
@@ -448,6 +554,8 @@ onMounted(() => {
 
 .dept-body {
   padding: 16px;
+  overflow-y: auto;
+  flex: 1;
 }
 
 /* 子区域 */
@@ -466,6 +574,9 @@ onMounted(() => {
   cursor: pointer;
   user-select: none;
   transition: background 0.2s;
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 .sub-header:hover {
@@ -494,24 +605,31 @@ onMounted(() => {
   padding: 10px 14px;
 }
 
-/* 人员网格 - 紧凑布局 */
+/* 人员网格 - 扩大150% */
 .person-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.person-grid-search {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
 }
 
 .person-card {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 10px;
+  padding: 8px 10px;
   border: 1px solid #eee;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
-  height: 44px;
+  height: 52px;
   overflow: hidden;
+  background: white;
 }
 
 .person-card:hover {
@@ -520,16 +638,77 @@ onMounted(() => {
   transform: translateY(-1px);
 }
 
-/* 头像颜色 - 缩小 */
+.person-card.selected {
+  border-color: #409eff;
+  background: #f0f7ff;
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.2);
+}
+
+.person-card-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.person-card-search:hover {
+  border-color: #667eea;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.12);
+}
+
+/* 选择按钮 */
+.select-btn {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid #ccc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.select-btn:hover {
+  border-color: #409eff;
+  color: #409eff;
+}
+
+.person-card.selected .select-btn {
+  border-color: #409eff;
+  background: #409eff;
+  color: white;
+}
+
+.plus-icon {
+  color: #999;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.check-icon {
+  color: white;
+  font-size: 12px;
+  line-height: 1;
+}
+
+/* 头像颜色 - 扩大 */
 .person-avatar {
-  width: 28px;
-  height: 28px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   color: white;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   flex-shrink: 0;
 }
@@ -568,12 +747,6 @@ onMounted(() => {
   text-overflow: ellipsis;
 }
 
-.person-name span:first-child {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .person-dept {
   font-size: 10px;
   color: #aaa;
@@ -586,16 +759,15 @@ onMounted(() => {
 .person-contact {
   flex-shrink: 0;
   text-align: right;
-  display: none;
 }
 
 .contact-item {
-  font-size: 10px;
+  font-size: 11px;
   color: #888;
   white-space: nowrap;
 }
 
-/* 角色标签颜色 - 缩小 */
+/* 角色标签颜色 */
 .role-tag {
   font-size: 9px;
   padding: 0px 5px;
@@ -681,5 +853,19 @@ onMounted(() => {
 
 .detail-value a:hover {
   text-decoration: underline;
+}
+
+@media (max-width: 900px) {
+  .org-layout {
+    flex-direction: column;
+    height: auto;
+  }
+  .org-column {
+    height: auto;
+  }
+  .org-dept {
+    height: auto;
+    max-height: 600px;
+  }
 }
 </style>

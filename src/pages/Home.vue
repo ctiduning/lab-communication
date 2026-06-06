@@ -89,7 +89,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, provide } from 'vue';
 import { useRouter } from 'vue-router';
 import { ChatDotSquare, Bell, Setting, User, OfficeBuilding, Promotion } from '@element-plus/icons-vue';
 import { supabase } from '../utils/supabase';
@@ -162,6 +162,9 @@ const logout = async () => {
   router.push('/login');
 };
 
+const preselectRecipients = ref([]);
+provide('preselectRecipients', preselectRecipients);
+
 const loadUser = async () => {
   const { data: { user: authUser } } = await supabase.auth.getUser()
   if (!authUser) {
@@ -206,6 +209,23 @@ const loadUser = async () => {
   }
 
   const cat = getRoleCategory(user.value.role);
+  // 检查是否有预选中用户（从组织架构页面跳转过来）
+  const preselect = sessionStorage.getItem('preselectRecipients');
+  if (preselect) {
+    try {
+      preselectRecipients.value = JSON.parse(preselect);
+      sessionStorage.removeItem('preselectRecipients');
+      // 自动切换到发起沟通页面
+      if (cat === 'lab') {
+        activeMenu.value = 'lab-initiate';
+      } else {
+        activeMenu.value = 'initiate';
+      }
+      return;
+    } catch (e) {
+      console.error('解析预选中用户失败:', e);
+    }
+  }
   if (cat === 'lab') {
     activeMenu.value = 'lab-initiate';
   } else if (cat === 'admin') {

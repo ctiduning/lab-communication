@@ -49,29 +49,26 @@
               </div>
             </div>
           </div>
-          <el-table :data="filteredUsers" border stripe>
-            <el-table-column prop="username" label="用户名" width="100"></el-table-column>
-            <el-table-column label="姓名(工号)" width="140">
+          <el-table :data="filteredUsers" border stripe height="550" style="width: 100%;">
+            <el-table-column prop="username" label="用户名" width="90" sortable></el-table-column>
+            <el-table-column prop="name" label="姓名" width="90" sortable></el-table-column>
+            <el-table-column prop="employeeId" label="工号" width="90" sortable></el-table-column>
+            <el-table-column prop="role" label="角色" width="100" sortable>
               <template #default="scope">
-                {{ scope.row.name }}({{ scope.row.employeeId }})
+                <el-tag :type="getRoleTag(scope.row.role)" size="small">{{ getRoleName(scope.row.role) }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="role" label="角色" width="120">
-              <template #default="scope">
-                <el-tag :type="getRoleTag(scope.row.role)">{{ getRoleName(scope.row.role) }}</el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column prop="department" label="部门" width="120"></el-table-column>
-            <el-table-column prop="region" label="地区" width="100"></el-table-column>
-            <el-table-column prop="phone" label="电话" width="130"></el-table-column>
-            <el-table-column prop="email" label="邮箱" min-width="160"></el-table-column>
-            <el-table-column label="状态" width="80" align="center">
+            <el-table-column prop="department" label="部门" width="110" sortable></el-table-column>
+            <el-table-column prop="region" label="地区" width="80" sortable></el-table-column>
+            <el-table-column prop="phone" label="电话" width="115" sortable></el-table-column>
+            <el-table-column prop="email" label="邮箱" min-width="150" sortable show-overflow-tooltip></el-table-column>
+            <el-table-column label="状态" width="75" align="center" sortable>
               <template #default="scope">
                 <el-tag v-if="scope.row.isDisabled" type="info" size="small">已禁用</el-tag>
                 <el-tag v-else type="success" size="small">正常</el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="280" fixed="right">
+            <el-table-column label="操作" width="210" fixed="right">
               <template #default="scope">
                 <el-button
                   v-if="!scope.row.isDisabled && scope.row.role !== 'admin'"
