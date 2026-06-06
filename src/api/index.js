@@ -756,7 +756,7 @@ export const communicationAPI = {
     const count = (communications || []).filter(c => {
       const myRec = c.communication_recipients?.find(r => r.recipient_id === userId)
       if (!myRec) return false
-      return !myRec.has_replied && !myRec.is_completed && !c.is_completed
+      return !myRec.has_replied && !myRec.is_completed && !c.is_completed && !c.is_recalled && !c.is_system_notification
     }).length
 
     return { data: { count } }
