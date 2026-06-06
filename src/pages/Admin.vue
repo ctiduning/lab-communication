@@ -25,6 +25,16 @@
                   导入Excel批量注册
                 </el-button>
                 <el-button 
+                  type="warning" 
+                  @click="exportToExcel" 
+                  size="large"
+                  style="margin-left: 12px;"
+                  :loading="exportLoading"
+                >
+                  <el-icon><Download /></el-icon>
+                  导出沟通记录
+                </el-button>
+                <el-button 
                   type="text" 
                   @click="downloadTemplate" 
                   style="margin-left: 12px; color: #888; font-size: 13px;"
@@ -315,7 +325,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { userAPI, authAPI, communicationAPI, notificationAPI, reactionAPI, ROLE_OPTIONS, getRoleDisplayName, getRoleCategory } from '../api';
+import { userAPI, authAPI, communicationAPI, notificationAPI, reactionAPI, ROLE_OPTIONS, getRoleDisplayName, getRoleCategory, adminLogAPI } from '../api';
 import { supabase } from '../utils/supabase';
 import * as XLSX from 'xlsx';
 
@@ -326,6 +336,7 @@ const allNotifications = ref([]);
 const searchKeyword = ref('');
 const showCreateModal = ref(false);
 const saving = ref(false);
+const exportLoading = ref(false);
 
 const allRoleOptions = ROLE_OPTIONS;
 
@@ -430,6 +441,48 @@ const formatTime = (t) => {
   return new Date(t).toLocaleString('zh-CN');
 };
 
+// 导出沟通记录为 Excel
+const exportToExcel = async () => {
+  exportLoading.value = true;
+  try {
+    const { data } = await communicationAPI.exportAll();
+    if (!data || data.length === 0) {
+      ElMessage.warning('没有沟通记录可导出');
+      return;
+    }
+
+    // 准备 Excel 数据
+    const excelData = data.map(c => ({
+      'ID': c.id,
+      '标题': c.title || '',
+      '内容': c.content || '',
+      '发起角色': c.initiator_role || '',
+      '发起人': c.sender?.name || c.sender?.employee_id || '',
+      '创建时间': formatTime(c.created_at),
+      '是否标记': c.is_flagged ? '是' : '否',
+      '是否完结': c.is_completed ? '是' : '否',
+      '接收人': c.communication_recipients?.map(r => r.recipient?.name || r.recipient?.employee_id || '').join('、') || '',
+      '接收人是否已回复': c.communication_recipients?.map(r => r.has_replied ? '是' : '否').join('、') || '',
+      '接收人是否已完结': c.communication_recipients?.map(r => r.is_completed ? '是' : '否').join('、') || '',
+      '回复数': c.replies?.length || 0,
+      '回复内容': c.replies?.map(r => (r.sender?.name || '') + '：' + r.content).join('；') || ''
+    }));
+
+    // 生成 Excel 文件
+    const ws = XLSX.utils.json_to_sheet(excelData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '沟通记录');
+    const fileName = `沟通记录_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+    ElMessage.success('导出成功：' + fileName);
+    await adminLogAPI.log('export_communications', null, '', '导出沟通记录，共 ' + data.length + ' 条');
+  } catch (error) {
+    ElMessage.error('导出失败：' + (error.message || '未知错误'));
+  } finally {
+    exportLoading.value = false;
+  }
+};
+
 const handleSearch = () => {};
 
 const handleCreateUser = async () => {
@@ -453,6 +506,7 @@ const handleCreateUser = async () => {
       mustChangePwd: true
     });
     ElMessage.success('用户创建成功，初始密码：' + userForm.password);
+    await adminLogAPI.log('create_user', null, userForm.name + '(' + userForm.employeeId + ')', '创建用户');
     showCreateModal.value = false;
     Object.keys(userForm).forEach(key => {
       if (key === 'role') userForm[key] = 'business';
@@ -473,6 +527,7 @@ const handleDisable = async (user) => {
     );
     await userAPI.disable(user.id);
     ElMessage.success('已禁用该用户');
+    await adminLogAPI.log('disable_user', user.id, user.name + '(' + user.employeeId + ')', '禁用用户');
     loadUsers();
   } catch (error) {
     if (error !== 'cancel') ElMessage.error('操作失败：' + (error.message || '未知错误'));
@@ -483,6 +538,7 @@ const handleEnable = async (user) => {
   try {
     await userAPI.enable(user.id);
     ElMessage.success('已启用该用户');
+    await adminLogAPI.log('enable_user', user.id, user.name + '(' + user.employeeId + ')', '启用用户');
     loadUsers();
   } catch (error) {
     ElMessage.error('操作失败：' + (error.message || '未知错误'));
@@ -499,6 +555,7 @@ const handleDeleteAccount = async (user) => {
     );
     await userAPI.deleteAccount(user.id);
     ElMessage.success('用户账号已删除，沟通记录已保留，该邮箱可重新注册');
+    await adminLogAPI.log('delete_account', user.id, user.name + '(' + user.employeeId + ')', '删除用户账号');
     loadUsers();
   } catch (error) {
     if (error !== 'cancel') ElMessage.error('删除失败：' + (error.message || '未知错误'));
@@ -515,6 +572,7 @@ const handleResetPassword = async (user) => {
     );
     await userAPI.resetPassword(user.id);
     ElMessage.success('密码已重置为 cti123，用户下次登录需修改密码');
+    await adminLogAPI.log('reset_password', user.id, user.name + '(' + user.employeeId + ')', '重置密码');
     loadUsers();
   } catch (error) {
     if (error !== 'cancel') ElMessage.error('重置失败：' + (error.message || '未知错误'));
@@ -527,6 +585,7 @@ const handleDeleteNotification = async (notif) => {
     await ElMessageBox.confirm('确定要删除这条通知吗？', '确认删除', { type: 'warning' });
     await notificationAPI.delete(notif.id);
     ElMessage.success('通知已删除');
+    await adminLogAPI.log('delete_notification', null, notif.title || '', '删除通知');
     loadNotifications();
   } catch (error) {
     if (error !== 'cancel') ElMessage.error('删除失败：' + (error.message || '未知错误'));

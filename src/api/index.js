@@ -757,6 +757,105 @@ export const communicationAPI = {
     }).length
 
     return { data: { count } }
+  },
+
+  // 导出所有沟通记录（管理员用）
+  async exportAll() {
+    const { data: communications, error } = await supabase
+      .from('communications')
+      .select(`
+        id,
+        title,
+        content,
+        initiator_role,
+        created_at,
+        is_flagged,
+        is_completed,
+        sender:sender_id(name, employee_id, role),
+        communication_recipients(
+          recipient:recipient_id(name, employee_id, role),
+          is_completed,
+          has_replied,
+          is_flagged
+        ),
+        replies(
+          id,
+          content,
+          created_at,
+          sender: sender_id(name, employee_id)
+        )
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return { data: communications || [] };
+  },
+
+  // 撤回消息（2分钟内可撤回）
+  async recallMessage(communicationId) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('未登录');
+
+    // 检查消息是否存在且是本人发送
+    const { data: comm, error: checkError } = await supabase
+      .from('communications')
+      .select('id, sender_id, created_at')
+      .eq('id', communicationId)
+      .single();
+
+    if (checkError) throw checkError;
+    if (!comm) throw new Error('消息不存在');
+    if (comm.sender_id !== user.id) throw new Error('只能撤回自己发送的消息');
+
+    // 检查是否超过2分钟
+    const createdAt = new Date(comm.created_at);
+    const now = new Date();
+    const diffMinutes = (now - createdAt) / (1000 * 60);
+    if (diffMinutes > 2) throw new Error('超过2分钟，无法撤回');
+
+    // 软删除
+    const { error } = await supabase
+      .from('communications')
+      .update({ is_deleted: true })
+      .eq('id', communicationId);
+
+    if (error) throw error;
+    return { data: { message: '消息已撤回' } };
+  },
+
+  // 编辑消息（2分钟内可编辑）
+  async editMessage(communicationId, newContent) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('未登录');
+
+    // 检查消息是否存在且是本人发送
+    const { data: comm, error: checkError } = await supabase
+      .from('communications')
+      .select('id, sender_id, created_at')
+      .eq('id', communicationId)
+      .single();
+
+    if (checkError) throw checkError;
+    if (!comm) throw new Error('消息不存在');
+    if (comm.sender_id !== user.id) throw new Error('只能编辑自己发送的消息');
+
+    // 检查是否超过2分钟
+    const createdAt = new Date(comm.created_at);
+    const now = new Date();
+    const diffMinutes = (now - createdAt) / (1000 * 60);
+    if (diffMinutes > 2) throw new Error('超过2分钟，无法编辑');
+
+    // 更新内容
+    const { error } = await supabase
+      .from('communications')
+      .update({ 
+        content: newContent,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', communicationId);
+
+    if (error) throw error;
+    return { data: { message: '消息已更新' } };
   }
 }
 
@@ -1334,3 +1433,67 @@ export function getRoleTagClass(role) {
   }
   return tagClasses[role] || 'tag-gray'
 }
+
+// ==========================================
+// 管理员操作日志
+// ==========================================
+export const adminLogAPI = {
+  // 记录操作
+  async log(action, targetUserId = null, targetUserName = '', detail = '') {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { error } = await supabase
+      .from('admin_logs')
+      .insert({
+        admin_id: user.id,
+        admin_name: (await supabase.from('profiles').select('name').eq('id', user.id).single())?.data?.name || '',
+        action,
+        target_user_id: targetUserId,
+        target_user_name: targetUserName,
+        detail
+      });
+    if (error) console.error('记录操作日志失败:', error);
+  },
+
+  // 查询操作日志（管理员用）
+  async getAll(limit = 200) {
+    const { data, error } = await supabase
+      .from('admin_logs')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (error) throw error;
+    return { data };
+  }
+};
+
+// ==========================================
+// 数据备份
+// ==========================================
+export const backupAPI = {
+  // 备份所有数据（管理员用）
+  async backupAll() {
+    const tables = ['profiles', 'communications', 'communication_recipients', 'replies', 'announcements', 'announcement_reads', 'admin_logs', 'message_reads'];
+    const result = {};
+    
+    for (const table of tables) {
+      try {
+        const { data, error } = await supabase
+          .from(table)
+          .select('*');
+        
+        if (error) {
+          console.warn(`备份表 ${table} 失败:`, error.message);
+          result[table] = { error: error.message };
+        } else {
+          result[table] = data || [];
+        }
+      } catch (e) {
+        console.warn(`备份表 ${table} 异常:`, e.message);
+        result[table] = { error: e.message };
+      }
+    }
+    
+    return { data: result };
+  }
+};;
