@@ -1,22 +1,46 @@
 <template>
-  <div class="login-container">
+  <div class="login-page">
     <div class="login-card">
-      <h1 class="system-title">青岛华测实验室沟通系统</h1>
-
-      <div class="form-wrap">
+      <div class="login-header">
+        <h1>青岛华测实验室沟通系统</h1>
+        <p>QDCTI Laboratory Communication System</p>
+      </div>
+      
+      <div class="login-form">
         <el-form ref="loginFormRef" :model="loginForm">
           <el-form-item prop="email">
-            <el-input v-model="loginForm.email" placeholder="邮箱" :prefix-icon="User" size="large"></el-input>
+            <el-input 
+              v-model="loginForm.email" 
+              placeholder="请输入邮箱" 
+              :prefix-icon="User" 
+              size="large"
+              style="height: 48px;"
+            ></el-input>
           </el-form-item>
           <el-form-item prop="password">
-            <el-input type="password" v-model="loginForm.password" placeholder="密码" :prefix-icon="Lock" show-password size="large" @keyup.enter="handleLogin"></el-input>
+            <el-input 
+              type="password" 
+              v-model="loginForm.password" 
+              placeholder="请输入密码" 
+              :prefix-icon="Lock" 
+              show-password 
+              size="large"
+              @keyup.enter="handleLogin"
+              style="height: 48px;"
+            ></el-input>
           </el-form-item>
           <el-form-item>
-            <el-button type="primary" @click="handleLogin" class="login-btn" size="large">登 录</el-button>
+            <el-button 
+              type="primary" 
+              @click="handleLogin" 
+              class="login-button"
+              size="large"
+              :loading="loading"
+            >登 录</el-button>
           </el-form-item>
         </el-form>
         <div class="login-tip">
-          <span>首次登录初始密码请联系管理员</span>
+          <span>首次登录请联系管理员获取初始密码</span>
         </div>
       </div>
     </div>
@@ -31,13 +55,12 @@ import { User, Lock } from '@element-plus/icons-vue';
 import { authAPI } from '../api';
 
 const router = useRouter();
+const loading = ref(false);
 
 const loginForm = reactive({
   email: '',
   password: ''
 });
-
-const loginFormRef = ref(null);
 
 const handleLogin = async () => {
   if (!loginForm.email || !loginForm.password) {
@@ -45,8 +68,9 @@ const handleLogin = async () => {
     return;
   }
   
+  loading.value = true;
   try {
-  const result = await authAPI.login(loginForm);
+    const result = await authAPI.login(loginForm);
 
     // 检查账号是否被禁用
     if (result.data?.user?.isDisabled) {
@@ -66,44 +90,91 @@ const handleLogin = async () => {
     }, 800);
   } catch (error) {
     ElMessage.error(error.message || '登录失败');
+  } finally {
+    loading.value = false;
   }
 };
 </script>
 
 <style scoped>
-.login-container {
+.login-page {
   min-height: 100vh;
   display: flex;
-  justify-content: center;
   align-items: center;
+  justify-content: center;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   padding: 20px;
 }
 
 .login-card {
+  width: 440px;
   background: white;
-  padding: 40px;
-  border-radius: 12px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
-  width: 100%;
-  max-width: 420px;
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  padding: 48px 40px;
+  animation: slideUp 0.5s ease-out;
 }
 
-.system-title {
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.login-header {
   text-align: center;
-  margin-bottom: 30px;
-  color: #333;
-  font-size: 22px;
+  margin-bottom: 36px;
+}
+
+.login-header h1 {
+  font-size: 24px;
+  color: #303133;
+  margin-bottom: 8px;
   font-weight: 600;
 }
 
-.form-wrap {
-  padding: 10px 0;
+.login-header p {
+  font-size: 13px;
+  color: #909399;
+  letter-spacing: 1px;
 }
 
-.login-btn {
+.login-form {
+  margin-top: 20px;
+}
+
+.login-form :deep(.el-input__wrapper) {
+  border-radius: 12px;
+  height: 48px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: all 0.3s;
+}
+
+.login-form :deep(.el-input__wrapper:hover),
+.login-form :deep(.el-input__wrapper.is-focus) {
+  box-shadow: 0 4px 16px rgba(64, 158, 255, 0.2);
+}
+
+.login-button {
   width: 100%;
-  margin-top: 8px;
+  height: 48px;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 500;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  transition: all 0.3s;
+  letter-spacing: 4px;
+}
+
+.login-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
 }
 
 .login-tip {

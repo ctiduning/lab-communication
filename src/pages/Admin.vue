@@ -1,21 +1,52 @@
 <template>
   <div class="admin-page">
-    <el-tabs v-model="activeTab" type="card">
-      <el-tab-pane label="用户管理" name="users">
-        <div class="tab-content">
-          <div class="tab-header">
-            <el-button type="primary" @click="showCreateModal = true">单个添加</el-button>
-            <div
-              style="display: inline-block; margin-left: 10px;"
-              @dragover.prevent
-              @drop.prevent="handleExcelDrop"
-            >
-              <el-button type="success" @click="handlePickExcel">导入Excel批量注册</el-button>
-            </div>
-            <el-button type="text" @click="downloadTemplate" style="margin-left: 8px; color: #888; font-size: 12px;">下载模板</el-button>
-            <div class="search-box">
-              <el-input v-model="searchKeyword" placeholder="搜索姓名、工号、部门..." clearable @clear="loadUsers"></el-input>
-              <el-button type="primary" @click="handleSearch">搜索</el-button>
+    <div class="page-header">
+      <h1>管理员控制台</h1>
+      <p>用户管理、沟通记录查看、系统配置</p>
+    </div>
+    
+    <div class="page-content">
+      <el-tabs v-model="activeTab" type="card" class="beautiful-tabs">
+        <el-tab-pane label="用户管理" name="users">
+          <div class="beautiful-card">
+            <div class="tab-header">
+              <div class="header-left">
+                <el-button type="primary" @click="showCreateModal = true" size="large">
+                  <el-icon><UserFilled /></el-icon>
+                  单个添加
+                </el-button>
+                <el-button 
+                  type="success" 
+                  @click="handlePickExcel" 
+                  size="large"
+                  style="margin-left: 12px;"
+                >
+                  <el-icon><Upload /></el-icon>
+                  导入Excel批量注册
+                </el-button>
+                <el-button 
+                  type="text" 
+                  @click="downloadTemplate" 
+                  style="margin-left: 12px; color: #888; font-size: 13px;"
+                >
+                  <el-icon><Download /></el-icon>
+                  下载模板
+                </el-button>
+              </div>
+              <div class="header-right">
+                <el-input 
+                  v-model="searchKeyword" 
+                  placeholder="搜索姓名、工号、部门..." 
+                  clearable 
+                  @clear="loadUsers"
+                  class="search-input"
+                >
+                  <template #prefix>
+                    <el-icon><Search /></el-icon>
+                  </template>
+                </el-input>
+                <el-button type="primary" @click="handleSearch" size="large">搜索</el-button>
+              </div>
             </div>
           </div>
           <el-table :data="filteredUsers" border stripe>
