@@ -144,7 +144,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted, inject } from 'vue';
 import { ElMessage } from 'element-plus';
-import { communicationAPI, storageAPI } from '../api';
+import { communicationAPI, storageAPI, ROLE_OPTIONS, getRoleDisplayName } from '../api';
 import { supabase } from '../utils/supabase';
 import { buildSearchKeys, filterGroups } from '../utils/pinyinSearch';
 
@@ -165,7 +165,7 @@ const form = reactive({
   attachments: []
 });
 
-const labUsers = ref([]);
+const allUsers = ref([]);
 const recipientGroups = ref([]);
 const searchQuery = ref('');
 
@@ -254,39 +254,44 @@ const resetForm = () => {
   form.attachments = [];
 };
 
-const loadLabUsers = async () => {
+// 加载所有用户（发起沟通时可选择任何人，除自己外）
+const loadAllUsers = async () => {
   try {
+    const { data: { user: authUser } } = await supabase.auth.getUser();
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
-      .in('role', ['supervisor', 'tech_support', 'inspection_leader', 'inspection_engineer', 'customer_service', 'cs_leader'])
+      .neq('id', authUser?.id || '')
       .eq('is_disabled', false)
       .order('role')
       .order('department')
       .order('name')
     if (error) throw error
-    labUsers.value = data || []
-    
-    // 按角色分组
+    allUsers.value = data || []
+
+    // 按角色分组（使用统一的 ROLE_OPTIONS）
     const groups = {}
-    const roleOrder = ['supervisor', 'inspection_leader', 'inspection_engineer', 'cs_leader', 'customer_service', 'tech_support']
-    const roleNameMap = { supervisor: '主管', inspection_leader: '检测组长', inspection_engineer: '检测工程师', cs_leader: '客服主管', customer_service: '客服', tech_support: '技术支持' }
-    
+    const roleNameMap = {}
+    const roleOrder = []
+    ROLE_OPTIONS.filter(r => r.value !== 'admin').forEach(r => {
+      roleNameMap[r.value] = r.label
+      roleOrder.push(r.value)
+    })
+
     data.forEach(u => {
       const label = roleNameMap[u.role] || u.role
-      // 为每个用户构建搜索关键词
       const userWithKeys = buildSearchKeys(u, roleNameMap)
       userWithKeys._roleName = label
       if (!groups[label]) groups[label] = { label, users: [] }
       groups[label].users.push(userWithKeys)
     })
-    
+
     recipientGroups.value = roleOrder
       .map(r => roleNameMap[r])
       .filter(label => groups[label])
       .map(label => groups[label])
   } catch (error) {
-    ElMessage.error('加载实验室用户失败');
+    ElMessage.error('加载用户失败');
   }
 };
 
@@ -323,7 +328,7 @@ const pickFilesWithAPI = async () => {
 };
 
 onMounted(() => {
-  loadLabUsers().then(() => {
+  loadAllUsers().then(() => {
     // 如果有预选中用户（从组织架构页面跳转过来），自动填充
     if (preselectRecipients.value && preselectRecipients.value.length > 0) {
       form.recipients = [...preselectRecipients.value];

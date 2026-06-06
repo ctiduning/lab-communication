@@ -489,7 +489,8 @@ const showReactionDetail = async (targetType, targetId) => {
     reactionDetailList.value = data || []
     reactionDetailVisible.value = true
   } catch (error) {
-    ElMessage.error('加载详情失败')
+    console.error('加载详情失败:', error)
+    ElMessage.error('加载详情失败：' + (error.message || '请检查网络或联系管理员'))
   }
 }
 

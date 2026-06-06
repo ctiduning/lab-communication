@@ -246,11 +246,15 @@
             ></el-option>
           </el-select>
         </el-form-item>
-        <el-form-item label="部门">
-          <el-input v-model="userForm.department" placeholder="请输入所属部门"></el-input>
+        <!-- 业务端显示属地，实验室端显示检测组 -->
+        <el-form-item :label="getRoleCategory(userForm.role) === 'business' ? '属地' : '检测组'">
+          <el-input
+            v-model="userForm.region"
+            :placeholder="getRoleCategory(userForm.role) === 'business' ? '如：青岛、哈尔滨' : '如：有机检测组、无机检测组'"
+          ></el-input>
         </el-form-item>
-        <el-form-item label="地区">
-          <el-input v-model="userForm.region" placeholder="请输入所在地区"></el-input>
+        <el-form-item label="部门/组别备注">
+          <el-input v-model="userForm.department" placeholder="补充信息（选填）"></el-input>
         </el-form-item>
         <el-form-item label="电话">
           <el-input v-model="userForm.phone"></el-input>
@@ -302,7 +306,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { userAPI, authAPI, communicationAPI, notificationAPI, reactionAPI, ROLE_OPTIONS, getRoleDisplayName } from '../api';
+import { userAPI, authAPI, communicationAPI, notificationAPI, reactionAPI, ROLE_OPTIONS, getRoleDisplayName, getRoleCategory } from '../api';
 import { supabase } from '../utils/supabase';
 import * as XLSX from 'xlsx';
 
@@ -342,11 +346,13 @@ const filteredUsers = computed(() => {
 });
 
 const totalUsers = computed(() => users.value.length);
-const businessUserCount = computed(() => users.value.filter(u => 
-  ['business', 'business_assistant', 'supervisor', 'customer_service', 'cs_leader'].includes(u.role)
+const businessUserCount = computed(() => users.value.filter(u =>
+  ['business', 'business_assistant'].includes(u.role)
 ).length);
-const labUserCount = computed(() => users.value.filter(u => 
-  ['tech_support', 'inspection_leader', 'inspection_engineer', 'lab'].includes(u.role)
+const labUserCount = computed(() => users.value.filter(u =>
+  ['supervisor', 'supervisor_assistant', 'customer_service', 'cs_leader', 'cs_leader_assistant',
+   'inspection_leader', 'inspection_leader_assistant', 'inspection_engineer',
+   'sample_prep_leader', 'report_leader', 'data_review', 'report_compiler', 'tech_support'].includes(u.role)
 ).length);
 
 const filteredCommunications = computed(() => {
@@ -362,10 +368,11 @@ const filteredCommunications = computed(() => {
 });
 
 const getRoleTag = (role) => {
-  const labRoles = ['tech_support', 'inspection_leader', 'inspection_engineer', 'lab'];
-  if (role === 'admin') return 'warning';
-  if (labRoles.includes(role)) return 'success';
-  return 'info';
+  const bizRoles = ['business', 'business_assistant'];
+  const adminRoles = ['admin'];
+  if (adminRoles.includes(role)) return 'danger';
+  if (bizRoles.includes(role)) return 'warning';
+  return 'success'; // 实验室端角色统一用 success
 };
 
 const getRoleName = (role) => getRoleDisplayName(role);

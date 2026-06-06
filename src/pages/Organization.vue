@@ -80,24 +80,34 @@
           </div>
         </div>
           <div class="dept-body">
-            <div class="person-grid">
-              <div
-                v-for="p in businessUsers"
-                :key="p.id"
-                class="person-card"
-                :class="{ selected: selectedBizIds.includes(p.id) }"
-              >
-                <div class="select-btn" @click.stop="toggleSelect(p.id, 'business')">
-                  <span v-if="selectedBizIds.includes(p.id)" class="check-icon">✓</span>
-                  <span v-else class="plus-icon">+</span>
-                </div>
-                <div class="person-avatar business-avatar" @click="showDetail(p)">{{ (p.name || '?')[0] }}</div>
-                <div class="person-info" @click="showDetail(p)">
-                  <div class="person-name">
-                    {{ p.name || '-' }}
-                    <span class="role-tag tag-blue">{{ getRoleName(p.role) }}</span>
+            <!-- 业务端按属地分组 -->
+            <div v-for="(group, region) in businessRegionGroups" :key="region" class="sub-section">
+              <div class="sub-header" @click="toggleSection('biz_' + region)">
+                <span class="sub-title">📍 {{ region }}</span>
+                <span class="sub-count">{{ group.length }}人</span>
+                <span class="sub-arrow">{{ expandedSections['biz_' + region] ? '▲' : '▼' }}</span>
+              </div>
+              <div v-show="expandedSections['biz_' + region]" class="sub-body">
+                <div class="person-grid">
+                  <div
+                    v-for="p in group"
+                    :key="p.id"
+                    class="person-card"
+                    :class="{ selected: selectedBizIds.includes(p.id) }"
+                  >
+                    <div class="select-btn" @click.stop="toggleSelect(p.id, 'business')">
+                      <span v-if="selectedBizIds.includes(p.id)" class="check-icon">✓</span>
+                      <span v-else class="plus-icon">+</span>
+                    </div>
+                    <div class="person-avatar" :class="getAvatarClass(p.role)" @click="showDetail(p)">{{ (p.name || '?')[0] }}</div>
+                    <div class="person-info" @click="showDetail(p)">
+                      <div class="person-name">
+                        {{ p.name || '-' }}
+                        <span class="role-tag" :class="getRoleTagClass(p.role)">{{ getRoleName(p.role) }}</span>
+                      </div>
+                      <div class="person-dept">{{ p.region || '-' }}</div>
+                    </div>
                   </div>
-                  <div class="person-dept">{{ p.department || '-' }} · {{ p.region || '-' }}</div>
                 </div>
               </div>
             </div>
@@ -118,46 +128,14 @@
         </div>
           <div class="dept-body">
 
-            <!-- 主管 -->
-            <div v-if="supervisors.length > 0" class="sub-section">
-              <div class="sub-header" @click="toggleSection('supervisor')">
-                <span class="sub-title">📋 主管</span>
-                <span class="sub-count">{{ supervisors.length }}人</span>
-                <span class="sub-arrow">{{ expandedSections.supervisor ? '▲' : '▼' }}</span>
-              </div>
-              <div v-show="expandedSections.supervisor" class="sub-body">
-                <div class="person-grid">
-                  <div
-                    v-for="p in supervisors"
-                    :key="p.id"
-                    class="person-card"
-                    :class="{ selected: selectedLabIds.includes(p.id) }"
-                  >
-                    <div class="select-btn" @click.stop="toggleSelect(p.id, 'lab')">
-                      <span v-if="selectedLabIds.includes(p.id)" class="check-icon">✓</span>
-                      <span v-else class="plus-icon">+</span>
-                    </div>
-                    <div class="person-avatar supervisor-avatar" @click="showDetail(p)">{{ (p.name || '?')[0] }}</div>
-                    <div class="person-info" @click="showDetail(p)">
-                      <div class="person-name">
-                        {{ p.name || '-' }}
-                        <span class="role-tag tag-brown">主管</span>
-                      </div>
-                      <div class="person-dept">{{ p.department || '-' }}</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- 检测组（按部门分组） -->
-            <div v-for="(group, dept) in inspectionGroups" :key="dept" class="sub-section">
-              <div class="sub-header" @click="toggleSection('insp_' + dept)">
-                <span class="sub-title">🧪 {{ dept || '未分组' }}</span>
+            <!-- 实验室端按检测组分组 -->
+            <div v-for="(group, dept) in labDeptGroups" :key="dept" class="sub-section">
+              <div class="sub-header" @click="toggleSection('lab_' + dept)">
+                <span class="sub-title">🧪 {{ dept }}</span>
                 <span class="sub-count">{{ group.length }}人</span>
-                <span class="sub-arrow">{{ expandedSections['insp_' + dept] ? '▲' : '▼' }}</span>
+                <span class="sub-arrow">{{ expandedSections['lab_' + dept] ? '▲' : '▼' }}</span>
               </div>
-              <div v-show="expandedSections['insp_' + dept]" class="sub-body">
+              <div v-show="expandedSections['lab_' + dept]" class="sub-body">
                 <div class="person-grid">
                   <div
                     v-for="p in group"
@@ -169,75 +147,11 @@
                       <span v-if="selectedLabIds.includes(p.id)" class="check-icon">✓</span>
                       <span v-else class="plus-icon">+</span>
                     </div>
-                    <div class="person-avatar" :class="p.role === 'inspection_leader' ? 'leader-avatar' : 'member-avatar'" @click="showDetail(p)">{{ (p.name || '?')[0] }}</div>
+                    <div class="person-avatar" :class="getAvatarClass(p.role)" @click="showDetail(p)">{{ (p.name || '?')[0] }}</div>
                     <div class="person-info" @click="showDetail(p)">
                       <div class="person-name">
                         {{ p.name || '-' }}
-                        <span class="role-tag" :class="p.role === 'inspection_leader' ? 'tag-green' : 'tag-blue'">{{ p.role === 'inspection_leader' ? '检测组长' : '检测工程师' }}</span>
-                      </div>
-                      <div class="person-dept">{{ p.department || '-' }}</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- 客服组 -->
-            <div v-if="csUsers.length > 0" class="sub-section">
-              <div class="sub-header" @click="toggleSection('cs')">
-                <span class="sub-title">📞 客服组</span>
-                <span class="sub-count">{{ csUsers.length }}人</span>
-                <span class="sub-arrow">{{ expandedSections.cs ? '▲' : '▼' }}</span>
-              </div>
-              <div v-show="expandedSections.cs" class="sub-body">
-                <div class="person-grid">
-                  <div
-                    v-for="p in csUsers"
-                    :key="p.id"
-                    class="person-card"
-                    :class="{ selected: selectedLabIds.includes(p.id) }"
-                  >
-                    <div class="select-btn" @click.stop="toggleSelect(p.id, 'lab')">
-                      <span v-if="selectedLabIds.includes(p.id)" class="check-icon">✓</span>
-                      <span v-else class="plus-icon">+</span>
-                    </div>
-                    <div class="person-avatar" :class="p.role === 'cs_leader' ? 'leader-avatar' : 'member-avatar'" @click="showDetail(p)">{{ (p.name || '?')[0] }}</div>
-                    <div class="person-info" @click="showDetail(p)">
-                      <div class="person-name">
-                        {{ p.name || '-' }}
-                        <span class="role-tag" :class="p.role === 'cs_leader' ? 'tag-green' : 'tag-blue'">{{ getRoleName(p.role) }}</span>
-                      </div>
-                      <div class="person-dept">{{ p.department || '-' }}</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- 技术支持 -->
-            <div v-if="techSupports.length > 0" class="sub-section">
-              <div class="sub-header" @click="toggleSection('tech')">
-                <span class="sub-title">🛠️ 技术支持</span>
-                <span class="sub-count">{{ techSupports.length }}人</span>
-                <span class="sub-arrow">{{ expandedSections.tech ? '▲' : '▼' }}</span>
-              </div>
-              <div v-show="expandedSections.tech" class="sub-body">
-                <div class="person-grid">
-                  <div
-                    v-for="p in techSupports"
-                    :key="p.id"
-                    class="person-card"
-                    :class="{ selected: selectedLabIds.includes(p.id) }"
-                  >
-                    <div class="select-btn" @click.stop="toggleSelect(p.id, 'lab')">
-                      <span v-if="selectedLabIds.includes(p.id)" class="check-icon">✓</span>
-                      <span v-else class="plus-icon">+</span>
-                    </div>
-                    <div class="person-avatar member-avatar" @click="showDetail(p)">{{ (p.name || '?')[0] }}</div>
-                    <div class="person-info" @click="showDetail(p)">
-                      <div class="person-name">
-                        {{ p.name || '-' }}
-                        <span class="role-tag tag-blue">技术支持</span>
+                        <span class="role-tag" :class="getRoleTagClass(p.role)">{{ getRoleName(p.role) }}</span>
                       </div>
                       <div class="person-dept">{{ p.department || '-' }}</div>
                     </div>
@@ -353,7 +267,7 @@ const toggleSelectFromSearch = (person) => {
   const userId = person.id
   const role = person.role
   // 判断属于业务端还是实验室端
-  if (role === 'business' || role === 'business_assistant') {
+  if (BIZ_ROLE_VALUES.includes(role)) {
     const idx = selectedBizIds.value.indexOf(userId)
     if (idx > -1) {
       selectedBizIds.value.splice(idx, 1)
@@ -408,46 +322,122 @@ const toggleSection = (key) => {
   expandedSections[key] = !expandedSections[key]
 }
 
-// 角色名映射
+// 角色名映射（使用 api/index.js 的 ROLE_OPTIONS 同步）
 const ROLE_MAP = {
   admin: '管理员',
-  supervisor: '主管',
-  inspection_leader: '检测组长',
-  inspection_engineer: '检测工程师',
-  tech_support: '技术支持',
-  customer_service: '客服',
-  cs_leader: '客服主管',
   business: '业务',
   business_assistant: '业务助理',
+  supervisor: '实验室主管',
+  supervisor_assistant: '实验室主管助理',
+  customer_service: '客服',
+  cs_leader: '客服组长',
+  cs_leader_assistant: '客服组长助理',
+  inspection_leader: '检测组长',
+  inspection_leader_assistant: '检测组长助理',
+  inspection_engineer: '检测工程师',
+  sample_prep_leader: '制样组组长',
+  report_leader: '报告组组长',
+  data_review: '数据二审',
+  report_compiler: '报告编制',
+  tech_support: '技术支持',
   lab: '实验室人员'
 }
 
 const getRoleName = (role) => ROLE_MAP[role] || role || '-'
 
-// 角色标签颜色：主管=浅棕，组长/客服主管=浅绿，其他=浅蓝
+// 角色标签颜色映射
 const getRoleTagClass = (role) => {
-  if (role === 'supervisor') return 'tag-brown'
-  if (role === 'inspection_leader' || role === 'cs_leader') return 'tag-green'
-  return 'tag-blue'
+  const map = {
+    business: 'tag-gold',
+    business_assistant: 'tag-light-gold',
+    supervisor: 'tag-brown',
+    supervisor_assistant: 'tag-light-brown',
+    cs_leader: 'tag-blue',
+    inspection_leader: 'tag-blue',
+    sample_prep_leader: 'tag-blue',
+    report_leader: 'tag-blue',
+    cs_leader_assistant: 'tag-light-blue',
+    inspection_leader_assistant: 'tag-light-blue',
+    inspection_engineer: 'tag-light-green',
+    data_review: 'tag-light-green',
+    report_compiler: 'tag-light-green',
+    tech_support: 'tag-light-green',
+    customer_service: 'tag-purple',
+    admin: 'tag-red'
+  }
+  return map[role] || 'tag-gray'
 }
 
 const getAvatarClass = (role) => {
-  if (role === 'supervisor') return 'supervisor-avatar'
-  if (role === 'inspection_leader' || role === 'cs_leader') return 'leader-avatar'
-  return 'member-avatar'
+  const map = {
+    business: 'avatar-gold',
+    business_assistant: 'avatar-light-gold',
+    supervisor: 'avatar-brown',
+    supervisor_assistant: 'avatar-light-brown',
+    cs_leader: 'avatar-blue',
+    inspection_leader: 'avatar-blue',
+    sample_prep_leader: 'avatar-blue',
+    report_leader: 'avatar-blue',
+    cs_leader_assistant: 'avatar-light-blue',
+    inspection_leader_assistant: 'avatar-light-blue',
+    inspection_engineer: 'avatar-light-green',
+    data_review: 'avatar-light-green',
+    report_compiler: 'avatar-light-green',
+    tech_support: 'avatar-light-green',
+    customer_service: 'avatar-purple',
+    admin: 'avatar-red'
+  }
+  return map[role] || 'avatar-default'
 }
 
 // 按角色分组
 const activeUsers = computed(() => users.value.filter(u => !u.is_disabled && u.name !== '已删除用户'))
 
-// 业务端
-const businessUsers = computed(() => activeUsers.value.filter(u => u.role === 'business' || u.role === 'business_assistant'))
+// 业务端角色
+const BIZ_ROLE_VALUES = ['business', 'business_assistant']
+// 实验室端角色
+const LAB_ROLE_VALUES = ['supervisor', 'supervisor_assistant', 'customer_service', 'cs_leader', 'cs_leader_assistant', 'inspection_leader', 'inspection_leader_assistant', 'inspection_engineer', 'sample_prep_leader', 'report_leader', 'data_review', 'report_compiler', 'tech_support']
 
-// 实验室端
+// 业务端（按属地分组）
+const businessRegionGroups = computed(() => {
+  const bizUsers = activeUsers.value.filter(u => BIZ_ROLE_VALUES.includes(u.role))
+  const groups = {}
+  bizUsers.forEach(u => {
+    const region = u.region || '未分配属地'
+    if (!groups[region]) groups[region] = []
+    groups[region].push(u)
+  })
+  for (const region in groups) {
+    if (expandedSections['biz_' + region] === undefined) {
+      expandedSections['biz_' + region] = true
+    }
+  }
+  return groups
+})
+
+const businessUsers = computed(() => activeUsers.value.filter(u => BIZ_ROLE_VALUES.includes(u.role)))
+
+// 实验室端（按检测组/部门分组）
+const labDeptGroups = computed(() => {
+  const labUsers = activeUsers.value.filter(u => LAB_ROLE_VALUES.includes(u.role))
+  const groups = {}
+  labUsers.forEach(u => {
+    const dept = u.department || '未分配检测组'
+    if (!groups[dept]) groups[dept] = []
+    groups[dept].push(u)
+  })
+  for (const dept in groups) {
+    if (expandedSections['lab_' + dept] === undefined) {
+      expandedSections['lab_' + dept] = true
+    }
+  }
+  return groups
+})
+
 const supervisors = computed(() => activeUsers.value.filter(u => u.role === 'supervisor'))
 
 const inspectionGroups = computed(() => {
-  const inspUsers = activeUsers.value.filter(u => u.role === 'inspection_leader' || u.role === 'inspection_engineer')
+  const inspUsers = activeUsers.value.filter(u => u.role === 'inspection_leader' || u.role === 'inspection_engineer' || u.role === 'inspection_leader_assistant')
   const groups = {}
   inspUsers.forEach(u => {
     const dept = u.department || '未分组'
@@ -456,9 +446,8 @@ const inspectionGroups = computed(() => {
   })
   for (const dept in groups) {
     groups[dept].sort((a, b) => {
-      if (a.role === 'inspection_leader' && b.role !== 'inspection_leader') return -1
-      if (a.role !== 'inspection_leader' && b.role === 'inspection_leader') return 1
-      return 0
+      const roleOrder = { inspection_leader: 0, inspection_leader_assistant: 1, inspection_engineer: 2 }
+      return (roleOrder[a.role] ?? 99) - (roleOrder[b.role] ?? 99)
     })
     if (expandedSections['insp_' + dept] === undefined) {
       expandedSections['insp_' + dept] = true
@@ -467,13 +456,11 @@ const inspectionGroups = computed(() => {
   return groups
 })
 
-const csUsers = computed(() => activeUsers.value.filter(u => u.role === 'customer_service' || u.role === 'cs_leader'))
+const csUsers = computed(() => activeUsers.value.filter(u => u.role === 'customer_service' || u.role === 'cs_leader' || u.role === 'cs_leader_assistant'))
 
 const techSupports = computed(() => activeUsers.value.filter(u => u.role === 'tech_support'))
 
-const labUsersTotal = computed(() => supervisors.value.length + 
-  Object.values(inspectionGroups.value).flat().length + 
-  csUsers.value.length + techSupports.value.length)
+const labUsersTotal = computed(() => activeUsers.value.filter(u => LAB_ROLE_VALUES.includes(u.role)).length)
 
 // 搜索
 const filteredAll = computed(() => {
@@ -883,20 +870,46 @@ onMounted(() => {
   flex-shrink: 0;
 }
 
-.business-avatar {
-  background: linear-gradient(135deg, #409eff, #66b1ff);
+/* 头像背景色 - 按角色 */
+.avatar-gold {
+  background: linear-gradient(135deg, #FFD700, #FFA500);
+  color: #333;
 }
-
-.supervisor-avatar {
-  background: linear-gradient(135deg, #b8742a, #d4943c);
+.avatar-light-gold {
+  background: linear-gradient(135deg, #FFF8DC, #F0E68C);
+  color: #333;
 }
-
-.leader-avatar {
-  background: linear-gradient(135deg, #5daf34, #85ce61);
+.avatar-brown {
+  background: linear-gradient(135deg, #8B4513, #A0522D);
+  color: #fff;
 }
-
-.member-avatar {
-  background: linear-gradient(135deg, #409eff, #66b1ff);
+.avatar-light-brown {
+  background: linear-gradient(135deg, #D2B48C, #DEB887);
+  color: #333;
+}
+.avatar-blue {
+  background: linear-gradient(135deg, #409EFF, #66b1ff);
+  color: #fff;
+}
+.avatar-light-blue {
+  background: linear-gradient(135deg, #87CEEB, #ADD8E6);
+  color: #333;
+}
+.avatar-light-green {
+  background: linear-gradient(135deg, #90EE90, #98FB98);
+  color: #333;
+}
+.avatar-purple {
+  background: linear-gradient(135deg, #9370DB, #B19CD9);
+  color: #fff;
+}
+.avatar-red {
+  background: linear-gradient(135deg, #DC143C, #FF6B6B);
+  color: #fff;
+}
+.avatar-default {
+  background: linear-gradient(135deg, #909399, #C0C4CC);
+  color: #fff;
 }
 
 .person-info {
@@ -947,19 +960,47 @@ onMounted(() => {
   flex-shrink: 0;
 }
 
+.tag-gold {
+  background: #FFF8DC;
+  color: #B8860B;
+  border: 1px solid #FFD700;
+}
+.tag-light-gold {
+  background: #FFFAF0;
+  color: #DAA520;
+  border: 1px solid #F0E68C;
+}
 .tag-brown {
   background: #f5e6d0;
   color: #8b5e2b;
 }
-
-.tag-green {
-  background: #e1f3d8;
-  color: #4a8c32;
+.tag-light-brown {
+  background: #FAF0E6;
+  color: #A0522D;
 }
-
 .tag-blue {
   background: #d9ecff;
   color: #3375b9;
+}
+.tag-light-blue {
+  background: #E6F7FF;
+  color: #1890FF;
+}
+.tag-light-green {
+  background: #e1f3d8;
+  color: #4a8c32;
+}
+.tag-purple {
+  background: #f0e6ff;
+  color: #722ed1;
+}
+.tag-red {
+  background: #ffe6e6;
+  color: #cf1322;
+}
+.tag-gray {
+  background: #f5f5f5;
+  color: #666;
 }
 
 .empty-tip {

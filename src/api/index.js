@@ -1156,46 +1156,107 @@ function formatProfile(p) {
   }
 }
 
-// 角色显示名映射
+// ==========================================
+// 角色系统（三级架构：部门 → 属地/检测组 → 角色）
+// ==========================================
+
 export const ROLE_OPTIONS = [
-  { value: 'business', label: '业务' },
-  { value: 'business_assistant', label: '业务助理' },
-  { value: 'tech_support', label: '技术支持' },
-  { value: 'supervisor', label: '主管' },
-  { value: 'inspection_leader', label: '检测组长' },
-  { value: 'inspection_engineer', label: '检测工程师' },
-  { value: 'customer_service', label: '客服' },
-  { value: 'cs_leader', label: '客服组长' },
-  { value: 'admin', label: '管理员' }
+  // 业务端
+  { value: 'business', label: '业务', dept: 'business' },
+  { value: 'business_assistant', label: '业务助理', dept: 'business' },
+  // 实验室端
+  { value: 'supervisor', label: '实验室主管', dept: 'lab' },
+  { value: 'supervisor_assistant', label: '实验室主管助理', dept: 'lab' },
+  { value: 'customer_service', label: '客服', dept: 'lab' },
+  { value: 'cs_leader', label: '客服组长', dept: 'lab' },
+  { value: 'cs_leader_assistant', label: '客服组长助理', dept: 'lab' },
+  { value: 'inspection_leader', label: '检测组长', dept: 'lab' },
+  { value: 'inspection_leader_assistant', label: '检测组长助理', dept: 'lab' },
+  { value: 'inspection_engineer', label: '检测工程师', dept: 'lab' },
+  { value: 'sample_prep_leader', label: '制样组组长', dept: 'lab' },
+  { value: 'report_leader', label: '报告组组长', dept: 'lab' },
+  { value: 'data_review', label: '数据二审', dept: 'lab' },
+  { value: 'report_compiler', label: '报告编制', dept: 'lab' },
+  { value: 'tech_support', label: '技术支持', dept: 'lab' },
+  // 管理员
+  { value: 'admin', label: '管理员', dept: 'admin' }
 ]
 
 export function getRoleDisplayName(role) {
-  const map = {
-    business: '业务',
-    business_assistant: '业务助理',
-    tech_support: '技术支持',
-    supervisor: '主管',
-    inspection_leader: '检测组长',
-    inspection_engineer: '检测工程师',
-    customer_service: '客服',
-    cs_leader: '客服组长',
-    lab: '实验室人员',
-    admin: '管理员'
-  }
-  return map[role] || role
+  const opt = ROLE_OPTIONS.find(r => r.value === role)
+  return opt?.label || role
 }
 
 // 角色 → 导航分类映射
 export function getRoleCategory(role) {
-  const labRoles = ['supervisor', 'tech_support', 'inspection_leader', 'inspection_engineer', 'customer_service', 'cs_leader', 'lab']
-  const adminRoles = ['admin']
-  if (adminRoles.includes(role)) return 'admin'
-  if (labRoles.includes(role)) return 'lab'
-  return 'business' // business, business_assistant
+  const opt = ROLE_OPTIONS.find(r => r.value === role)
+  if (!opt) return 'lab'
+  if (opt.dept === 'admin') return 'admin'
+  if (opt.dept === 'lab') return 'lab'
+  return 'business'
 }
 
 // 获取实验室端所有角色
-export const LAB_ROLES = ['supervisor', 'tech_support', 'inspection_leader', 'inspection_engineer', 'customer_service', 'cs_leader']
+export const LAB_ROLES = ROLE_OPTIONS.filter(r => r.dept === 'lab').map(r => r.value)
 
 // 获取业务端所有角色
-export const BIZ_ROLES = ['business', 'business_assistant']
+export const BIZ_ROLES = ROLE_OPTIONS.filter(r => r.dept === 'business').map(r => r.value)
+
+// 获取所有非管理员角色（发起沟通时可选）
+export const ALL_COMM_ROLES = ROLE_OPTIONS.filter(r => r.value !== 'admin').map(r => r.value)
+
+// ==========================================
+// 角色名片背景色映射
+// ==========================================
+
+// 角色 → 名片背景色（用于通讯录头像/卡片背景）
+export function getRoleCardColor(role) {
+  const colors = {
+    // 业务端：金色系
+    business: { bg: '#FFD700', text: '#333' },              // 金色
+    business_assistant: { bg: '#FFF8DC', text: '#333' },    // 浅金黄色
+    // 实验室主管：棕色系
+    supervisor: { bg: '#8B4513', text: '#fff' },            // 棕色
+    supervisor_assistant: { bg: '#D2B48C', text: '#333' },  // 浅棕色
+    // 组长：蓝色系
+    cs_leader: { bg: '#409EFF', text: '#fff' },             // 蓝色
+    inspection_leader: { bg: '#409EFF', text: '#fff' },     // 蓝色
+    sample_prep_leader: { bg: '#409EFF', text: '#fff' },    // 蓝色
+    report_leader: { bg: '#409EFF', text: '#fff' },         // 蓝色
+    // 组长助理：浅蓝色系
+    cs_leader_assistant: { bg: '#87CEEB', text: '#333' },   // 浅蓝色
+    inspection_leader_assistant: { bg: '#87CEEB', text: '#333' }, // 浅蓝色
+    // 浅绿色系
+    inspection_engineer: { bg: '#90EE90', text: '#333' },   // 浅绿色
+    data_review: { bg: '#90EE90', text: '#333' },           // 浅绿色
+    report_compiler: { bg: '#90EE90', text: '#333' },       // 浅绿色
+    tech_support: { bg: '#90EE90', text: '#333' },          // 浅绿色
+    // 其他
+    customer_service: { bg: '#E6E6FA', text: '#333' },      // 客服：淡紫色
+    admin: { bg: '#DC143C', text: '#fff' }                  // 管理员：红色
+  }
+  return colors[role] || { bg: '#f0f0f0', text: '#333' }
+}
+
+// 角色 → CSS 类名（用于标签/徽章）
+export function getRoleTagClass(role) {
+  const tagClasses = {
+    business: 'tag-gold',
+    business_assistant: 'tag-light-gold',
+    supervisor: 'tag-brown',
+    supervisor_assistant: 'tag-light-brown',
+    cs_leader: 'tag-blue',
+    inspection_leader: 'tag-blue',
+    sample_prep_leader: 'tag-blue',
+    report_leader: 'tag-blue',
+    cs_leader_assistant: 'tag-light-blue',
+    inspection_leader_assistant: 'tag-light-blue',
+    inspection_engineer: 'tag-light-green',
+    data_review: 'tag-light-green',
+    report_compiler: 'tag-light-green',
+    tech_support: 'tag-light-green',
+    customer_service: 'tag-purple',
+    admin: 'tag-red'
+  }
+  return tagClasses[role] || 'tag-gray'
+}

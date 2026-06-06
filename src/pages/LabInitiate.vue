@@ -107,7 +107,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted, inject } from 'vue';
 import { ElMessage } from 'element-plus';
-import { communicationAPI, storageAPI } from '../api';
+import { communicationAPI, storageAPI, ROLE_OPTIONS, getRoleDisplayName } from '../api';
 import { supabase } from '../utils/supabase';
 import { buildSearchKeys, filterGroups } from '../utils/pinyinSearch';
 
@@ -120,7 +120,7 @@ const form = reactive({
 });
 const showImagePreview = ref(false);
 const previewImageUrl = ref('');
-const businessUsers = ref([]);
+const allUsers = ref([]);
 const recipientGroups = ref([]);
 const searchQuery = ref('');
 
@@ -226,22 +226,30 @@ const removeRecipient = (uid) => {
   if (idx >= 0) form.recipients.splice(idx, 1);
 };
 
-const loadBusinessUsers = async () => {
+// 加载所有用户（发起沟通时可选择任何人，除自己外）
+const loadAllUsers = async () => {
   try {
+    const { data: { user: authUser } } = await supabase.auth.getUser();
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
-      .in('role', ['business', 'business_assistant'])
+      .neq('id', authUser?.id || '')
       .eq('is_disabled', false)
       .order('role')
+      .order('department')
       .order('name')
     if (error) throw error
-    businessUsers.value = data || []
+    allUsers.value = data || []
 
-    // 按角色分组，构建搜索关键词
-    const roleNameMap = { business: '业务', business_assistant: '业务助理' }
+    // 按角色分组（使用统一的 ROLE_OPTIONS）
     const groups = {}
-    const roleOrder = ['business', 'business_assistant']
+    const roleNameMap = {}
+    const roleOrder = []
+    ROLE_OPTIONS.filter(r => r.value !== 'admin').forEach(r => {
+      roleNameMap[r.value] = r.label
+      roleOrder.push(r.value)
+    })
+
     data.forEach(u => {
       const label = roleNameMap[u.role] || u.role
       const userWithKeys = buildSearchKeys(u, roleNameMap)
@@ -249,19 +257,20 @@ const loadBusinessUsers = async () => {
       if (!groups[label]) groups[label] = { label, users: [] }
       groups[label].users.push(userWithKeys)
     })
+
     recipientGroups.value = roleOrder
       .map(r => roleNameMap[r])
       .filter(label => groups[label])
       .map(label => groups[label])
   } catch (error) {
-    ElMessage.error('加载业务用户失败');
+    ElMessage.error('加载用户失败');
   }
 };
 
 const preselectRecipients = inject('preselectRecipients', ref([]));
 
 onMounted(() => {
-  loadBusinessUsers().then(() => {
+  loadAllUsers().then(() => {
     // 如果有预选中用户（从组织架构页面跳转过来），自动填充
     if (preselectRecipients.value && preselectRecipients.value.length > 0) {
       form.recipients = [...preselectRecipients.value];

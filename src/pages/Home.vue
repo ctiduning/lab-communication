@@ -8,7 +8,7 @@
             <span>欢迎, {{ user.name }}</span>
             <!-- 角色切换器（仅管理员可见） -->
             <el-dropdown v-if="isAdmin" @command="switchRole" class="role-switcher">
-              <el-button type="primary" plain size="small">
+              <el-button size="small" style="background: transparent; border: 1px solid rgba(255,255,255,0.5); color: #fff;">
                 {{ viewRoleLabel }}<el-icon class="el-icon--right"><ArrowDown /></el-icon>
               </el-button>
               <template #dropdown>

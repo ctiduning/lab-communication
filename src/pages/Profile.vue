@@ -36,11 +36,14 @@
                 ></el-option>
               </el-select>
             </el-form-item>
-            <el-form-item label="部门" prop="department">
-              <el-input v-model="form.department" placeholder="请输入部门"></el-input>
+            <el-form-item :label="getRoleCategory(form.role) === 'business' ? '属地' : '检测组'">
+              <el-input
+                v-model="form.region"
+                :placeholder="getRoleCategory(form.role) === 'business' ? '如：青岛、哈尔滨' : '如：有机检测组、无机检测组'"
+              ></el-input>
             </el-form-item>
-            <el-form-item label="地区" prop="region">
-              <el-input v-model="form.region" placeholder="请输入地区"></el-input>
+            <el-form-item label="部门备注">
+              <el-input v-model="form.department" placeholder="补充信息（选填）"></el-input>
             </el-form-item>
             <el-form-item label="创建时间">
               <el-input v-model="form.created_at" disabled></el-input>
@@ -81,7 +84,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { userAPI, ROLE_OPTIONS, getRoleDisplayName } from '../api'
+import { userAPI, ROLE_OPTIONS, getRoleDisplayName, getRoleCategory } from '../api'
 import { supabase } from '../utils/supabase'
 
 const formRef = ref(null)
