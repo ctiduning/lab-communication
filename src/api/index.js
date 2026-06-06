@@ -322,6 +322,28 @@ export const userAPI = {
 
     if (error) throw error
     return { data: { message: '密码已重置为 cti123' } }
+  },
+
+  // 更新用户最后活跃时间（用于判断在线状态）
+  async updateLastActive() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { data: { message: '未登录' } };
+    
+    const now = new Date().toISOString();
+    const { error } = await supabase
+      .from('profiles')
+      .update({ last_active_at: now })
+      .eq('id', user.id);
+    
+    if (error) {
+      // 如果字段不存在，忽略错误
+      if (error.message.includes('does not exist') || error.code === '42703') {
+        console.warn('last_active_at 字段不存在，请先运行 supabase_add_last_active.sql');
+        return { data: { message: '字段不存在' } };
+      }
+      throw error;
+    }
+    return { data: { message: '已更新活跃时间' } }
   }
 }
 

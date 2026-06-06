@@ -49,9 +49,12 @@
               </div>
             </div>
           </div>
-          <el-table :data="filteredUsers" border stripe height="550" style="width: 100%;">
-            <el-table-column prop="username" label="用户名" width="90" sortable></el-table-column>
-            <el-table-column prop="name" label="姓名" width="90" sortable></el-table-column>
+            <el-table :data="filteredUsers" border stripe height="550" style="width: 100%;">
+            <el-table-column label="用户名" width="100" sortable>
+              <template #default="scope">
+                {{ scope.row.name || scope.row.username }}
+              </template>
+            </el-table-column>
             <el-table-column prop="employeeId" label="工号" width="90" sortable></el-table-column>
             <el-table-column prop="role" label="角色" width="100" sortable>
               <template #default="scope">
@@ -62,6 +65,12 @@
             <el-table-column prop="region" label="地区" width="80" sortable></el-table-column>
             <el-table-column prop="phone" label="电话" width="115" sortable></el-table-column>
             <el-table-column prop="email" label="邮箱" min-width="150" sortable show-overflow-tooltip></el-table-column>
+            <el-table-column label="是否在线" width="90" align="center" sortable>
+              <template #default="scope">
+                <el-tag v-if="isUserOnline(scope.row)" type="success" size="small">在线</el-tag>
+                <el-tag v-else type="info" size="small">离线</el-tag>
+              </template>
+            </el-table-column>
             <el-table-column label="状态" width="75" align="center" sortable>
               <template #default="scope">
                 <el-tag v-if="scope.row.isDisabled" type="info" size="small">已禁用</el-tag>
@@ -376,6 +385,26 @@ const getRoleTag = (role) => {
 };
 
 const getRoleName = (role) => getRoleDisplayName(role);
+
+// 判断用户是否在线（最近30分钟内有活动）
+const isUserOnline = (user) => {
+  if (!user || user.isDisabled) return false;
+  // 如果有 last_active_at 字段，使用它判断
+  if (user.last_active_at) {
+    const lastActive = new Date(user.last_active_at);
+    const now = new Date();
+    const diffMinutes = (now - lastActive) / (1000 * 60);
+    return diffMinutes <= 30; // 30分钟内有活动则认为在线
+  }
+  // 降级：使用 last_sign_in_at 判断（不太准确）
+  if (user.last_sign_in_at) {
+    const lastSignin = new Date(user.last_sign_in_at);
+    const now = new Date();
+    const diffMinutes = (now - lastSignin) / (1000 * 60);
+    return diffMinutes <= 30;
+  }
+  return false;
+};
 
 const getTypeLabel = (type) => {
   const labels = {

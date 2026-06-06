@@ -110,7 +110,7 @@ import { ChatDotSquare, Bell, Setting, User, OfficeBuilding, Promotion, ArrowDow
 import { supabase } from '../utils/supabase';
 
 const router = useRouter();
-import { authAPI, announcementAPI, communicationAPI, getRoleCategory } from '../api';
+import { authAPI, announcementAPI, communicationAPI, userAPI, getRoleCategory } from '../api';
 import BusinessInitiate from './BusinessInitiate.vue';
 import BusinessReceive from './BusinessReceive.vue';
 import LabInitiate from './LabInitiate.vue';
@@ -133,6 +133,7 @@ const unreadAnnCount = ref(0);
 const pendingMsgCount = ref(0);
 let announcementChannel = null;
 let messageChannel = null;
+let activeTimer = null;
 
 // 实际用户角色
 const realRoleCategory = computed(() => getRoleCategory(user.value.role));
@@ -387,6 +388,20 @@ onMounted(async () => {
   loadPendingMsgCount();
   subscribeAnnouncements();
   subscribeMessages();
+  
+  // 定期更新最后活跃时间（每5分钟）
+  try {
+    await userAPI.updateLastActive();
+  } catch (e) {
+    // 忽略错误（字段可能不存在）
+  }
+  activeTimer = setInterval(async () => {
+    try {
+      await userAPI.updateLastActive();
+    } catch (e) {
+      // 忽略错误
+    }
+  }, 5 * 60 * 1000); // 5分钟
 
   // 监听从通讯录跳转来的快捷发起沟通事件
   window.addEventListener('switch-to-initiate', handleSwitchToInitiate);
@@ -408,6 +423,10 @@ onUnmounted(() => {
   }
   if (messageChannel) {
     supabase.removeChannel(messageChannel);
+  }
+  if (activeTimer) {
+    clearInterval(activeTimer);
+    activeTimer = null;
   }
   window.removeEventListener('switch-to-initiate', handleSwitchToInitiate);
 });
