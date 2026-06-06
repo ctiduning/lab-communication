@@ -100,7 +100,6 @@
               </template>
             </el-table-column>
           </el-table>
-        </div>
       </el-tab-pane>
 
       <el-tab-pane label="沟通记录" name="communications">
