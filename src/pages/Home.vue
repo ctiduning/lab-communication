@@ -43,6 +43,7 @@
               <el-menu-item index="receive">
                 <el-icon><ChatDotSquare /></el-icon>
                 <span>接收消息</span>
+                <span v-if="pendingMsgCount > 0" class="pending-msg-badge">{{ pendingMsgCount }}条待处理</span>
               </el-menu-item>
               <el-menu-item index="sent">
                 <el-icon><Promotion /></el-icon>
@@ -63,6 +64,7 @@
               <el-menu-item index="lab-receive">
                 <el-icon><ChatDotSquare /></el-icon>
                 <span>接收消息</span>
+                <span v-if="pendingMsgCount > 0" class="pending-msg-badge">{{ pendingMsgCount }}条待处理</span>
               </el-menu-item>
               <el-menu-item index="sent">
                 <el-icon><Promotion /></el-icon>
@@ -108,7 +110,7 @@ import { ChatDotSquare, Bell, Setting, User, OfficeBuilding, Promotion, ArrowDow
 import { supabase } from '../utils/supabase';
 
 const router = useRouter();
-import { authAPI, announcementAPI, getRoleCategory } from '../api';
+import { authAPI, announcementAPI, communicationAPI, getRoleCategory } from '../api';
 import BusinessInitiate from './BusinessInitiate.vue';
 import BusinessReceive from './BusinessReceive.vue';
 import LabInitiate from './LabInitiate.vue';
@@ -128,7 +130,9 @@ const user = ref({
 const activeMenu = ref('initiate');
 const viewRole = ref('admin'); // 当前视图角色
 const unreadAnnCount = ref(0);
+const pendingMsgCount = ref(0);
 let announcementChannel = null;
+let messageChannel = null;
 
 // 实际用户角色
 const realRoleCategory = computed(() => getRoleCategory(user.value.role));
@@ -297,6 +301,37 @@ const loadUnreadCount = async () => {
   }
 };
 
+// 加载待处理消息数量
+const loadPendingMsgCount = async () => {
+  try {
+    const { data } = await communicationAPI.getPendingCount();
+    pendingMsgCount.value = data.count;
+  } catch (error) {
+    console.error('加载待处理消息数失败:', error);
+  }
+};
+
+// 实时订阅新消息（新增/回复时刷新待处理数）
+const subscribeMessages = () => {
+  messageChannel = supabase
+    .channel('messages-pending-count')
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'communications' },
+      () => {
+        loadPendingMsgCount();
+      }
+    )
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'communication_recipients' },
+      () => {
+        loadPendingMsgCount();
+      }
+    )
+    .subscribe();
+};
+
 // 切换视图角色
 const switchRole = (role) => {
   viewRole.value = role;
@@ -349,7 +384,9 @@ onMounted(async () => {
   await loadUser();
   await initMenu(); // 只在首次挂载时初始化菜单
   loadUnreadCount();
+  loadPendingMsgCount();
   subscribeAnnouncements();
+  subscribeMessages();
 
   // 监听从通讯录跳转来的快捷发起沟通事件
   window.addEventListener('switch-to-initiate', handleSwitchToInitiate);
@@ -368,6 +405,9 @@ onMounted(async () => {
 onUnmounted(() => {
   if (announcementChannel) {
     supabase.removeChannel(announcementChannel);
+  }
+  if (messageChannel) {
+    supabase.removeChannel(messageChannel);
   }
   window.removeEventListener('switch-to-initiate', handleSwitchToInitiate);
 });
@@ -433,6 +473,16 @@ onUnmounted(() => {
   font-size: 11px;
   color: #f56c6c;
   background: #fef0f0;
+  padding: 1px 6px;
+  border-radius: 8px;
+  margin-left: 6px;
+  white-space: nowrap;
+}
+
+.pending-msg-badge {
+  font-size: 11px;
+  color: #e6a23c;
+  background: #fdf6ec;
   padding: 1px 6px;
   border-radius: 8px;
   margin-left: 6px;

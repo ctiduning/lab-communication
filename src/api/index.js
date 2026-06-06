@@ -685,6 +685,35 @@ export const communicationAPI = {
 
     if (error) throw error
     return { data }
+  },
+
+  // 获取待处理消息数量
+  async getPendingCount() {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { data: { count: 0 } }
+
+    const { data: communications, error } = await supabase
+      .from('communications')
+      .select(`
+        is_completed,
+        communication_recipients(
+          recipient_id,
+          is_completed,
+          has_replied
+        )
+      `)
+      .eq('isDeleted', false)
+
+    if (error) throw error
+
+    const userId = user.id
+    const count = (communications || []).filter(c => {
+      const myRec = c.communication_recipients?.find(r => r.recipient_id === userId)
+      if (!myRec) return false
+      return !myRec.has_replied && !myRec.is_completed && !c.is_completed
+    }).length
+
+    return { data: { count } }
   }
 }
 
