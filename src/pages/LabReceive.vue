@@ -330,6 +330,15 @@
           <el-descriptions-item label="发送时间">{{ formatTime(selectedMessage.createdAt) }}</el-descriptions-item>
           <el-descriptions-item label="备注" :span="2">{{ selectedMessage.remark || '-' }}</el-descriptions-item>
         </el-descriptions>
+        
+        <h4 style="margin-top: 20px;">附件</h4>
+        <div v-if="selectedMessage.attachments && selectedMessage.attachments.length > 0" class="attachment-list">
+          <div v-for="(file, idx) in selectedMessage.attachments" :key="idx" class="attachment-item">
+            <el-icon :size="16"><Document /></el-icon>
+            <a :href="getDownloadUrl(file)" target="_blank" rel="noopener">{{ file.name }}</a>
+          </div>
+        </div>
+        <div v-else class="no-attachment">暂无附件</div>
 
         <h4 style="margin-top: 20px;">所有接收人状态</h4>
         <el-table :data="selectedMessage.recipientDetails || []" border size="small">
@@ -446,7 +455,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { ElMessage } from 'element-plus';
-import { Search, CircleCheck, CircleClose } from '@element-plus/icons-vue';
+import { Search, CircleCheck, CircleClose, Document } from '@element-plus/icons-vue';
 import { communicationAPI, userAPI, reactionAPI } from '../api';
 import { supabase } from '../utils/supabase';
 
@@ -511,6 +520,12 @@ const getSenderName = (senderId) => {
 const getUserDisplayName = (userId) => {
   const user = allUsers.value.find(u => u.id === userId);
   return user ? (user.name || user.username) : '未知';
+};
+
+const getDownloadUrl = (file) => {
+  if (!file) return '#';
+  if (typeof file === 'string') return file;
+  return file.url || '#';
 };
 
 const loadCurrentUser = async () => {
@@ -995,5 +1010,45 @@ onMounted(() => {
   background: #d4a574 !important;
   border-color: #d4a574 !important;
   color: white !important;
+}
+
+.attachment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.attachment-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: #f5f5f5;
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+
+.attachment-item:hover {
+  background: #e8e8e8;
+}
+
+.attachment-item a {
+  color: #409eff;
+  text-decoration: none;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachment-item a:hover {
+  text-decoration: underline;
+}
+
+.no-attachment {
+  color: #999;
+  font-size: 14px;
+  padding: 8px 0;
 }
 </style>

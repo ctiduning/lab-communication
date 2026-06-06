@@ -410,6 +410,7 @@ export const communicationAPI = {
       })) || [],
       isCompleted: c.is_completed || false,  // 沟通记录是否已完结（全局）
       replyCount: c.replies?.length || 0,
+      attachments: c.attachments || [],
       replies: c.replies?.map(r => ({
         id: r.id,
         senderId: r.sender_id,
