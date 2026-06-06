@@ -189,9 +189,6 @@ const logout = async () => {
 const preselectRecipients = ref([]);
 provide('preselectRecipients', preselectRecipients);
 
-// 标志：是否已处理过 preselectRecipients（防止重复跳转）
-let hasHandledPreselect = false;
-
 const loadUser = async () => {
   const { data: { user: authUser } } = await supabase.auth.getUser()
   if (!authUser) {
@@ -237,31 +234,31 @@ const loadUser = async () => {
 
   // 将用户信息同步到 localStorage，供其他页面使用
   localStorage.setItem('user', JSON.stringify(user.value));
+};
 
+// 初始化菜单（只在组件首次挂载时调用一次，防止切换程序后自动跳转）
+const initMenu = async () => {
   const cat = getRoleCategory(user.value.role);
+
   // 检查是否有预选中用户（从通讯录页面跳转过来）
-  // 只处理一次，防止 onAuthStateChange 的 TOKEN_REFRESHED 事件导致重复跳转
-  if (!hasHandledPreselect) {
-    const preselect = sessionStorage.getItem('preselectRecipients');
-    if (preselect) {
-      try {
-        preselectRecipients.value = JSON.parse(preselect);
-        sessionStorage.removeItem('preselectRecipients');
-        hasHandledPreselect = true;
-        // 自动切换到发起沟通页面
-        if (cat === 'lab') {
-          activeMenu.value = 'lab-initiate';
-        } else {
-          activeMenu.value = 'initiate';
-        }
-        return;
-      } catch (e) {
-        console.error('解析预选中用户失败:', e);
+  const preselect = sessionStorage.getItem('preselectRecipients');
+  if (preselect) {
+    try {
+      preselectRecipients.value = JSON.parse(preselect);
+      sessionStorage.removeItem('preselectRecipients');
+      // 自动切换到发起沟通页面
+      if (cat === 'lab') {
+        activeMenu.value = 'lab-initiate';
+      } else {
+        activeMenu.value = 'initiate';
       }
+      return;
+    } catch (e) {
+      console.error('解析预选中用户失败:', e);
     }
-    hasHandledPreselect = true;
   }
 
+  // 设置默认菜单
   if (cat === 'lab') {
     activeMenu.value = 'lab-initiate';
   } else if (cat === 'admin') {
@@ -350,6 +347,7 @@ const subscribeAnnouncements = () => {
 
 onMounted(async () => {
   await loadUser();
+  await initMenu(); // 只在首次挂载时初始化菜单
   loadUnreadCount();
   subscribeAnnouncements();
 
@@ -357,11 +355,12 @@ onMounted(async () => {
   window.addEventListener('switch-to-initiate', handleSwitchToInitiate);
 
   // 监听 auth 状态变化，防止串号
+  // 注意：TOKEN_REFRESHED 时只更新用户信息，不修改菜单，避免切换程序后自动跳转
   supabase.auth.onAuthStateChange((event, session) => {
     if (event === 'SIGNED_OUT' || !session) {
       router.push('/login');
     } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-      loadUser();
+      loadUser(); // 只更新用户信息，不再调用 initMenu()
     }
   });
 });

@@ -50,33 +50,44 @@
       </el-form-item>
       
       <el-form-item label="消息接收人" prop="recipients">
-        <el-select 
-          v-model="form.recipients" 
-          multiple 
+        <el-select
+          v-model="form.recipients"
+          multiple
           filterable
-          collapse-tags
-          collapse-tags-tooltip
           reserve-keyword
           :filter-method="filterRecipient"
           placeholder="输入姓名/拼音/地区搜索..."
-          style="width: 100%;"
+          style="width: 100%; min-width: 600px;"
           :teleported="false"
           :popper-append-to-body="false"
+          :max-collapse-tags="0"
+          class="recipient-select"
         >
           <el-option-group v-for="group in filteredGroups" :key="group.label" :label="group.label">
-            <el-option 
-              v-for="u in group.users" 
-              :key="u.id" 
-              :label="u.name + ' (' + (u.region || '-') + ')'" 
+            <el-option
+              v-for="u in group.users"
+              :key="u.id"
+              :label="u.name"
               :value="u.id"
             >
-              <span>{{ u.name }}</span>
-              <span style="color:#999;font-size:12px;margin-left:8px;">{{ u.region || '-' }} · {{ u._roleName || '-' }}</span>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-weight:500;">{{ u.name }}</span>
+                <span style="color:#999;font-size:12px;">{{ u.region || '-' }} · {{ u._roleName || '-' }}</span>
+              </div>
             </el-option>
           </el-option-group>
         </el-select>
         <div style="color: #999; font-size: 12px; margin-top: 4px;">
           已选择 {{ form.recipients.length }} 人（支持拼音首字母/全拼/地区搜索）
+        </div>
+        <!-- 已选人员名片展示 -->
+        <div v-if="form.recipients.length > 0" class="selected-recipient-cards">
+          <div v-for="uid in form.recipients" :key="uid" class="recipient-card">
+            <span class="recipient-card-name">{{ getUserName(uid) }}</span>
+            <span class="recipient-card-dept">{{ getUserRegion(uid) }}</span>
+            <span class="recipient-card-role">{{ getUserRoleName(uid) }}</span>
+            <span class="recipient-card-remove" @click="removeRecipient(uid)">×</span>
+          </div>
         </div>
       </el-form-item>
       
@@ -197,6 +208,24 @@ const resetForm = () => {
   form.attachments = [];
 };
 
+// 从所有选项中查找用户信息
+const findUserById = (uid) => {
+  for (const group of recipientGroups.value) {
+    const user = group.users.find(u => u.id === uid);
+    if (user) return user;
+  }
+  return null;
+};
+
+const getUserName = (uid) => findUserById(uid)?.name || uid;
+const getUserRegion = (uid) => findUserById(uid)?.region || '-';
+const getUserRoleName = (uid) => findUserById(uid)?._roleName || '-';
+
+const removeRecipient = (uid) => {
+  const idx = form.recipients.indexOf(uid);
+  if (idx >= 0) form.recipients.splice(idx, 1);
+};
+
 const loadBusinessUsers = async () => {
   try {
     const { data, error } = await supabase
@@ -289,5 +318,60 @@ onMounted(() => {
   padding: 20px;
   background: #f9f9f9;
   border-radius: 8px;
+}
+
+/* 已选人员名片 */
+.selected-recipient-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.recipient-card {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #ecf5ff;
+  border: 1px solid #d9ecff;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
+.recipient-card-name {
+  font-weight: 600;
+  color: #303133;
+}
+
+.recipient-card-dept {
+  color: #606266;
+  font-size: 11px;
+}
+
+.recipient-card-role {
+  color: #909399;
+  font-size: 11px;
+  background: #f0f0f0;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+.recipient-card-remove {
+  color: #f56c6c;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: bold;
+  margin-left: 4px;
+  line-height: 1;
+}
+
+.recipient-card-remove:hover {
+  color: #c45656;
+}
+
+/* 让el-select的标签也显示正确 */
+:deep(.recipient-select .el-select__tags) {
+  max-width: 100% !important;
 }
 </style>

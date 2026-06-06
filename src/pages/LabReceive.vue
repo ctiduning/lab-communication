@@ -826,8 +826,14 @@ const sendQuickReplyFromRow = async (msg, content) => {
   try {
     await communicationAPI.createReply(msg.id, { content });
     ElMessage.success('回复成功');
+    // 立即在本地更新状态（不等待服务器同步，避免延迟）
+    const idx = messages.value.findIndex(m => m.id === msg.id);
+    if (idx >= 0) {
+      messages.value[idx].hasReplied = true;
+    }
     Object.assign(msg, { hasReplied: true });
-    await loadMessages();
+    // 延迟刷新列表（给服务器时间同步，但不阻塞UI）
+    setTimeout(() => loadMessages(), 300);
     if (content === '同意' || content === '拒绝') {
       activeTab.value = 'processed';
     }

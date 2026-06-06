@@ -84,7 +84,11 @@
       @selection-change="handleSelectionChange"
     >
       <el-table-column v-if="isAdmin" type="selection" width="45" />
-      <el-table-column type="index" label="序号" width="60" align="center" />
+      <el-table-column type="index" label="序号" width="80" align="center" :resizable="false">
+        <template #header>
+          <span style="white-space: nowrap;">序号</span>
+        </template>
+      </el-table-column>
       <el-table-column label="标题" min-width="200">
         <template #default="scope">
           <span :class="{ 'is-unread-text': !scope.row.isRead }">{{ scope.row.title }}</span>
