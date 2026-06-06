@@ -739,6 +739,8 @@ export const communicationAPI = {
       .select(`
         id,
         is_completed,
+        is_recalled,
+        is_system_notification,
         communication_recipients(
           recipient_id,
           is_completed,
@@ -768,12 +770,15 @@ export const communicationAPI = {
       .from('communications')
       .select(`
         id,
-        title,
+        type,
         content,
-        initiator_role,
         created_at,
+        sender_id,
         is_flagged,
         is_completed,
+        is_recalled,
+        recall_reason,
+        recalled_at,
         sender:sender_id(name, employee_id, role),
         communication_recipients(
           recipient:recipient_id(name, employee_id, role),
@@ -862,9 +867,7 @@ export const communicationAPI = {
         const { data: notif, error: insertError } = await supabase
           .from('communications')
           .insert([{
-            title: '消息撤回通知',
             content: notificationContent,
-            initiator_role: 'system',
             sender_id: user.id,
             is_system_notification: true
           }])
