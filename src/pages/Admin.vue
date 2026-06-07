@@ -52,6 +52,15 @@
                   <el-icon><Download /></el-icon>
                   下载模板
                 </el-button>
+                <el-button 
+                  type="warning" 
+                  @click="showCleanupDialog = true"
+                  size="large"
+                  style="margin-left: 12px;"
+                >
+                  <el-icon><Delete /></el-icon>
+                  清理旧数据
+                </el-button>
               </div>
               <div class="header-right">
                 <el-input 
@@ -68,8 +77,59 @@
                 <el-button type="primary" @click="handleSearch" size="large">搜索</el-button>
               </div>
             </div>
-          </div>
-            <el-table :data="filteredUsers" border stripe height="550" style="width: 100%;">
+            </div>
+            <!-- 存储状态显示 -->
+            <div v-if="storageStatus" class="storage-status-card beautiful-card" style="margin-top: 16px; padding: 16px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h3 style="margin: 0; font-size: 16px;">📊 存储状态</h3>
+                <el-button type="primary" link @click="loadStorageStatus" :loading="storageLoading">刷新</el-button>
+              </div>
+              <el-row :gutter="20">
+                <el-col :span="12">
+                  <div style="margin-bottom: 8px;">
+                    <span style="font-weight: bold;">数据库记录数：</span>
+                    <span>{{ storageStatus.database.communications }} 条沟通记录，</span>
+                    <span>{{ storageStatus.database.replies }} 条回复，</span>
+                    <span>{{ storageStatus.database.notifications }} 条通知</span>
+                  </div>
+                  <div style="margin-bottom: 8px;">
+                    <span style="font-weight: bold;">预估数据库大小：</span>
+                    <el-tag :type="storageStatus.estimatedDbSizeMB > 400 ? 'danger' : storageStatus.estimatedDbSizeMB > 300 ? 'warning' : 'success'">
+                      {{ storageStatus.estimatedDbSizeMB.toFixed(2) }} MB / {{ storageStatus.limits.databaseMB }} MB
+                    </el-tag>
+                  </div>
+                </el-col>
+                <el-col :span="12">
+                  <div style="margin-bottom: 8px;">
+                    <span style="font-weight: bold;">文件存储：</span>
+                    <span>{{ storageStatus.storage.fileCount }} 个文件</span>
+                    <el-tag type="info" size="small" style="margin-left: 8px;">{{ storageStatus.storage.storageNote }}</el-tag>
+                  </div>
+                  <div style="margin-bottom: 8px;">
+                    <el-progress 
+                      :percentage="Math.min(100, storageStatus.estimatedDbSizeMB / storageStatus.limits.databaseMB * 100)" 
+                      :color="storageStatus.estimatedDbSizeMB > 400 ? '#f56c6c' : storageStatus.estimatedDbSizeMB > 300 ? '#e6a23c' : '#67c23a'"
+                      :stroke-width="10"
+                    />
+                  </div>
+                </el-col>
+              </el-row>
+              <el-alert 
+                v-if="storageStatus.estimatedDbSizeMB > 400" 
+                title="存储空间即将用尽！请立即清理旧数据或升级套餐。" 
+                type="error" 
+                :closable="false" 
+                style="margin-top: 12px;"
+              />
+              <el-alert 
+                v-else-if="storageStatus.estimatedDbSizeMB > 300" 
+                title="存储空间使用率较高，建议定期清理旧数据。" 
+                type="warning" 
+                :closable="false" 
+                style="margin-top: 12px;"
+              />
+            </div>
+            <el-table :data="filteredUsers" border stripe height="550" style="width: 100%; margin-top: 16px;">
             <el-table-column label="用户名" width="100" sortable>
               <template #default="scope">
                 {{ scope.row.name || scope.row.username }}
@@ -370,6 +430,88 @@
           </div>
         </div>
       </el-tab-pane>
+      
+      <!-- 清理旧数据对话框 -->
+      <el-dialog 
+        v-model="showCleanupDialog" 
+        title="清理旧数据" 
+        width="600px"
+        :close-on-click-modal="false"
+      >
+        <div class="cleanup-dialog-content">
+          <el-alert 
+            title="⚠️ 清理前请务必先备份数据！" 
+            type="warning" 
+            :closable="false"
+            style="margin-bottom: 16px;"
+          >
+            <template #default>
+              <div>
+                <p>清理操作不可恢复！建议在清理前先使用"一键备份"功能备份数据。</p>
+                <el-button type="primary" size="small" @click="handleBackup" :loading="backupLoading" style="margin-top: 8px;">
+                  立即备份
+                </el-button>
+              </div>
+            </template>
+          </el-alert>
+
+          <div class="cleanup-date-picker">
+            <el-form label-width="120px">
+              <el-form-item label="清理此日期之前的记录">
+                <el-date-picker
+                  v-model="cleanupDate"
+                  type="date"
+                  placeholder="选择日期"
+                  value-format="YYYY-MM-DD"
+                  style="width: 100%;"
+                  :clearable="false"
+                />
+                <div style="font-size: 12px; color: #888; margin-top: 4px;">
+                  将删除该日期之前的所有沟通记录（含回复和附件）
+                </div>
+              </el-form-item>
+            </el-form>
+          </div>
+
+          <div v-if="oldCommunications.length > 0" class="cleanup-preview">
+            <el-divider>预览：将删除以下 {{ oldCommunications.length }} 条记录</el-divider>
+            <el-table :data="oldCommunications.slice(0, 10)" border stripe size="small" max-height="300">
+              <el-table-column prop="senderName" label="发起人" width="100" />
+              <el-table-column prop="content" label="内容" min-width="150" show-overflow-tooltip />
+              <el-table-column label="接收人" width="80" align="center">
+                <template #default="scope">
+                  {{ scope.row.recipientCount }} 人
+                </template>
+              </el-table-column>
+              <el-table-column label="回复" width="80" align="center">
+                <template #default="scope">
+                  {{ scope.row.replyCount }} 条
+                </template>
+              </el-table-column>
+              <el-table-column label="时间" width="160">
+                <template #default="scope">
+                  {{ formatTime(scope.row.createdAt) }}
+                </template>
+              </el-table-column>
+            </el-table>
+            <div v-if="oldCommunications.length > 10" style="font-size: 12px; color: #888; margin-top: 8px;">
+              ... 还有 {{ oldCommunications.length - 10 }} 条记录未显示
+            </div>
+          </div>
+        </div>
+
+        <template #footer>
+          <el-button @click="showCleanupDialog = false">取消</el-button>
+          <el-button 
+            type="danger" 
+            @click="handleCleanupConfirm" 
+            :loading="cleanupLoading"
+            :disabled="!cleanupDate || oldCommunications.length === 0"
+          >
+            确认清理 {{ oldCommunications.length }} 条记录
+          </el-button>
+        </template>
+      </el-dialog>
     </el-tabs>
     </div>
     
@@ -474,6 +616,15 @@ const showCreateModal = ref(false);
 const saving = ref(false);
 const exportLoading = ref(false);
 const backupLoading = ref(false);
+
+// ==================== 存储管理 ====================
+const storageStatus = ref(null);
+const storageWarning = ref(false);
+const showCleanupDialog = ref(false);
+const cleanupDate = ref('');
+const oldCommunications = ref([]);
+const cleanupLoading = ref(false);
+const cleanupPreviewLoading = ref(false);
 
 const allRoleOptions = ROLE_OPTIONS;
 
@@ -1269,6 +1420,72 @@ const exportStatsToExcel = () => {
   }
 };
 
+// ==================== 存储管理相关方法 ====================
+const storageLoading = ref(false);
+
+const loadStorageStatus = async () => {
+  storageLoading.value = true;
+  try {
+    const { data } = await communicationAPI.getStorageStatus();
+    storageStatus.value = data;
+  } catch (error) {
+    ElMessage.error('获取存储状态失败：' + (error.message || '未知错误'));
+  } finally {
+    storageLoading.value = false;
+  }
+};
+
+const handleCleanupPreview = async () => {
+  if (!cleanupDate.value) {
+    ElMessage.warning('请选择日期');
+    return;
+  }
+  cleanupPreviewLoading.value = true;
+  try {
+    const { data } = await communicationAPI.getOldCommunications(cleanupDate.value);
+    oldCommunications.value = data;
+    if (data.length === 0) {
+      ElMessage.info('该日期之前没有沟通记录');
+    }
+  } catch (error) {
+    ElMessage.error('预览失败：' + (error.message || '未知错误'));
+  } finally {
+    cleanupPreviewLoading.value = false;
+  }
+};
+
+const handleCleanupConfirm = async () => {
+  if (!cleanupDate.value || oldCommunications.value.length === 0) {
+    ElMessage.warning('请先选择日期并预览');
+    return;
+  }
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除 ${oldCommunications.value.length} 条沟通记录及其相关数据吗？\n\n此操作不可恢复！`,
+      '确认清理',
+      { confirmButtonText: '确认删除', cancelButtonText: '取消', type: 'warning' }
+    );
+    cleanupLoading.value = true;
+    const { data } = await communicationAPI.cleanupOldData(cleanupDate.value);
+    ElMessage.success(data.message);
+    showCleanupDialog.value = false;
+    oldCommunications.value = [];
+    await loadStorageStatus();
+  } catch (error) {
+    if (error !== 'cancel') ElMessage.error('清理失败：' + (error.message || '未知错误'));
+  } finally {
+    cleanupLoading.value = false;
+  }
+};
+
+// 页面加载时自动获取存储状态
+onMounted(() => {
+  loadUsers();
+  loadCommunications();
+  loadNotifications();
+  loadStorageStatus();
+});
+
 // ==================== 一键备份功能 ====================
 const handleBackup = async () => {
   backupLoading.value = true;
@@ -1661,6 +1878,23 @@ onMounted(() => {
 .filter-form :deep(.el-form-item) {
   margin-bottom: 0;
   margin-right: 0;
+}
+
+/* ==================== 存储清理对话框 ==================== */
+.cleanup-dialog-content {
+  padding: 16px 0;
+}
+
+.cleanup-warning {
+  margin-bottom: 16px;
+}
+
+.cleanup-date-picker {
+  margin-bottom: 16px;
+}
+
+.cleanup-preview {
+  margin-top: 16px;
 }
 
 .filter-form :deep(.el-form-item__label) {

@@ -806,6 +806,170 @@ export const communicationAPI = {
     return { data: communications || [] };
   },
 
+  // ==================== 存储管理相关 ====================
+  // 获取存储状态（数据库记录数 + 文件存储）
+  async getStorageStatus() {
+    // 1. 统计数据库记录数
+    const { count: commCount, error: commError } = await supabase
+      .from('communications')
+      .select('*', { count: 'exact', head: true });
+
+    const { count: replyCount, error: replyError } = await supabase
+      .from('replies')
+      .select('*', { count: 'exact', head: true });
+
+    const { count: notifCount, error: notifError } = await supabase
+      .from('notifications')
+      .select('*', { count: 'exact', head: true });
+
+    const { count: userCount, error: userError } = await supabase
+      .from('profiles')
+      .select('*', { count: 'exact', head: true });
+
+    // 2. 统计文件存储（从 communications 表中获取附件信息）
+    const { data: commsWithAttachments, error: attachError } = await supabase
+      .from('communications')
+      .select('attachments')
+      .not('attachments', 'is', null);
+
+    // 计算文件数量（通过 Storage API）
+    let fileCount = 0;
+    let fileSizeBytes = 0;
+    try {
+      const { data: files, error: storageError } = await supabase
+        .storage
+        .from('attachments')
+        .list('', { limit: 10000 });
+
+      if (!storageError && files) {
+        fileCount = files.length;
+        // 注意：Supabase Storage API 不直接返回文件大小，需要逐个查询
+        // 这里只显示文件数量，不显示精确大小（避免 API 调用过多）
+      }
+    } catch (e) {
+      console.warn('获取文件列表失败:', e);
+    }
+
+    return {
+      data: {
+        database: {
+          communications: commCount || 0,
+          replies: replyCount || 0,
+          notifications: notifCount || 0,
+          users: userCount || 0
+        },
+        storage: {
+          fileCount: fileCount,
+          // 估算：每条沟通记录约 2KB，每个回复约 1KB
+          estimatedDbSizeMB: ((commCount || 0) * 2 + (replyCount || 0) * 1 + (notifCount || 0) * 0.5) / 1024,
+          // 文件存储需要用户手动检查（Supabase Storage API 限制）
+          storageNote: '文件存储大小需要在 Supabase 后台查看'
+        },
+        limits: {
+          databaseMB: 500,  // Supabase 免费版 500 MB
+          storageMB: 1024    // Supabase 免费版 1 GB
+        }
+      }
+    };
+  },
+
+  // 获取指定日期之前的旧沟通记录（用于预览）
+  async getOldCommunications(beforeDate) {
+    const { data, error } = await supabase
+      .from('communications')
+      .select(`
+        id,
+        content,
+        created_at,
+        sender:sender_id(name, employee_id),
+        communication_recipients(recipient_id),
+        replies(id)
+      `)
+      .lt('created_at', beforeDate)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    return {
+      data: (data || []).map(c => ({
+        id: c.id,
+        content: c.content,
+        createdAt: c.created_at,
+        senderName: c.sender?.name || c.sender?.employee_id || '',
+        recipientCount: c.communication_recipients?.length || 0,
+        replyCount: c.replies?.length || 0
+      }))
+    };
+  },
+
+  // 清理指定日期之前的旧数据
+  async cleanupOldData(beforeDate) {
+    // 1. 获取要删除的沟通记录 ID
+    const { data: oldComms, error: fetchError } = await supabase
+      .from('communications')
+      .select('id, attachments')
+      .lt('created_at', beforeDate);
+
+    if (fetchError) throw fetchError;
+
+    if (!oldComms || oldComms.length === 0) {
+      return { data: { deleted: 0, message: '没有找到符合条件的记录' } };
+    }
+
+    const oldCommIds = oldComms.map(c => c.id);
+
+    // 2. 删除相关的回复
+    const { error: replyError } = await supabase
+      .from('replies')
+      .delete()
+      .in('communication_id', oldCommIds);
+
+    if (replyError) throw replyError;
+
+    // 3. 删除相关的 communication_recipients
+    const { error: recipError } = await supabase
+      .from('communication_recipients')
+      .delete()
+      .in('communication_id', oldCommIds);
+
+    if (recipError) throw recipError;
+
+    // 4. 删除相关的通知
+    const { error: notifError } = await supabase
+      .from('notifications')
+      .delete()
+      .in('communication_id', oldCommIds);
+
+    if (notifError) console.warn('删除通知失败:', notifError);
+
+    // 5. 删除附件文件（从 Storage）
+    for (const comm of oldComms) {
+      if (comm.attachments && comm.attachments.length > 0) {
+        const filePaths = comm.attachments.map(a => a.path);
+        try {
+          await supabase.storage.from('attachments').remove(filePaths);
+        } catch (e) {
+          console.warn('删除附件失败:', e);
+        }
+      }
+    }
+
+    // 6. 删除沟通记录
+    const { error: deleteError, count } = await supabase
+      .from('communications')
+      .delete({ count: 'exact' })
+      .lt('created_at', beforeDate);
+
+    if (deleteError) throw deleteError;
+
+    return {
+      data: {
+        deleted: count || oldCommIds.length,
+        message: `成功删除 ${count || oldCommIds.length} 条沟通记录及其相关数据`
+      }
+    };
+  },
+
   // 撤回消息（5分钟内可撤回）
   async recallMessage(communicationId, reason = '') {
     const { data: { user } } = await supabase.auth.getUser();
