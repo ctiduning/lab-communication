@@ -498,10 +498,10 @@ const editAndResend = (msg) => {
   localStorage.setItem('recalledMessageEdit', JSON.stringify(editData))
   // 跳转到发起沟通页面（根据当前路由判断是商务还是实验室）
   const currentPath = window.location.hash
-  if (currentPath.includes('lab')) {
-    window.location.href = '#/lab-communicate'
+  if (currentPath.includes('lab') || currentPath.includes('实验室')) {
+    window.location.href = '#/lab-initiate'
   } else {
-    window.location.href = '#/business-communicate'
+    window.location.href = '#/business-initiate'
   }
 }
 

@@ -37,6 +37,18 @@ const routes = [
     component: () => import('../pages/History.vue'),
     meta: { requiresAuth: true }
   },
+  {
+    path: '/business-initiate',
+    name: 'BusinessInitiate',
+    component: () => import('../pages/BusinessInitiate.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/lab-initiate',
+    name: 'LabInitiate',
+    component: () => import('../pages/LabInitiate.vue'),
+    meta: { requiresAuth: true }
+  },
   // 兜底：其他路径重定向到首页
   {
     path: '/:pathMatch(.*)*',

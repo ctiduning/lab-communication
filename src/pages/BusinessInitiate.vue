@@ -14,6 +14,10 @@
         </el-select>
       </el-form-item>
       
+      <el-form-item label="消息内容" prop="content">
+        <el-input type="textarea" v-model="form.content" placeholder="请输入消息内容" :rows="4"></el-input>
+      </el-form-item>
+      
       <el-form-item label="是否为V1V2客户" prop="vip">
         <el-select v-model="form.vip" placeholder="请选择">
           <el-option label="是" value="yes"></el-option>
@@ -161,6 +165,7 @@ const form = reactive({
   chargeStatus: '',
   urgentFee: '',
   remark: '',
+  content: '',
   recipients: [],
   attachments: []
 });
