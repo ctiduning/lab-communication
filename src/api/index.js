@@ -832,7 +832,7 @@ export const communicationAPI = {
       .select('attachments')
       .not('attachments', 'is', null);
 
-    // 计算文件数量（通过 Storage API）
+    // 计算文件数量和大小（通过 Storage API）
     let fileCount = 0;
     let fileSizeBytes = 0;
     try {
@@ -842,13 +842,22 @@ export const communicationAPI = {
         .list('', { limit: 10000 });
 
       if (!storageError && files) {
-        fileCount = files.length;
-        // 注意：Supabase Storage API 不直接返回文件大小，需要逐个查询
-        // 这里只显示文件数量，不显示精确大小（避免 API 调用过多）
+        // 过滤掉文件夹（name 为空或以 / 结尾的是文件夹）
+        const actualFiles = files.filter(f => f.name && !f.name.endsWith('/'));
+        fileCount = actualFiles.length;
+
+        // 累加文件大小（metadata.size 在 Supabase 中可用）
+        for (const file of actualFiles) {
+          if (file.metadata && file.metadata.size) {
+            fileSizeBytes += file.metadata.size;
+          }
+        }
       }
     } catch (e) {
       console.warn('获取文件列表失败:', e);
     }
+
+    const fileSizeMB = fileSizeBytes / (1024 * 1024);
 
     return {
       data: {
@@ -860,10 +869,11 @@ export const communicationAPI = {
         },
         storage: {
           fileCount: fileCount,
+          fileSizeBytes: fileSizeBytes,
+          fileSizeMB: fileSizeMB,
           // 估算：每条沟通记录约 2KB，每个回复约 1KB
           estimatedDbSizeMB: ((commCount || 0) * 2 + (replyCount || 0) * 1 + (notifCount || 0) * 0.5) / 1024,
-          // 文件存储需要用户手动检查（Supabase Storage API 限制）
-          storageNote: '文件存储大小需要在 Supabase 后台查看'
+          storageNote: fileSizeMB > 0 ? `附件占用 ${fileSizeMB.toFixed(2)} MB` : '暂无附件文件'
         },
         limits: {
           databaseMB: 500,  // Supabase 免费版 500 MB

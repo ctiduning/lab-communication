@@ -94,8 +94,8 @@
                   </div>
                   <div style="margin-bottom: 8px;">
                     <span style="font-weight: bold;">预估数据库大小：</span>
-                    <el-tag :type="storageStatus.estimatedDbSizeMB > 400 ? 'danger' : storageStatus.estimatedDbSizeMB > 300 ? 'warning' : 'success'">
-                      {{ storageStatus.estimatedDbSizeMB.toFixed(2) }} MB / {{ storageStatus.limits.databaseMB }} MB
+                    <el-tag :type="storageStatus.storage.estimatedDbSizeMB > 400 ? 'danger' : storageStatus.storage.estimatedDbSizeMB > 300 ? 'warning' : 'success'">
+                      {{ storageStatus.storage.estimatedDbSizeMB.toFixed(2) }} MB / {{ storageStatus.limits.databaseMB }} MB
                     </el-tag>
                   </div>
                 </el-col>
@@ -107,22 +107,22 @@
                   </div>
                   <div style="margin-bottom: 8px;">
                     <el-progress 
-                      :percentage="Math.min(100, storageStatus.estimatedDbSizeMB / storageStatus.limits.databaseMB * 100)" 
-                      :color="storageStatus.estimatedDbSizeMB > 400 ? '#f56c6c' : storageStatus.estimatedDbSizeMB > 300 ? '#e6a23c' : '#67c23a'"
+                      :percentage="Math.min(100, storageStatus.storage.estimatedDbSizeMB / storageStatus.limits.databaseMB * 100)" 
+                      :color="storageStatus.storage.estimatedDbSizeMB > 400 ? '#f56c6c' : storageStatus.storage.estimatedDbSizeMB > 300 ? '#e6a23c' : '#67c23a'"
                       :stroke-width="10"
                     />
                   </div>
                 </el-col>
               </el-row>
               <el-alert 
-                v-if="storageStatus.estimatedDbSizeMB > 400" 
+                v-if="storageStatus.storage.estimatedDbSizeMB > 400" 
                 title="存储空间即将用尽！请立即清理旧数据或升级套餐。" 
                 type="error" 
                 :closable="false" 
                 style="margin-top: 12px;"
               />
               <el-alert 
-                v-else-if="storageStatus.estimatedDbSizeMB > 300" 
+                v-else-if="storageStatus.storage.estimatedDbSizeMB > 300" 
                 title="存储空间使用率较高，建议定期清理旧数据。" 
                 type="warning" 
                 :closable="false" 
@@ -465,6 +465,7 @@
                   value-format="YYYY-MM-DD"
                   style="width: 100%;"
                   :clearable="false"
+                  @change="handleCleanupPreview"
                 />
                 <div style="font-size: 12px; color: #888; margin-top: 4px;">
                   将删除该日期之前的所有沟通记录（含回复和附件）
