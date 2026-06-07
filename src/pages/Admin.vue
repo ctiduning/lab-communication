@@ -35,6 +35,16 @@
                   导出沟通记录
                 </el-button>
                 <el-button 
+                  type="danger" 
+                  @click="handleBackup" 
+                  size="large"
+                  style="margin-left: 12px;"
+                  :loading="backupLoading"
+                >
+                  <el-icon><Download /></el-icon>
+                  一键备份
+                </el-button>
+                <el-button 
                   type="text" 
                   @click="downloadTemplate" 
                   style="margin-left: 12px; color: #888; font-size: 13px;"
@@ -206,31 +216,157 @@
 
       <el-tab-pane label="统计" name="stats">
         <div class="stats-content">
-          <div class="stats-cards">
-            <div class="stat-card">
-              <div class="stat-info">
-                <p class="stat-value">{{ totalUsers }}</p>
-                <p class="stat-label">总用户数</p>
-              </div>
+          <!-- 筛选区域 -->
+          <div class="stats-filter">
+            <el-form :inline="true" class="filter-form">
+              <el-form-item label="时间范围">
+                <el-date-picker
+                  v-model="statsTimeRange"
+                  type="daterange"
+                  range-separator="至"
+                  start-placeholder="开始日期"
+                  end-placeholder="结束日期"
+                  value-format="YYYY-MM-DD"
+                  style="width: 280px;"
+                />
+              </el-form-item>
+              <el-form-item label="人员名称">
+                <el-input
+                  v-model="statsPersonName"
+                  placeholder="输入姓名或工号"
+                  clearable
+                  style="width: 180px;"
+                />
+              </el-form-item>
+              <el-form-item label="沟通类型">
+                <el-select
+                  v-model="statsTypes"
+                  multiple
+                  collapse-tags
+                  placeholder="全部类型"
+                  clearable
+                  style="width: 220px;"
+                >
+                  <el-option label="付费加急" value="paid_urgent" />
+                  <el-option label="免费加急" value="free_urgent" />
+                  <el-option label="数据质疑" value="data_dispute" />
+                  <el-option label="跟单" value="follow_up" />
+                  <el-option label="咨询" value="consultation" />
+                  <el-option label="其他" value="other" />
+                  <el-option label="不合格沟通" value="unqualified" />
+                  <el-option label="数据确认" value="data_confirm" />
+                </el-select>
+              </el-form-item>
+              <el-form-item>
+                <el-button type="primary" @click="calculateStats" :loading="statsLoading">
+                  <el-icon><Search /></el-icon>
+                  查询
+                </el-button>
+                <el-button type="success" @click="exportStatsToExcel" :disabled="!statsResult" style="margin-left: 8px;">
+                  <el-icon><Download /></el-icon>
+                  导出Excel
+                </el-button>
+              </el-form-item>
+            </el-form>
+          </div>
+
+          <!-- 统计结果 -->
+          <div v-if="statsResult" class="stats-tables">
+            <!-- 表格1：发起人统计 -->
+            <div class="stats-table-section">
+              <h3 class="table-title">发起人统计</h3>
+              <el-table :data="statsResult.senderStats" border stripe size="small" max-height="400">
+                <el-table-column prop="name" label="姓名" width="100" fixed="left" />
+                <el-table-column prop="employeeId" label="工号" width="100" fixed="left" />
+                <el-table-column prop="roleName" label="角色" width="100" />
+                <el-table-column prop="paid_urgent" label="付费加急" width="90" align="center" />
+                <el-table-column prop="free_urgent" label="免费加急" width="90" align="center" />
+                <el-table-column prop="data_dispute" label="数据质疑" width="90" align="center" />
+                <el-table-column prop="follow_up" label="跟单" width="80" align="center" />
+                <el-table-column prop="consultation" label="咨询" width="80" align="center" />
+                <el-table-column prop="other" label="其他" width="80" align="center" />
+                <el-table-column prop="unqualified" label="不合格沟通" width="110" align="center" />
+                <el-table-column prop="data_confirm" label="数据确认" width="100" align="center" />
+                <el-table-column prop="total" label="总计" width="90" align="center" fixed="right">
+                  <template #default="scope">
+                    <strong>{{ scope.row.total }}</strong>
+                  </template>
+                </el-table-column>
+              </el-table>
             </div>
-            <div class="stat-card">
-              <div class="stat-info">
-                <p class="stat-value">{{ businessUserCount }}</p>
-                <p class="stat-label">业务人员</p>
-              </div>
+
+            <!-- 表格2：接收人统计 -->
+            <div class="stats-table-section">
+              <h3 class="table-title">接收人统计</h3>
+              <el-table :data="statsResult.recipientStats" border stripe size="small" max-height="400">
+                <el-table-column prop="name" label="姓名" width="100" fixed="left" />
+                <el-table-column prop="employeeId" label="工号" width="100" fixed="left" />
+                <el-table-column prop="roleName" label="角色" width="100" />
+                <el-table-column prop="department" label="部门/组" width="120" />
+                <el-table-column prop="paid_urgent" label="付费加急" width="90" align="center" />
+                <el-table-column prop="free_urgent" label="免费加急" width="90" align="center" />
+                <el-table-column prop="data_dispute" label="数据质疑" width="90" align="center" />
+                <el-table-column prop="follow_up" label="跟单" width="80" align="center" />
+                <el-table-column prop="consultation" label="咨询" width="80" align="center" />
+                <el-table-column prop="other" label="其他" width="80" align="center" />
+                <el-table-column prop="unqualified" label="不合格沟通" width="110" align="center" />
+                <el-table-column prop="data_confirm" label="数据确认" width="100" align="center" />
+                <el-table-column prop="total" label="总计" width="90" align="center" fixed="right">
+                  <template #default="scope">
+                    <strong>{{ scope.row.total }}</strong>
+                  </template>
+                </el-table-column>
+              </el-table>
             </div>
-            <div class="stat-card">
-              <div class="stat-info">
-                <p class="stat-value">{{ labUserCount }}</p>
-                <p class="stat-label">实验室人员</p>
-              </div>
+
+            <!-- 表格3：按组统计 -->
+            <div class="stats-table-section">
+              <h3 class="table-title">按组统计</h3>
+              <el-table :data="statsResult.groupStats" border stripe size="small" max-height="400">
+                <el-table-column prop="group" label="组别" width="150" fixed="left" />
+                <el-table-column prop="paid_urgent" label="付费加急" width="90" align="center" />
+                <el-table-column prop="free_urgent" label="免费加急" width="90" align="center" />
+                <el-table-column prop="data_dispute" label="数据质疑" width="90" align="center" />
+                <el-table-column prop="follow_up" label="跟单" width="80" align="center" />
+                <el-table-column prop="consultation" label="咨询" width="80" align="center" />
+                <el-table-column prop="other" label="其他" width="80" align="center" />
+                <el-table-column prop="unqualified" label="不合格沟通" width="110" align="center" />
+                <el-table-column prop="data_confirm" label="数据确认" width="100" align="center" />
+                <el-table-column prop="total" label="总计" width="90" align="center" fixed="right">
+                  <template #default="scope">
+                    <strong>{{ scope.row.total }}</strong>
+                  </template>
+                </el-table-column>
+              </el-table>
             </div>
-            <div class="stat-card">
-              <div class="stat-info">
-                <p class="stat-value">{{ communications.length }}</p>
-                <p class="stat-label">沟通记录</p>
-              </div>
+
+            <!-- 表格4：同意统计 -->
+            <div class="stats-table-section">
+              <h3 class="table-title">同意统计</h3>
+              <el-table :data="statsResult.approvalStats" border stripe size="small" max-height="400">
+                <el-table-column prop="name" label="姓名" width="100" fixed="left" />
+                <el-table-column prop="employeeId" label="工号" width="100" fixed="left" />
+                <el-table-column prop="roleName" label="角色" width="100" />
+                <el-table-column prop="department" label="部门/组" width="120" />
+                <el-table-column prop="paid_urgent" label="付费加急" width="90" align="center" />
+                <el-table-column prop="free_urgent" label="免费加急" width="90" align="center" />
+                <el-table-column prop="data_dispute" label="数据质疑" width="90" align="center" />
+                <el-table-column prop="follow_up" label="跟单" width="80" align="center" />
+                <el-table-column prop="consultation" label="咨询" width="80" align="center" />
+                <el-table-column prop="other" label="其他" width="80" align="center" />
+                <el-table-column prop="unqualified" label="不合格沟通" width="110" align="center" />
+                <el-table-column prop="data_confirm" label="数据确认" width="100" align="center" />
+                <el-table-column prop="total" label="总计" width="90" align="center" fixed="right">
+                  <template #default="scope">
+                    <strong>{{ scope.row.total }}</strong>
+                  </template>
+                </el-table-column>
+              </el-table>
             </div>
+          </div>
+
+          <div v-else class="stats-placeholder">
+            <el-empty description="请设置筛选条件后点击查询" />
           </div>
         </div>
       </el-tab-pane>
@@ -337,6 +473,7 @@ const searchKeyword = ref('');
 const showCreateModal = ref(false);
 const saving = ref(false);
 const exportLoading = ref(false);
+const backupLoading = ref(false);
 
 const allRoleOptions = ROLE_OPTIONS;
 
@@ -454,13 +591,14 @@ const exportToExcel = async () => {
     // 准备 Excel 数据
     const excelData = data.map(c => ({
       'ID': c.id,
-      '标题': c.title || '',
+      '类型': getTypeLabel(c.type),
       '内容': c.content || '',
-      '发起角色': c.initiator_role || '',
       '发起人': c.sender?.name || c.sender?.employee_id || '',
       '创建时间': formatTime(c.created_at),
+      '客户名称': c.customer_name || '',
+      '样品编号': c.sample_code || '',
       '是否标记': c.is_flagged ? '是' : '否',
-      '是否完结': c.is_completed ? '是' : '否',
+      '是否撤回': c.is_recalled ? '是' : '否',
       '接收人': c.communication_recipients?.map(r => r.recipient?.name || r.recipient?.employee_id || '').join('、') || '',
       '接收人是否已回复': c.communication_recipients?.map(r => r.has_replied ? '是' : '否').join('、') || '',
       '接收人是否已完结': c.communication_recipients?.map(r => r.is_completed ? '是' : '否').join('、') || '',
@@ -818,7 +956,452 @@ const loadNotifications = async () => {
   }
 };
 
-// 点赞详情弹窗
+// ==================== 统计功能 ====================
+
+const statsTimeRange = ref([]);  // [startDate, endDate]
+const statsPersonName = ref('');  // 发起人姓名/工号
+const statsTypes = ref([]);       // 选中的沟通类型
+const statsLoading = ref(false);
+const statsResult = ref(null);     // 统计结果
+
+// 计算统计数据
+const calculateStats = async () => {
+  statsLoading.value = true;
+  try {
+    // 获取所有沟通记录（snake_case 格式）
+    const { data: allCommunications, error } = await communicationAPI.exportAll();
+    if (error) throw error;
+
+    // 获取所有用户
+    let allUsers = [];
+    try {
+      const userResp = await userAPI.getAll();
+      allUsers = userResp.data || [];
+    } catch (e) {
+      // 如果 userAPI.getAll() 不可用，直接从 supabase 查询
+      const { data: usersData } = await supabase.from('users').select('*');
+      allUsers = usersData || [];
+    }
+
+    // 构建用户映射 (id -> user)
+    const userMap = {};
+    allUsers.forEach(u => {
+      userMap[u.id] = u;
+    });
+
+    // 过滤沟通记录
+    let filteredComm = allCommunications || [];
+
+    // 按时间范围过滤
+    if (statsTimeRange.value && statsTimeRange.value.length === 2) {
+      const [start, end] = statsTimeRange.value;
+      filteredComm = filteredComm.filter(c => {
+        const createdAt = c.created_at;
+        if (!createdAt) return false;
+        return createdAt >= start && createdAt <= end + 'T23:59:59';
+      });
+    }
+
+    // 按人员名称过滤（发起人姓名或工号模糊匹配）
+    if (statsPersonName.value) {
+      const kw = statsPersonName.value.toLowerCase();
+      filteredComm = filteredComm.filter(c => {
+        const sender = userMap[c.sender_id];
+        if (!sender) return false;
+        return (
+          (sender.name && sender.name.toLowerCase().includes(kw)) ||
+          (sender.employee_id && sender.employee_id.toLowerCase().includes(kw))
+        );
+      });
+    }
+
+    // 按沟通类型过滤
+    if (statsTypes.value && statsTypes.value.length > 0) {
+      filteredComm = filteredComm.filter(c => statsTypes.value.includes(c.type));
+    }
+
+    // ========== 表格1：发起人统计 ==========
+    const senderMap = {};  // sender_id -> stats
+    filteredComm.forEach(c => {
+      const senderId = c.sender_id;
+      if (!senderId) return;
+      if (!senderMap[senderId]) {
+        const sender = userMap[senderId] || {};
+        senderMap[senderId] = {
+          name: sender.name || '-',
+          employeeId: sender.employee_id || '-',
+          role: sender.role || '-',
+          roleName: getRoleName(sender.role || ''),
+          paid_urgent: 0,
+          free_urgent: 0,
+          data_dispute: 0,
+          follow_up: 0,
+          consultation: 0,
+          other: 0,
+          unqualified: 0,
+          data_confirm: 0,
+          total: 0
+        };
+      }
+      const stat = senderMap[senderId];
+      if (stat[c.type] !== undefined) {
+        stat[c.type]++;
+        stat.total++;
+      }
+    });
+    const senderStats = Object.values(senderMap);
+
+    // ========== 表格2：接收人统计 ==========
+    const recipientMap = {};  // recipient_id -> stats
+    filteredComm.forEach(c => {
+      const recipients = c.communication_recipients || [];
+      recipients.forEach(r => {
+        const rid = r.recipient_id;
+        if (!rid) return;
+        if (!recipientMap[rid]) {
+          const user = userMap[rid] || {};
+          recipientMap[rid] = {
+            name: user.name || '-',
+            employeeId: user.employee_id || '-',
+            role: user.role || '-',
+            roleName: getRoleName(user.role || ''),
+            department: user.department || user.region || '-',
+            paid_urgent: 0,
+            free_urgent: 0,
+            data_dispute: 0,
+            follow_up: 0,
+            consultation: 0,
+            other: 0,
+            unqualified: 0,
+            data_confirm: 0,
+            total: 0
+          };
+        }
+        const stat = recipientMap[rid];
+        if (stat[c.type] !== undefined) {
+          stat[c.type]++;
+          stat.total++;
+        }
+      });
+    });
+    const recipientStats = Object.values(recipientMap);
+
+    // ========== 表格3：按组统计 ==========
+    const groupMap = {};  // group -> { types... }
+    filteredComm.forEach(c => {
+      const recipients = c.communication_recipients || [];
+      // 收集这条沟通涉及的所有组（去重）
+      const groupsForThisComm = new Set();
+      recipients.forEach(r => {
+        const rid = r.recipient_id;
+        if (!rid) return;
+        const user = userMap[rid] || {};
+        const group = user.department || user.region || '未分组';
+        groupsForThisComm.add(group);
+      });
+      // 每个组 +1（去重后）
+      groupsForThisComm.forEach(group => {
+        if (!groupMap[group]) {
+          groupMap[group] = {
+            group,
+            paid_urgent: 0,
+            free_urgent: 0,
+            data_dispute: 0,
+            follow_up: 0,
+            consultation: 0,
+            other: 0,
+            unqualified: 0,
+            data_confirm: 0,
+            total: 0
+          };
+        }
+        const stat = groupMap[group];
+        if (stat[c.type] !== undefined) {
+          stat[c.type]++;
+          stat.total++;
+        }
+      });
+    });
+    const groupStats = Object.values(groupMap);
+
+    // ========== 表格4：同意统计 ==========
+    const approvalMap = {};  // sender_id (of reply) -> stats
+    filteredComm.forEach(c => {
+      const replies = c.replies || [];
+      replies.forEach(r => {
+        // 判断回复是否包含"同意"
+        if (r.content && r.content.includes('同意')) {
+          const replySenderId = r.sender_id;
+          if (!replySenderId) return;
+          if (!approvalMap[replySenderId]) {
+            const user = userMap[replySenderId] || {};
+            approvalMap[replySenderId] = {
+              name: user.name || '-',
+              employeeId: user.employee_id || '-',
+              role: user.role || '-',
+              roleName: getRoleName(user.role || ''),
+              department: user.department || user.region || '-',
+              paid_urgent: 0,
+              free_urgent: 0,
+              data_dispute: 0,
+              follow_up: 0,
+              consultation: 0,
+              other: 0,
+              unqualified: 0,
+              data_confirm: 0,
+              total: 0
+            };
+          }
+          const stat = approvalMap[replySenderId];
+          if (stat[c.type] !== undefined) {
+            stat[c.type]++;
+            stat.total++;
+          }
+        }
+      });
+    });
+    const approvalStats = Object.values(approvalMap);
+
+    statsResult.value = {
+      senderStats,
+      recipientStats,
+      groupStats,
+      approvalStats
+    };
+
+    ElMessage.success(`统计完成：共 ${filteredComm.length} 条沟通记录`);
+    await adminLogAPI.log('stats_query', null, '', `统计查询：时间=${statsTimeRange.value || '全部'}，人员=${statsPersonName.value || '全部'}`);
+  } catch (error) {
+    console.error('统计失败:', error);
+    ElMessage.error('统计失败：' + (error.message || '未知错误'));
+  } finally {
+    statsLoading.value = false;
+  }
+};
+
+// 导出统计结果为 Excel
+const exportStatsToExcel = () => {
+  if (!statsResult.value) {
+    ElMessage.warning('请先查询统计数据');
+    return;
+  }
+  try {
+    const wb = XLSX.utils.book_new();
+
+    // Sheet1: 发起人统计
+    const senderData = statsResult.value.senderStats.map(row => ({
+      '姓名': row.name,
+      '工号': row.employeeId,
+      '角色': row.roleName,
+      '付费加急': row.paid_urgent,
+      '免费加急': row.free_urgent,
+      '数据质疑': row.data_dispute,
+      '跟单': row.follow_up,
+      '咨询': row.consultation,
+      '其他': row.other,
+      '不合格沟通': row.unqualified,
+      '数据确认': row.data_confirm,
+      '总计': row.total
+    }));
+    const ws1 = XLSX.utils.json_to_sheet(senderData);
+    XLSX.utils.book_append_sheet(wb, ws1, '发起人统计');
+
+    // Sheet2: 接收人统计
+    const recipientData = statsResult.value.recipientStats.map(row => ({
+      '姓名': row.name,
+      '工号': row.employeeId,
+      '角色': row.roleName,
+      '部门/组': row.department,
+      '付费加急': row.paid_urgent,
+      '免费加急': row.free_urgent,
+      '数据质疑': row.data_dispute,
+      '跟单': row.follow_up,
+      '咨询': row.consultation,
+      '其他': row.other,
+      '不合格沟通': row.unqualified,
+      '数据确认': row.data_confirm,
+      '总计': row.total
+    }));
+    const ws2 = XLSX.utils.json_to_sheet(recipientData);
+    XLSX.utils.book_append_sheet(wb, ws2, '接收人统计');
+
+    // Sheet3: 按组统计
+    const groupData = statsResult.value.groupStats.map(row => ({
+      '组别': row.group,
+      '付费加急': row.paid_urgent,
+      '免费加急': row.free_urgent,
+      '数据质疑': row.data_dispute,
+      '跟单': row.follow_up,
+      '咨询': row.consultation,
+      '其他': row.other,
+      '不合格沟通': row.unqualified,
+      '数据确认': row.data_confirm,
+      '总计': row.total
+    }));
+    const ws3 = XLSX.utils.json_to_sheet(groupData);
+    XLSX.utils.book_append_sheet(wb, ws3, '按组统计');
+
+    // Sheet4: 同意统计
+    const approvalData = statsResult.value.approvalStats.map(row => ({
+      '姓名': row.name,
+      '工号': row.employeeId,
+      '角色': row.roleName,
+      '部门/组': row.department,
+      '付费加急': row.paid_urgent,
+      '免费加急': row.free_urgent,
+      '数据质疑': row.data_dispute,
+      '跟单': row.follow_up,
+      '咨询': row.consultation,
+      '其他': row.other,
+      '不合格沟通': row.unqualified,
+      '数据确认': row.data_confirm,
+      '总计': row.total
+    }));
+    const ws4 = XLSX.utils.json_to_sheet(approvalData);
+    XLSX.utils.book_append_sheet(wb, ws4, '同意统计');
+
+    const fileName = `沟通统计_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+    ElMessage.success('导出成功：' + fileName);
+    adminLogAPI.log('stats_export', null, '', '导出统计结果：' + fileName);
+  } catch (error) {
+    ElMessage.error('导出失败：' + (error.message || '未知错误'));
+  }
+};
+
+// ==================== 一键备份功能 ====================
+const handleBackup = async () => {
+  backupLoading.value = true;
+  try {
+    ElMessage.info('正在备份数据，请稍候...');
+
+    // 1. 获取所有用户
+    let allUsers = [];
+    try {
+      const userResp = await userAPI.getAll();
+      allUsers = userResp.data || [];
+    } catch (e) {
+      const { data } = await supabase.from('profiles').select('*');
+      allUsers = data || [];
+    }
+
+    // 2. 获取所有沟通记录（带详情）
+    const { data: allCommunications, error: commError } = await supabase
+      .from('communications')
+      .select(`
+        *,
+        sender:sender_id(name, employee_id, role),
+        communication_recipients(
+          recipient:recipient_id(name, employee_id, role),
+          is_read,
+          has_replied,
+          is_completed,
+          is_flagged
+        ),
+        replies(
+          id,
+          content,
+          created_at,
+          sender:sender_id(name, employee_id)
+        )
+      `)
+      .order('created_at', { ascending: false });
+
+    if (commError) throw commError;
+
+    // 3. 获取所有通知
+    const { data: allNotifications, error: notifError } = await supabase
+      .from('notifications')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (notifError) throw notifError;
+
+    // 4. 创建 Excel 工作簿
+    const wb = XLSX.utils.book_new();
+
+    // Sheet1: 用户信息
+    const userData = allUsers.map(u => ({
+      'ID': u.id,
+      '用户名': u.username || '',
+      '姓名': u.name || '',
+      '工号': u.employee_id || '',
+      '角色': getRoleName(u.role || ''),
+      '部门': u.department || '',
+      '地区/组': u.region || '',
+      '电话': u.phone || '',
+      '邮箱': u.email || '',
+      '是否禁用': u.is_disabled ? '是' : '否',
+      '最后登录': u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleString('zh-CN') : '',
+      '创建时间': u.created_at ? new Date(u.created_at).toLocaleString('zh-CN') : ''
+    }));
+    const ws1 = XLSX.utils.json_to_sheet(userData);
+    XLSX.utils.book_append_sheet(wb, ws1, '用户信息');
+
+    // Sheet2: 沟通记录
+    const commData = (allCommunications || []).map(c => ({
+      'ID': c.id,
+      '类型': getTypeLabel(c.type || ''),
+      '内容': c.content || '',
+      '发起人': c.sender?.name || c.sender?.employee_id || '',
+      '客户名称': c.customer_name || '',
+      '样品编号': c.sample_code || '',
+      '是否标记': c.is_flagged ? '是' : '否',
+      '是否完结': c.is_completed ? '是' : '否',
+      '是否撤回': c.is_recalled ? '是' : '否',
+      '撤回原因': c.recall_reason || '',
+      '撤回时间': c.recalled_at ? new Date(c.recalled_at).toLocaleString('zh-CN') : '',
+      '接收人': c.communication_recipients?.map(r => r.recipient?.name || r.recipient?.employee_id || '').join('、') || '',
+      '回复数': c.replies?.length || 0,
+      '创建时间': c.created_at ? new Date(c.created_at).toLocaleString('zh-CN') : ''
+    }));
+    const ws2 = XLSX.utils.json_to_sheet(commData);
+    XLSX.utils.book_append_sheet(wb, ws2, '沟通记录');
+
+    // Sheet3: 回复记录
+    const replyData = [];
+    (allCommunications || []).forEach(c => {
+      (c.replies || []).forEach(r => {
+        replyData.push({
+          '回复ID': r.id,
+          '所属沟通ID': c.id,
+          '沟通类型': getTypeLabel(c.type || ''),
+          '回复人': r.sender?.name || r.sender?.employee_id || '',
+          '回复内容': r.content || '',
+          '回复时间': r.created_at ? new Date(r.created_at).toLocaleString('zh-CN') : ''
+        });
+      });
+    });
+    const ws3 = XLSX.utils.json_to_sheet(replyData);
+    XLSX.utils.book_append_sheet(wb, ws3, '回复记录');
+
+    // Sheet4: 通知记录
+    const notifData = (allNotifications || []).map(n => ({
+      'ID': n.id,
+      '类型': n.type || '',
+      '内容': n.content || '',
+      '是否已读': n.is_read ? '是' : '否',
+      '创建时间': n.created_at ? new Date(n.created_at).toLocaleString('zh-CN') : ''
+    }));
+    const ws4 = XLSX.utils.json_to_sheet(notifData);
+    XLSX.utils.book_append_sheet(wb, ws4, '通知记录');
+
+    // 保存文件
+    const fileName = `系统备份_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+
+    ElMessage.success(`备份成功！文件名：${fileName}，共备份 ${allUsers.length} 个用户，${allCommunications?.length || 0} 条沟通记录`);
+    await adminLogAPI.log('backup', null, '', `一键备份： ${fileName}`);
+  } catch (error) {
+    console.error('备份失败:', error);
+    ElMessage.error('备份失败：' + (error.message || '未知错误'));
+  } finally {
+    backupLoading.value = false;
+  }
+};
+
+
+// ==================== 点赞详情弹窗 ====================
 const reactionDetailVisible = ref(false);
 const reactionDetailList = ref([]);
 const reactionDetailTitle = ref('');
@@ -1054,40 +1637,77 @@ onMounted(() => {
   font-weight: 500;
 }
 
+/* ==================== 统计页面样式 ==================== */
+
 .stats-content {
   padding: 20px;
 }
 
-.stats-cards {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 20px;
-  margin-top: 20px;
+.stats-filter {
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin-bottom: 24px;
+  border: 1px solid #e8ecf1;
 }
 
-.stat-card {
+.filter-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.filter-form :deep(.el-form-item) {
+  margin-bottom: 0;
+  margin-right: 0;
+}
+
+.filter-form :deep(.el-form-item__label) {
+  font-weight: 500;
+  color: #606266;
+  padding-bottom: 4px;
+}
+
+.stats-tables {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.stats-table-section {
   background: white;
-  border-radius: 16px;
-  padding: 24px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
-  text-align: center;
-  transition: all 0.3s;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
 }
 
-.stat-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-}
-
-.stat-value {
-  font-size: 32px;
+.table-title {
+  font-size: 16px;
   font-weight: 600;
-  color: #409eff;
-  margin-bottom: 8px;
+  color: #303133;
+  margin: 0 0 16px 0;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #409eff;
 }
 
-.stat-label {
-  font-size: 14px;
-  color: #909399;
+.stats-placeholder {
+  padding: 60px 0;
+}
+
+/* 统计表格内总计列高亮 */
+.stats-table-section :deep(.el-table .el-table__cell:last-child) {
+  background: #f0f9ff;
+}
+
+/* 筛选区域按钮样式 */
+.stats-filter :deep(.el-button--primary) {
+  padding: 8px 20px;
+  height: 36px;
+}
+
+.stats-filter :deep(.el-button--success) {
+  padding: 8px 20px;
+  height: 36px;
 }
 </style>

@@ -67,21 +67,21 @@
               <div class="row-op-btns">
                 <el-button size="small" @click="viewDetail(scope.row)">查看</el-button>
                 <el-button
-                  v-if="!scope.row.myCompleted && !scope.row.isCompleted"
+                  v-if="!scope.row.myCompleted && !scope.row.isCompleted && !scope.row.isRecalled"
                   size="small"
                   class="quick-btn agree-btn"
                   @click="sendQuickReplyFromRow(scope.row, '同意')"
                   :loading="scope.row._replyLoading"
                 >同意</el-button>
                 <el-button
-                  v-if="!scope.row.myCompleted && !scope.row.isCompleted"
+                  v-if="!scope.row.myCompleted && !scope.row.isCompleted && !scope.row.isRecalled"
                   size="small"
                   class="quick-btn reject-btn"
                   @click="sendQuickReplyFromRow(scope.row, '拒绝')"
                   :loading="scope.row._replyLoading"
                 >拒绝</el-button>
                 <el-button
-                  v-if="!scope.row.myCompleted && !scope.row.isCompleted"
+                  v-if="!scope.row.myCompleted && !scope.row.isCompleted && !scope.row.isRecalled"
                   size="small"
                   class="quick-btn pending-btn"
                   @click="sendQuickReplyFromRow(scope.row, '等我确认后回复')"
@@ -95,7 +95,7 @@
                   {{ scope.row.hasFlagged ? '取消红旗' : '红旗' }}
                 </el-button>
                 <el-button 
-                  v-if="!scope.row.myCompleted && !scope.row.isCompleted"
+                  v-if="!scope.row.myCompleted && !scope.row.isCompleted && !scope.row.isRecalled"
                   size="small" 
                   type="success"
                   @click="toggleMyCompleted(scope.row, true)"
@@ -103,7 +103,7 @@
                   完结
                 </el-button>
                 <el-button 
-                  v-if="scope.row.myCompleted && !scope.row.isCompleted"
+                  v-if="scope.row.myCompleted && !scope.row.isCompleted && !scope.row.isRecalled"
                   size="small" 
                   type="info"
                   @click="toggleMyCompleted(scope.row, false)"
