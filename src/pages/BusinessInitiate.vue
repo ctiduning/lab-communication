@@ -237,6 +237,7 @@ const submitForm = async () => {
     });
     ElMessage.success('发送成功');
     resetForm();
+    window.location.href = '#/home';
   } catch (error) {
     ElMessage.error('发送失败：' + (error.message || '未知错误'));
   }
