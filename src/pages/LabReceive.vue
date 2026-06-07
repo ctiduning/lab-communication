@@ -682,10 +682,10 @@ const loadMessages = async () => {
   }
 };
 
-// 待处理消息：未回复 且 我个人未完结 且 全局未完结 且 未撤回
+// 待处理消息：未回复 且 我个人未完结 且 全局未完结 且 未撤回 且 非系统通知
 const pendingMessages = computed(() => {
   let result = messages.value.filter(m => 
-    !m.hasReplied && !m.myCompleted && !m.isCompleted && !m.isRecalled
+    !m.hasReplied && !m.myCompleted && !m.isCompleted && !m.isRecalled && !m.isSystemNotification
   );
 
   // 红旗过滤
@@ -712,10 +712,10 @@ const pendingMessages = computed(() => {
   return result;
 });
 
-// 已处理消息：已回复 且 我个人未完结 且 全局未完结 且 未撤回
+// 已处理消息：已回复 且 我个人未完结 且 全局未完结 且 未撤回 且 非系统通知
 const processedMessages = computed(() => {
   let result = messages.value.filter(m => 
-    m.hasReplied && !m.myCompleted && !m.isCompleted && !m.isRecalled
+    m.hasReplied && !m.myCompleted && !m.isCompleted && !m.isRecalled && !m.isSystemNotification
   );
 
   // 模糊搜索
@@ -737,10 +737,10 @@ const processedMessages = computed(() => {
   return result;
 });
 
-// 已完结消息：我个人已完结 或 全局已完结 且 未撤回
+// 已完结消息：我个人已完结 或 全局已完结 且 未撤回 且 非系统通知
 const completedMessages = computed(() => {
   let result = messages.value.filter(m => 
-    (m.myCompleted || m.isCompleted) && !m.isRecalled
+    (m.myCompleted || m.isCompleted) && !m.isRecalled && !m.isSystemNotification
   );
 
   // 模糊搜索
