@@ -718,32 +718,54 @@ export const communicationAPI = {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { data: { count: 0 } }
 
-    // 直接查 communication_recipients 表，只拿当前用户未回复且未完结的记录
-    // 然后再过滤掉已撤回和系统通知的沟通
-    const { data: recs, error } = await supabase
+    // 先拿当前用户作为收件人的所有沟通ID
+    const { data: commIds, error: idError } = await supabase
       .from('communication_recipients')
-      .select(`
-        communication:communication_id(
-          id,
-          is_completed,
-          is_recalled,
-          is_system_notification
-        )
-      `)
+      .select('communication_id')
       .eq('recipient_id', user.id)
-      .eq('has_replied', false)
-      .eq('is_completed', false)
 
-    if (error) {
-      console.error('getPendingCount 查询失败:', error)
+    if (idError) {
+      console.error('getPendingCount 获取沟通ID失败:', idError)
       return { data: { count: 0 } }
     }
 
-    // 过滤：沟通本身未完结 + 未撤回 + 非系统通知
-    const count = (recs || []).filter(r => {
-      const c = r.communication
-      if (!c) return false
-      return !c.is_completed && !c.is_recalled && !c.is_system_notification
+    if (!commIds || commIds.length === 0) {
+      return { data: { count: 0 } }
+    }
+
+    const ids = [...new Set(commIds.map(r => r.communication_id))]
+
+    // 查这些沟通的详情（含 recipients 子表）
+    const { data: communications, error } = await supabase
+      .from('communications')
+      .select(`
+        id,
+        is_completed,
+        is_recalled,
+        is_system_notification,
+        communication_recipients(
+          recipient_id,
+          is_completed,
+          has_replied
+        )
+      `)
+      .in('id', ids)
+
+    if (error) {
+      console.error('getPendingCount 查询沟通失败:', error)
+      return { data: { count: 0 } }
+    }
+
+    const userId = user.id
+    const count = (communications || []).filter(c => {
+      const myRec = c.communication_recipients?.find(r => r.recipient_id === userId)
+      if (!myRec) return false
+      // 未回复 && 我个人未完结 && 沟通本身未完结 && 未撤回 && 非系统通知
+      return !myRec.has_replied
+        && !myRec.is_completed
+        && !c.is_completed
+        && !c.is_recalled
+        && !c.is_system_notification
     }).length
 
     return { data: { count } }
@@ -891,7 +913,6 @@ export const communicationAPI = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('未登录');
 
-    // 先查已撤回的消息（简单查询，避免关联报错）
     const { data, error } = await supabase
       .from('communications')
       .select(`
@@ -917,9 +938,13 @@ export const communicationAPI = {
       .eq('is_recalled', true)
       .order('recalled_at', { ascending: false });
 
-    if (error) throw error;
+    if (error) {
+      console.error('[getRecalledMessages] 查询失败:', error);
+      throw error;
+    }
 
-    // 映射字段（与 getAll() 完全一致）
+    console.log('[getRecalledMessages] 查到数据:', data?.length || 0, '条');
+
     const formatted = (data || []).map(c => ({
       id: c.id,
       senderId: c.sender_id,

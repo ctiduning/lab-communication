@@ -367,6 +367,7 @@ const loadPendingMsgCount = async () => {
   try {
     const { data } = await communicationAPI.getPendingCount();
     pendingMsgCount.value = data.count;
+    console.log('[待处理数量] API返回:', data.count);
   } catch (error) { console.error('加载待处理消息数失败:', error); }
 };
 

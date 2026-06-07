@@ -1,0 +1,188 @@
+diff --git a/src/api/index.js b/src/api/index.js
+index 2ee2abd..b552373 100644
+--- a/src/api/index.js
++++ b/src/api/index.js
+@@ -718,45 +718,32 @@ export const communicationAPI = {
+     const { data: { user } } = await supabase.auth.getUser()
+     if (!user) return { data: { count: 0 } }
+ 
+-    // 先查当前用户作为接收人的沟通ID列表（避免 is_deleted 字段不存在导致整条查询失败）
+-    const { data: commIds, error: idError } = await supabase
++    // 直接查 communication_recipients 表，只拿当前用户未回复且未完结的记录
++    // 然后再过滤掉已撤回和系统通知的沟通
++    const { data: recs, error } = await supabase
+       .from('communication_recipients')
+-      .select('communication_id')
+-      .eq('recipient_id', user.id)
+-
+-    if (idError) {
+-      console.error('获取接收人沟通ID失败:', idError)
+-      return { data: { count: 0 } }
+-    }
+-
+-    if (!commIds || commIds.length === 0) {
+-      return { data: { count: 0 } }
+-    }
+-
+-    const ids = [...new Set(commIds.map(r => r.communication_id))]
+-    const { data: communications, error } = await supabase
+-      .from('communications')
+       .select(`
+-        id,
+-        is_completed,
+-        communication_recipients(
+-          recipient_id,
++        communication:communication_id(
++          id,
+           is_completed,
+-          has_replied
++          is_recalled,
++          is_system_notification
+         )
+       `)
+-      .in('id', ids)
++      .eq('recipient_id', user.id)
++      .eq('has_replied', false)
++      .eq('is_completed', false)
+ 
+     if (error) {
+-      console.error('获取待处理消息失败:', error)
++      console.error('getPendingCount 查询失败:', error)
+       return { data: { count: 0 } }
+     }
+ 
+-    const userId = user.id
+-    const count = (communications || []).filter(c => {
+-      const myRec = c.communication_recipients?.find(r => r.recipient_id === userId)
+-      if (!myRec) return false
+-      return !myRec.has_replied && !myRec.is_completed && !c.is_completed
++    // 过滤：沟通本身未完结 + 未撤回 + 非系统通知
++    const count = (recs || []).filter(r => {
++      const c = r.communication
++      if (!c) return false
++      return !c.is_completed && !c.is_recalled && !c.is_system_notification
+     }).length
+ 
+     return { data: { count } }
+@@ -768,12 +755,15 @@ export const communicationAPI = {
+       .from('communications')
+       .select(`
+         id,
+-        title,
++        type,
+         content,
+-        initiator_role,
+         created_at,
++        sender_id,
+         is_flagged,
+         is_completed,
++        is_recalled,
++        recall_reason,
++        recalled_at,
+         sender:sender_id(name, employee_id, role),
+         communication_recipients(
+           recipient:recipient_id(name, employee_id, role),
+@@ -862,9 +852,7 @@ export const communicationAPI = {
+         const { data: notif, error: insertError } = await supabase
+           .from('communications')
+           .insert([{
+-            title: '消息撤回通知',
+             content: notificationContent,
+-            initiator_role: 'system',
+             sender_id: user.id,
+             is_system_notification: true
+           }])
+@@ -903,17 +891,26 @@ export const communicationAPI = {
+     const { data: { user } } = await supabase.auth.getUser();
+     if (!user) throw new Error('未登录');
+ 
++    // 先查已撤回的消息（简单查询，避免关联报错）
+     const { data, error } = await supabase
+       .from('communications')
+       .select(`
+         *,
+-        sender:profiles!communications_sender_id_fkey(id, name, employee_id, role, avatar),
+-        recipients:communication_recipients(
+-          recipient:profiles(id, name, employee_id, role)
++        sender:sender_id(id, name, employee_id, phone, email, region, department, priority),
++        communication_recipients(
++          recipient_id,
++          is_read,
++          is_flagged,
++          is_completed,
++          has_replied,
++          recipient:recipient_id(id, name, department)
+         ),
+-        replies:communication_replies(
+-          id, content, created_at,
+-          sender:profiles(id, name, employee_id, role, avatar)
++        replies(
++          id,
++          content,
++          sender_id,
++          sender:sender_id(name),
++          created_at
+         )
+       `)
+       .eq('sender_id', user.id)
+@@ -921,23 +918,44 @@ export const communicationAPI = {
+       .order('recalled_at', { ascending: false });
+ 
+     if (error) throw error;
+-    
+-    // 映射字段（与 getAll() 保持一致）
++
++    // 映射字段（与 getAll() 完全一致）
+     const formatted = (data || []).map(c => ({
+       id: c.id,
+       senderId: c.sender_id,
++      senderRole: c.sender?.role || '',
++      senderName: c.sender?.name || '',
+       type: c.type,
++      vip: c.vip,
+       customerName: c.customer_name || '',
+       sampleCode: c.sample_code || '',
++      sampleMatrix: c.sample_matrix || '',
++      sampleCount: c.sample_count || '',
++      testItems: c.test_items || '',
++      sampleDate: c.sample_date || '',
++      requestedCycle: c.requested_cycle || '',
++      chargeStatus: c.charge_status || '',
++      urgentFee: c.urgent_fee || '',
++      remark: c.remark || '',
+       content: c.content || '',
+-      isRecalled: c.is_recalled || false,
+-      recallReason: c.recall_reason || '',
+-      recalledAt: c.recalled_at || null,
++      status: c.status || '',
++      isFlagged: c.is_flagged || false,
++      isCompleted: c.is_completed || false,
+       createdAt: c.created_at,
+-      recipientDetails: c.recipients?.map(r => ({
++      recipients: c.communication_recipients?.map(r => r.recipient_id) || [],
++      recipientDetails: c.communication_recipients?.map(r => ({
+         ...r.recipient,
+-        recipient_id: r.recipient?.id
++        recipient_id: r.recipient_id,
++        is_read: r.is_read,
++        is_flagged: r.is_flagged,
++        is_completed: r.is_completed,
++        has_replied: r.has_replied
+       })) || [],
++      isRecalled: c.is_recalled || false,
++      recallReason: c.recall_reason || '',
++      recalledAt: c.recalled_at || null,
++      replyCount: c.replies?.length || 0,
++      attachments: c.attachments || [],
+       replies: c.replies?.map(r => ({
+         id: r.id,
+         senderId: r.sender_id,
+@@ -946,7 +964,7 @@ export const communicationAPI = {
+         createdAt: r.created_at
+       })) || []
+     }));
+-    
++
+     return { data: formatted };
+   },
+ 
