@@ -366,7 +366,8 @@ export const communicationAPI = {
           is_flagged,
           is_completed,
           has_replied,
-          recipient:recipient_id(id, name, department)
+          replied_by,
+          recipient:recipient_id(id, name, department, department_level3, role)
         ),
         replies(
           id,
@@ -402,6 +403,7 @@ export const communicationAPI = {
       isFlagged: c.is_flagged || false,
       isCompleted: c.is_completed || false,
       createdAt: c.created_at,
+      departmentCardIds: c.department_card_ids || [],
       recipients: c.communication_recipients?.map(r => r.recipient_id) || [],
       recipientDetails: c.communication_recipients?.map(r => ({
         ...r.recipient,
@@ -409,7 +411,8 @@ export const communicationAPI = {
         is_read: r.is_read,
         is_flagged: r.is_flagged,
         is_completed: r.is_completed,
-        has_replied: r.has_replied
+        has_replied: r.has_replied,
+        replied_by: r.replied_by
       })) || [],
       isCompleted: c.is_completed || false,  // 沟通记录是否已完结（全局）
       isRecalled: c.is_recalled || false,
@@ -433,7 +436,7 @@ export const communicationAPI = {
     const {
       type, vip, customerName, sampleCode, sampleMatrix,
       sampleCount, testItems, sampleDate, requestedCycle,
-      chargeStatus, urgentFee, remark, content, recipients, attachments
+      chargeStatus, urgentFee, remark, content, recipients, attachments, department_card_ids
     } = data
 
     // 获取当前登录用户ID
@@ -457,7 +460,8 @@ export const communicationAPI = {
         urgent_fee: urgentFee,
         remark,
         content,
-        attachments: attachments || []
+        attachments: attachments || [],
+        department_card_ids: department_card_ids || []
       })
       .select()
       .single()
@@ -499,6 +503,19 @@ export const communicationAPI = {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error('未登录')
 
+    // ====== 第一步：检查是否已被回复（防止同组第二人重复回复）======
+    const { data: existingRecipient } = await supabase
+      .from('communication_recipients')
+      .select('has_replied, replied_by')
+      .eq('communication_id', communicationId)
+      .eq('recipient_id', user.id)
+      .single()
+
+    if (existingRecipient?.has_replied) {
+      throw new Error(`此消息已被${existingRecipient.replied_by || '他人'}回复`)
+    }
+
+    // ====== 第二步：插入回复 ======
     const { data: reply, error } = await supabase
       .from('replies')
       .insert({
@@ -511,20 +528,83 @@ export const communicationAPI = {
 
     if (error) throw error
 
-    // 更新 communication_recipients 表的 has_replied 字段
-    await supabase
-      .from('communication_recipients')
-      .update({ has_replied: true })
-      .eq('communication_id', communicationId)
-      .eq('recipient_id', user.id)
+    // ====== 第三步：获取回复者信息 ======
+    const { data: replierProfile } = await supabase
+      .from('profiles')
+      .select('name, role, department_level3')
+      .eq('id', user.id)
+      .single()
 
+    // ====== 第四步：获取该消息的 department_card_ids ======
     const { data: comm } = await supabase
       .from('communications')
-      .select('sender_id')
+      .select('sender_id, department_card_ids')
       .eq('id', communicationId)
       .single()
 
-    if (comm) {
+    // 确保 comm 存在
+    if (!comm) throw new Error('沟通记录不存在')
+
+    const isDeptCardHolder = comm.department_card_ids?.includes(user.id)
+
+    if (isDeptCardHolder && replierProfile?.department_level3) {
+      // ====== 部门名片持有人回复：按组同步 ======
+      const deptLevel3 = replierProfile.department_level3
+
+      // 1. 先更新回复者本人的 has_replied + replied_by
+      await supabase
+        .from('communication_recipients')
+        .update({ has_replied: true, replied_by: replierProfile.name })
+        .eq('communication_id', communicationId)
+        .eq('recipient_id', user.id)
+
+      // 2. 查出该消息的所有收件人
+      const { data: allRecipients } = await supabase
+        .from('communication_recipients')
+        .select('recipient_id')
+        .eq('communication_id', communicationId)
+
+      if (allRecipients && allRecipients.length > 0) {
+        const allRecipientIds = allRecipients.map(r => r.recipient_id)
+
+        // 3. 查出这些收件人中与回复者同 department_level3 的人
+        const { data: sameDeptUsers } = await supabase
+          .from('profiles')
+          .select('id')
+          .in('id', allRecipientIds)
+          .eq('department_level3', deptLevel3)
+
+        if (sameDeptUsers && sameDeptUsers.length > 0) {
+          const sameDeptIds = sameDeptUsers.map(u => u.id)
+          // 只同步 department_card_ids 中的人
+          const toSync = sameDeptIds.filter(id => comm.department_card_ids.includes(id))
+
+          if (toSync.length > 0) {
+            await supabase
+              .from('communication_recipients')
+              .update({ has_replied: true, replied_by: replierProfile.name })
+              .eq('communication_id', communicationId)
+              .in('recipient_id', toSync)
+          }
+        }
+      }
+
+      // 4. 通知发起人（带上组名和回复者）
+      await supabase.from('notifications').insert({
+        user_id: comm.sender_id,
+        communication_id: communicationId,
+        type: 'reply',
+        content: `${deptLevel3} ${replierProfile.role} ${replierProfile.name} 已回复`
+      })
+    } else {
+      // ====== 普通回复：只标记自己 ======
+      await supabase
+        .from('communication_recipients')
+        .update({ has_replied: true })
+        .eq('communication_id', communicationId)
+        .eq('recipient_id', user.id)
+
+      // 通知发起人
       await supabase.from('notifications').insert({
         user_id: comm.sender_id,
         communication_id: communicationId,
@@ -1101,7 +1181,8 @@ export const communicationAPI = {
           is_flagged,
           is_completed,
           has_replied,
-          recipient:recipient_id(id, name, department)
+          replied_by,
+          recipient:recipient_id(id, name, department, department_level3, role)
         ),
         replies(
           id,
@@ -1151,7 +1232,8 @@ export const communicationAPI = {
         is_read: r.is_read,
         is_flagged: r.is_flagged,
         is_completed: r.is_completed,
-        has_replied: r.has_replied
+        has_replied: r.has_replied,
+        replied_by: r.replied_by
       })) || [],
       isRecalled: c.is_recalled || false,
       recallReason: c.recall_reason || '',
@@ -1899,10 +1981,9 @@ export const departmentCardAPI = {
     // 查出所有部门名片负责人（组长 + 组长助理）
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, name, role, department_level1, department_level2, department_level3, is_disabled')
+      .select('id, name, role, department_level1, department_level2, department_level3')
       .eq('department_level1', '实验室')
-      .in('role', ['组长', '组长助理'])
-      .eq('is_disabled', false)
+      .in('role', ['检测组长', '检测组长助理', '组长', '组长助理', 'inspection_leader', 'inspection_leader_assistant'])
       .not('department_level3', 'is', null)
       .order('department_level2', { ascending: true })
       .order('department_level3', { ascending: true })
@@ -1922,8 +2003,8 @@ export const departmentCardAPI = {
           holders: []
         }
       }
-      // 角色为"组长"的作为 leader，角色为"组长助理"的作为 assistant
-      if (u.role === '组长') {
+      // 角色为"组长"（含变体）的作为 leader，角色为"组长助理"（含变体）的作为 assistant
+      if (u.role === '组长' || u.role === '检测组长' || u.role === 'inspection_leader') {
         cardMap[key].leader = { id: u.id, name: u.name, role: u.role }
         cardMap[key].holders.push({ id: u.id, name: u.name, role: u.role })
       } else {
@@ -1944,7 +2025,7 @@ export const departmentCardAPI = {
       .from('profiles')
       .select('id, name, is_disabled')
       .eq('department_level3', departmentLevel3)
-      .in('role', ['组长', '组长助理'])
+      .in('role', ['检测组长', '检测组长助理', '组长', '组长助理', 'inspection_leader', 'inspection_leader_assistant'])
 
     if (error) throw error
     const active = (data || []).filter(u => !u.is_disabled)

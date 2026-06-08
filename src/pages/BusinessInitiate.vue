@@ -167,13 +167,14 @@
         </div>
       </el-form-item>
       
-      <!-- 部门名片选择（每部门限选一人） -->
+      <!-- 部门名片选择（支持多选） -->
       <el-form-item label="部门名片" v-if="departmentCards.length > 0">
         <el-select
-          v-model="form.departmentCard"
-          placeholder="选择部门名片（每部门限选一个）"
+          v-model="form.departmentCards"
+          multiple
+          placeholder="选择部门名片（可多选）"
           style="width: 100%;"
-          @change="onDepartmentCardChange"
+          @change="onDepartmentCardsChange"
           clearable
         >
           <el-option
@@ -184,7 +185,7 @@
           />
         </el-select>
         <div style="font-size: 12px; color: #909399; margin-top: 4px;">
-          选择部门名片后，消息将发送给该部门的负责人（组长+组长助理）
+          选择部门名片后，消息将发送给该部门的负责人（组长+组长助理），同组任意一人回复即为该组已处理
         </div>
       </el-form-item>
       
@@ -219,14 +220,14 @@ const form = reactive({
   remark: '',
   content: '',
   recipients: [],
-  departmentCard: '',
+  departmentCards: [],
   attachments: []
 });
 
 // 部门名片数据
 const departmentCards = ref([]);
-// 当前部门名片对应的持有人ID列表（用于同步移除）
-let currentCardHolderIds = [];
+// 当前部门名片映射：{ cardKey: [holderIds] }（用于同步移除）
+let currentCardMap = {};
 
 // 三级部门选择
 const selectedLevel1 = ref('');
@@ -257,35 +258,44 @@ const onLevel3Change = () => {
   filterByDepartment();
 };
 
-// 部门名片选择变化
-const onDepartmentCardChange = () => {
-  // 先移除上一次选中的部门名片持有人
-  if (currentCardHolderIds.length > 0) {
-    form.recipients = form.recipients.filter(id => !currentCardHolderIds.includes(id));
-    currentCardHolderIds = [];
-  }
+// 部门名片选择变化（多选）
+const onDepartmentCardsChange = (newSelection) => {
+  // 计算新增的卡片和移除的卡片
+  const prev = { ...currentCardMap }
+  const current = {}
 
-  if (!form.departmentCard) return;
-
-  // 校验：如果已选人员属于该部门，冲突
-  const conflict = form.recipients.find(uid => {
-    const u = findUserById(uid);
-    return u && u.departmentLevel3 === form.departmentCard;
-  });
-  if (conflict) {
-    ElMessage.error('已选择该部门的人员，不能同时选择部门名片');
-    form.departmentCard = '';
-    return;
-  }
-
-  // 把该部门名片的持有人加入 recipients
-  const holders = departmentCardAPI.getHolderIds(form.departmentCard, departmentCards.value);
-  currentCardHolderIds = holders;
-  holders.forEach(id => {
-    if (!form.recipients.includes(id)) {
-      form.recipients.push(id);
+  // 新增的卡片 → 加入接收人
+  newSelection.forEach(cardKey => {
+    if (!prev[cardKey]) {
+      const holders = departmentCardAPI.getHolderIds(cardKey, departmentCards.value)
+      current[cardKey] = holders
+      holders.forEach(id => {
+        if (!form.recipients.includes(id)) {
+          form.recipients.push(id)
+        }
+      })
+    } else {
+      current[cardKey] = prev[cardKey]
     }
-  });
+  })
+
+  // 移除的卡片 → 移除接收人
+  Object.keys(prev).forEach(cardKey => {
+    if (!newSelection.includes(cardKey)) {
+      const holders = prev[cardKey]
+      form.recipients = form.recipients.filter(id => !holders.includes(id))
+    }
+  })
+
+  currentCardMap = current
+};
+
+// 根据持有人ID查找所属部门名片key
+const findCardKeyByHolderId = (uid) => {
+  for (const [cardKey, holderIds] of Object.entries(currentCardMap)) {
+    if (holderIds.includes(uid)) return cardKey
+  }
+  return null
 };
 
 // 按部门过滤接收人列表
@@ -391,11 +401,13 @@ const getUserRoleName = (uid) => findUserById(uid)?._roleName || '-';
 
 const removeRecipient = (uid) => {
   form.recipients = form.recipients.filter(id => id !== uid);
-  // 如果移除的是当前部门名片的持有人，同步清空部门名片选择
-  if (form.departmentCard && currentCardHolderIds.includes(uid)) {
-    form.departmentCard = '';
-    currentCardHolderIds = [];
-    ElMessage.info('已同步取消部门名片');
+  // 检查是否属于某张部门名片
+  const cardKey = findCardKeyByHolderId(uid)
+  if (cardKey && form.departmentCards.includes(cardKey)) {
+    // 从部门名片中移除该卡片
+    form.departmentCards = form.departmentCards.filter(k => k !== cardKey)
+    delete currentCardMap[cardKey]
+    ElMessage.info('已同步取消部门名片')
   }
 };
 
@@ -404,7 +416,7 @@ const submitForm = async () => {
     ElMessage.error('请选择沟通类型');
     return;
   }
-  if (!form.departmentCard && !form.recipients.length) {
+  if (form.departmentCards.length === 0 && !form.recipients.length) {
     ElMessage.error('请选择部门名片或消息接收人');
     return;
   }
@@ -416,8 +428,13 @@ const submitForm = async () => {
       attachments: form.attachments
     };
     // 如果选了部门名片，把持有人ID传给后端
-    if (form.departmentCard) {
-      payload.department_card_ids = departmentCardAPI.getHolderIds(form.departmentCard, departmentCards.value);
+    if (form.departmentCards.length > 0) {
+      const allCardIds = []
+      form.departmentCards.forEach(cardKey => {
+        const ids = departmentCardAPI.getHolderIds(cardKey, departmentCards.value)
+        allCardIds.push(...ids)
+      })
+      payload.department_card_ids = allCardIds
     }
     await communicationAPI.create(payload);
     ElMessage.success('发送成功');
@@ -442,7 +459,9 @@ const resetForm = () => {
   form.urgentFee = '';
   form.remark = '';
   form.recipients = [];
+  form.departmentCards = [];
   form.attachments = [];
+  currentCardMap = {};
 };
 
 // 加载所有用户（发起沟通时可选择任何人，除自己外）

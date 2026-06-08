@@ -121,6 +121,28 @@
         </div>
       </el-form-item>
       
+      <!-- 部门名片选择（支持多选） -->
+      <el-form-item label="部门名片" v-if="departmentCards.length > 0">
+        <el-select
+          v-model="form.departmentCards"
+          multiple
+          placeholder="选择部门名片（可多选）"
+          style="width: 100%;"
+          @change="onDepartmentCardsChange"
+          clearable
+        >
+          <el-option
+            v-for="card in departmentCards"
+            :key="card.departmentLevel3"
+            :label="card.departmentLevel3 + '（' + (card.leader?.name || '') + '）'"
+            :value="card.departmentLevel3"
+          />
+        </el-select>
+        <div style="font-size: 12px; color: #909399; margin-top: 4px;">
+          选择部门名片后，消息将发送给该部门的负责人（组长+组长助理），同组任意一人回复即为该组已处理
+        </div>
+      </el-form-item>
+      
       <el-form-item>
         <el-button type="primary" @click="submitForm">发送</el-button>
         <el-button @click="resetForm">重置</el-button>
@@ -137,7 +159,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted, inject } from 'vue';
 import { ElMessage } from 'element-plus';
-import { communicationAPI, storageAPI, ROLE_OPTIONS, getRoleDisplayName } from '../api';
+import { communicationAPI, storageAPI, departmentCardAPI, ROLE_OPTIONS, getRoleDisplayName } from '../api';
 import { supabase } from '../utils/supabase';
 import { buildSearchKeys, filterGroups } from '../utils/pinyinSearch';
 import { getLevel2Options, getLevel3Options } from '../utils/departmentConfig';
@@ -147,8 +169,14 @@ const form = reactive({
   sampleCode: '',
   content: '',
   recipients: [],
+  departmentCards: [],
   attachments: []
 });
+
+// 部门名片数据
+const departmentCards = ref([]);
+// 当前部门名片映射：{ cardKey: [holderIds] }
+let currentCardMap = {};
 
 // 三级部门选择
 const selectedLevel1 = ref('');
@@ -228,6 +256,42 @@ const buildRecipientGroups = (users) => {
     .map(label => groups[label]);
 };
 
+// 部门名片选择变化（多选）
+const onDepartmentCardsChange = (newSelection) => {
+  const prev = { ...currentCardMap }
+  const current = {}
+
+  newSelection.forEach(cardKey => {
+    if (!prev[cardKey]) {
+      const holders = departmentCardAPI.getHolderIds(cardKey, departmentCards.value)
+      current[cardKey] = holders
+      holders.forEach(id => {
+        if (!form.recipients.includes(id)) {
+          form.recipients.push(id)
+        }
+      })
+    } else {
+      current[cardKey] = prev[cardKey]
+    }
+  })
+
+  Object.keys(prev).forEach(cardKey => {
+    if (!newSelection.includes(cardKey)) {
+      const holders = prev[cardKey]
+      form.recipients = form.recipients.filter(id => !holders.includes(id))
+    }
+  })
+
+  currentCardMap = current
+}
+
+const findCardKeyByHolderId = (uid) => {
+  for (const [cardKey, holderIds] of Object.entries(currentCardMap)) {
+    if (holderIds.includes(uid)) return cardKey
+  }
+  return null
+}
+
 const showImagePreview = ref(false);
 const previewImageUrl = ref('');
 const allUsers = ref([]);
@@ -298,11 +362,20 @@ const submitForm = async () => {
   }
   
   try {
-    await communicationAPI.create({
+    const payload = {
       ...form,
       senderRole: 'lab',
       attachments: form.attachments
-    });
+    };
+    if (form.departmentCards.length > 0) {
+      const allCardIds = []
+      form.departmentCards.forEach(cardKey => {
+        const ids = departmentCardAPI.getHolderIds(cardKey, departmentCards.value)
+        allCardIds.push(...ids)
+      })
+      payload.department_card_ids = allCardIds
+    }
+    await communicationAPI.create(payload);
     ElMessage.success('发送成功');
     resetForm();
     window.location.href = '#/home';
@@ -316,7 +389,9 @@ const resetForm = () => {
   form.sampleCode = '';
   form.content = '';
   form.recipients = [];
+  form.departmentCards = [];
   form.attachments = [];
+  currentCardMap = {};
   selectedLevel1.value = '';
   selectedLevel2.value = '';
   selectedLevel3.value = '';
@@ -340,8 +415,14 @@ const getUserDept = (uid) => {
 const getUserRoleName = (uid) => findUserById(uid)?._roleName || '-';
 
 const removeRecipient = (uid) => {
-  const idx = form.recipients.indexOf(uid);
-  if (idx >= 0) form.recipients.splice(idx, 1);
+  form.recipients = form.recipients.filter(id => id !== uid);
+  // 检查是否属于某张部门名片
+  const cardKey = findCardKeyByHolderId(uid)
+  if (cardKey && form.departmentCards.includes(cardKey)) {
+    form.departmentCards = form.departmentCards.filter(k => k !== cardKey)
+    delete currentCardMap[cardKey]
+    ElMessage.info('已同步取消部门名片')
+  }
 };
 
 // 加载所有用户（发起沟通时可选择任何人，除自己外）
@@ -392,6 +473,13 @@ onMounted(() => {
         if (data) userRole.value = data.role;
       });
     }
+  });
+
+  // 加载部门名片数据
+  departmentCardAPI.getDepartmentCards().then(({ data }) => {
+    departmentCards.value = data || [];
+  }).catch(err => {
+    console.error('加载部门名片失败:', err);
   });
 
   loadAllUsers().then(() => {
