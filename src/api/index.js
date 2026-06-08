@@ -1901,11 +1901,7 @@ export const departmentCardAPI = {
       .from('profiles')
       .select('id, name, role, department_level1, department_level2, department_level3, is_disabled')
       .eq('department_level1', '实验室')
-      .in('role', [
-        'inspection_leader', 'inspection_leader_assistant',
-        'cs_leader', 'cs_leader_assistant',
-        'sample_prep_leader', 'report_leader'
-      ])
+      .in('role', ['组长', '组长助理'])
       .eq('is_disabled', false)
       .not('department_level3', 'is', null)
       .order('department_level2', { ascending: true })
@@ -1926,7 +1922,8 @@ export const departmentCardAPI = {
           holders: []
         }
       }
-      if (u.role.endsWith('_leader') || u.role === 'sample_prep_leader' || u.role === 'report_leader') {
+      // 角色为"组长"的作为 leader，角色为"组长助理"的作为 assistant
+      if (u.role === '组长') {
         cardMap[key].leader = { id: u.id, name: u.name, role: u.role }
         cardMap[key].holders.push({ id: u.id, name: u.name, role: u.role })
       } else {
@@ -1947,11 +1944,7 @@ export const departmentCardAPI = {
       .from('profiles')
       .select('id, name, is_disabled')
       .eq('department_level3', departmentLevel3)
-      .in('role', [
-        'inspection_leader', 'inspection_leader_assistant',
-        'cs_leader', 'cs_leader_assistant',
-        'sample_prep_leader', 'report_leader'
-      ])
+      .in('role', ['组长', '组长助理'])
 
     if (error) throw error
     const active = (data || []).filter(u => !u.is_disabled)
@@ -1962,6 +1955,12 @@ export const departmentCardAPI = {
         message: active.length === 0 ? '该部门暂无负责人' : ''
       }
     }
+  },
+
+  // 根据部门名片选中的 key（departmentLevel3），获取所有持有人ID
+  getHolderIds(cardKey, allCards) {
+    const card = allCards.find(c => c.departmentLevel3 === cardKey)
+    return card ? card.holders.map(h => h.id) : []
   }
 }
 

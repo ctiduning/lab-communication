@@ -223,6 +223,11 @@ const form = reactive({
   attachments: []
 });
 
+// 部门名片数据
+const departmentCards = ref([]);
+// 当前部门名片对应的持有人ID列表（用于同步移除）
+let currentCardHolderIds = [];
+
 // 三级部门选择
 const selectedLevel1 = ref('');
 const selectedLevel2 = ref('');
@@ -250,6 +255,37 @@ const onLevel2Change = () => {
 // 三级部门变化
 const onLevel3Change = () => {
   filterByDepartment();
+};
+
+// 部门名片选择变化
+const onDepartmentCardChange = () => {
+  // 先移除上一次选中的部门名片持有人
+  if (currentCardHolderIds.length > 0) {
+    form.recipients = form.recipients.filter(id => !currentCardHolderIds.includes(id));
+    currentCardHolderIds = [];
+  }
+
+  if (!form.departmentCard) return;
+
+  // 校验：如果已选人员属于该部门，冲突
+  const conflict = form.recipients.find(uid => {
+    const u = findUserById(uid);
+    return u && u.departmentLevel3 === form.departmentCard;
+  });
+  if (conflict) {
+    ElMessage.error('已选择该部门的人员，不能同时选择部门名片');
+    form.departmentCard = '';
+    return;
+  }
+
+  // 把该部门名片的持有人加入 recipients
+  const holders = departmentCardAPI.getHolderIds(form.departmentCard, departmentCards.value);
+  currentCardHolderIds = holders;
+  holders.forEach(id => {
+    if (!form.recipients.includes(id)) {
+      form.recipients.push(id);
+    }
+  });
 };
 
 // 按部门过滤接收人列表
@@ -348,22 +384,36 @@ const getUserDept = (uid) => findUserById(uid)?.department || '-';
 const getUserRoleName = (uid) => findUserById(uid)?._roleName || '-';
 
 const removeRecipient = (uid) => {
-  const idx = form.recipients.indexOf(uid);
-  if (idx >= 0) form.recipients.splice(idx, 1);
+  form.recipients = form.recipients.filter(id => id !== uid);
+  // 如果移除的是当前部门名片的持有人，同步清空部门名片选择
+  if (form.departmentCard && currentCardHolderIds.includes(uid)) {
+    form.departmentCard = '';
+    currentCardHolderIds = [];
+    ElMessage.info('已同步取消部门名片');
+  }
 };
 
 const submitForm = async () => {
-  if (!form.type || !form.recipients.length) {
-    ElMessage.error('请选择沟通类型和消息接收人');
+  if (!form.type) {
+    ElMessage.error('请选择沟通类型');
+    return;
+  }
+  if (!form.departmentCard && !form.recipients.length) {
+    ElMessage.error('请选择部门名片或消息接收人');
     return;
   }
   
   try {
-    await communicationAPI.create({
+    const payload = {
       ...form,
       senderRole: 'business',
       attachments: form.attachments
-    });
+    };
+    // 如果选了部门名片，把持有人ID传给后端
+    if (form.departmentCard) {
+      payload.department_card_ids = departmentCardAPI.getHolderIds(form.departmentCard, departmentCards.value);
+    }
+    await communicationAPI.create(payload);
     ElMessage.success('发送成功');
     resetForm();
     window.location.href = '#/home';
@@ -470,6 +520,13 @@ onMounted(() => {
         if (data) userRole.value = data.role;
       });
     }
+  });
+
+  // 加载部门名片数据
+  departmentCardAPI.getDepartmentCards().then(({ data }) => {
+    departmentCards.value = data || [];
+  }).catch(err => {
+    console.error('加载部门名片失败:', err);
   });
 
   loadAllUsers().then(() => {
