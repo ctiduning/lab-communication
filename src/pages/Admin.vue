@@ -684,7 +684,7 @@ const userForm = reactive({
   region: '',
   phone: '',
   email: ''
-));
+});
 
 const commSearchKeyword = ref('');
 
@@ -1011,8 +1011,9 @@ const handleExcelImport = async (file) => {
         name: String(row['姓名'] || '').trim(),
         employeeId: String(row['工号'] || '').trim(),
         role: String(row['角色'] || '').trim(),
-        department: String(row['部门'] || '').trim(),
-        region: String(row['地区'] || '').trim(),
+        departmentLevel1: String(row['一级部门'] || '').trim(),
+        departmentLevel2: String(row['二级部门'] || '').trim(),
+        departmentLevel3: String(row['三级部门'] || '').trim(),
         phone: String(row['电话'] || '').trim(),
         email: String(row['邮箱'] || '').trim()
       })).filter(u => u.name && u.employeeId && u.role);
@@ -1046,8 +1047,9 @@ const handleExcelImport = async (file) => {
             name: u.name,
             employeeId: u.employeeId,
             role: mappedRole,
-            department: u.department,
-            region: u.region,
+            departmentLevel1: u.departmentLevel1,
+            departmentLevel2: u.departmentLevel2,
+            departmentLevel3: u.departmentLevel3,
             phone: u.phone,
             priority: 'member',
             mustChangePwd: true
@@ -1072,24 +1074,36 @@ const handleExcelImport = async (file) => {
   reader.readAsArrayBuffer(file.raw);
 };
 
-// 下载 Excel 模板（新15角色）
+// 下载 Excel 模板（新15角色 + 三级部门）
 const downloadTemplate = () => {
   const templateData = [
     {
       '姓名': '张三',
       '工号': 'CTI001',
       '角色': '业务',
-      '部门': '理化检测组',
-      '地区': '青岛',
+      '一级部门': '业务',
+      '二级部门': '业务一部',
+      '三级部门': '青岛',
       '电话': '13800138000',
       '邮箱': 'zhangsan@cti-cert.com'
     },
     {
-      '姓名': '（以下为可选角色示例，实际填写时删除本行）',
+      '姓名': '李四',
+      '工号': 'CTI002',
+      '角色': '检测组长',
+      '一级部门': '实验室',
+      '二级部门': '理化实验室',
+      '三级部门': '色谱组',
+      '电话': '13800138001',
+      '邮箱': 'lisi@cti-cert.com'
+    },
+    {
+      '姓名': '（以下为角色说明，实际填写时删除本行）',
       '工号': '',
       '角色': '业务、业务助理、实验室主管、实验室主管助理、客服、客服组长、客服组长助理、检测组长、检测组长助理、检测工程师、制样组组长、报告组组长、数据二审、报告编制、技术支持、管理员',
-      '部门': '',
-      '地区': '',
+      '一级部门': '业务 或 实验室',
+      '二级部门': '业务端：业务一部~五部；实验室端：理化/微生物/分子等',
+      '三级部门': '实验室端：具体组别；业务端：属地如青岛/哈尔滨',
       '电话': '',
       '邮箱': ''
     }

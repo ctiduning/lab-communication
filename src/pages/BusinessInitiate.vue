@@ -95,6 +95,36 @@
         </div>
       </el-form-item>
       
+      <!-- 三级部门选择（业务端：一级→二级；实验室端：一级→二级→三级） -->
+      <el-form-item label="一级部门" v-if="userRole === 'business' || userRole === 'lab'">
+        <el-select v-model="selectedLevel1" placeholder="请选择" style="width:100%;" @change="onLevel1Change" clearable>
+          <el-option label="业务" value="业务" />
+          <el-option label="实验室" value="实验室" />
+        </el-select>
+      </el-form-item>
+
+      <el-form-item label="二级部门" v-if="selectedLevel1">
+        <el-select v-model="selectedLevel2" placeholder="请选择" style="width:100%;" @change="onLevel2Change" clearable :disabled="!selectedLevel1">
+          <el-option
+            v-for="opt in level2Options"
+            :key="opt.value"
+            :label="opt.label"
+            :value="opt.value"
+          />
+        </el-select>
+      </el-form-item>
+
+      <el-form-item label="三级部门" v-if="selectedLevel2 && selectedLevel1 === '实验室'">
+        <el-select v-model="selectedLevel3" placeholder="请选择" style="width:100%;" clearable :disabled="!selectedLevel2">
+          <el-option
+            v-for="opt in level3Options"
+            :key="opt.value"
+            :label="opt.label"
+            :value="opt.value"
+          />
+        </el-select>
+      </el-form-item>
+
       <el-form-item label="消息接收人" prop="recipients">
         <el-select
           v-model="form.recipients"
@@ -137,6 +167,27 @@
         </div>
       </el-form-item>
       
+      <!-- 部门名片选择（每部门限选一人） -->
+      <el-form-item label="部门名片" v-if="departmentCards.length > 0">
+        <el-select
+          v-model="form.departmentCard"
+          placeholder="选择部门名片（每部门限选一个）"
+          style="width: 100%;"
+          @change="onDepartmentCardChange"
+          clearable
+        >
+          <el-option
+            v-for="card in departmentCards"
+            :key="card.departmentLevel3"
+            :label="card.departmentLevel3 + '（' + (card.leader?.name || '') + '）'"
+            :value="card.departmentLevel3"
+          />
+        </el-select>
+        <div style="font-size: 12px; color: #909399; margin-top: 4px;">
+          选择部门名片后，消息将发送给该部门的负责人（组长+组长助理）
+        </div>
+      </el-form-item>
+      
       <el-form-item>
         <el-button type="primary" @click="submitForm">发送</el-button>
         <el-button @click="resetForm">重置</el-button>
@@ -148,9 +199,10 @@
 <script setup>
 import { ref, reactive, computed, onMounted, inject } from 'vue';
 import { ElMessage } from 'element-plus';
-import { communicationAPI, storageAPI, ROLE_OPTIONS, getRoleDisplayName } from '../api';
+import { communicationAPI, storageAPI, departmentCardAPI, ROLE_OPTIONS, getRoleDisplayName } from '../api';
 import { supabase } from '../utils/supabase';
 import { buildSearchKeys, filterGroups } from '../utils/pinyinSearch';
+import { DEPARTMENT_LEVEL2_MAP, DEPARTMENT_LEVEL3_MAP, isDepartmentCardRole } from '../utils/departmentConfig';
 
 const form = reactive({
   type: '',
@@ -167,8 +219,94 @@ const form = reactive({
   remark: '',
   content: '',
   recipients: [],
+  departmentCard: '',
   attachments: []
 });
+
+// 三级部门选择
+const selectedLevel1 = ref('');
+const selectedLevel2 = ref('');
+const selectedLevel3 = ref('');
+const userRole = ref(''); // 当前用户角色
+
+// 部门选项（根据一级部门动态计算）
+const level2Options = computed(() => {
+  if (!selectedLevel1.value) return [];
+  const map = DEPARTMENT_LEVEL2_MAP[selectedLevel1.value] || [];
+  return map;
+});
+
+const level3Options = computed(() => {
+  if (!selectedLevel2.value) return [];
+  const map = DEPARTMENT_LEVEL3_MAP[selectedLevel2.value] || [];
+  return map;
+});
+
+// 一级部门变化
+const onLevel1Change = () => {
+  selectedLevel2.value = '';
+  selectedLevel3.value = '';
+  // 过滤用户列表
+  filterByDepartment();
+};
+
+// 二级部门变化
+const onLevel2Change = () => {
+  selectedLevel3.value = '';
+  filterByDepartment();
+};
+
+// 三级部门变化
+const onLevel3Change = () => {
+  filterByDepartment();
+};
+
+// 按部门过滤接收人列表
+const filterByDepartment = () => {
+  if (!selectedLevel1.value) {
+    // 重置为全部用户
+    loadAllUsers();
+    return;
+  }
+  // 按部门过滤 allUsers
+  const filtered = allUsers.value.filter(u => {
+    if (selectedLevel3.value) {
+      return u.departmentLevel3 === selectedLevel3.value;
+    }
+    if (selectedLevel2.value) {
+      return u.departmentLevel2 === selectedLevel2.value;
+    }
+    if (selectedLevel1.value) {
+      return u.departmentLevel1 === selectedLevel1.value;
+    }
+    return true;
+  });
+  // 重新构建 recipientGroups
+  buildRecipientGroups(filtered);
+};
+
+const buildRecipientGroups = (users) => {
+  const groups = {};
+  const roleNameMap = {};
+  const roleOrder = [];
+  ROLE_OPTIONS.filter(r => r.value !== 'admin').forEach(r => {
+    roleNameMap[r.value] = r.label;
+    roleOrder.push(r.value);
+  });
+
+  users.forEach(u => {
+    const label = roleNameMap[u.role] || u.role;
+    const userWithKeys = buildSearchKeys(u, roleNameMap);
+    userWithKeys._roleName = label;
+    if (!groups[label]) groups[label] = { label, users: [] };
+    groups[label].users.push(userWithKeys);
+  });
+
+  recipientGroups.value = roleOrder
+    .map(r => roleNameMap[r])
+    .filter(label => groups[label])
+    .map(label => groups[label]);
+};
 
 const allUsers = ref([]);
 const recipientGroups = ref([]);
@@ -334,6 +472,15 @@ const pickFilesWithAPI = async () => {
 };
 
 onMounted(() => {
+  // 获取当前用户角色
+  supabase.auth.getUser().then(({ data: { user } }) => {
+    if (user) {
+      supabase.from('profiles').select('role').eq('id', user.id).single().then(({ data }) => {
+        if (data) userRole.value = data.role;
+      });
+    }
+  });
+
   loadAllUsers().then(() => {
     // 如果有预选中用户（从组织架构页面跳转过来），自动填充
     if (preselectRecipients.value && preselectRecipients.value.length > 0) {

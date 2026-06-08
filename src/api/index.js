@@ -41,7 +41,7 @@ export const authAPI = {
   // 管理员注册用户（仅供 Admin 页面调用）
   // 使用数据库函数 admin_create_user，不影响当前管理员 session
   async register(userData) {
-    const { username, password, name, role, employeeId, phone, email, region, department, priority, mustChangePwd } = userData
+    const { username, password, name, role, employeeId, phone, email, region, department, departmentLevel1, departmentLevel2, departmentLevel3, priority, mustChangePwd } = userData
 
     // 检查邮箱或用户名是否已被注册（查 profiles 表）
     const { data: existingProfiles } = await supabase

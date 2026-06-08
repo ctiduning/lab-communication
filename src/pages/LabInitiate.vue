@@ -49,6 +49,36 @@
         </div>
       </el-form-item>
       
+      <!-- 三级部门选择（实验室端：一级→二级→三级） -->
+      <el-form-item label="一级部门" v-if="userRole === 'lab' || userRole === 'business'">
+        <el-select v-model="selectedLevel1" placeholder="请选择" style="width:100%;" @change="onLevel1Change" clearable>
+          <el-option label="业务" value="业务" />
+          <el-option label="实验室" value="实验室" />
+        </el-select>
+      </el-form-item>
+
+      <el-form-item label="二级部门" v-if="selectedLevel1">
+        <el-select v-model="selectedLevel2" placeholder="请选择" style="width:100%;" @change="onLevel2Change" clearable :disabled="!selectedLevel1">
+          <el-option
+            v-for="opt in level2Options"
+            :key="opt.value"
+            :label="opt.label"
+            :value="opt.value"
+          />
+        </el-select>
+      </el-form-item>
+
+      <el-form-item label="三级部门" v-if="selectedLevel2 && selectedLevel1 === '实验室'">
+        <el-select v-model="selectedLevel3" placeholder="请选择" style="width:100%;" clearable :disabled="!selectedLevel2">
+          <el-option
+            v-for="opt in level3Options"
+            :key="opt.value"
+            :label="opt.label"
+            :value="opt.value"
+          />
+        </el-select>
+      </el-form-item>
+      
       <el-form-item label="消息接收人" prop="recipients">
         <el-select
           v-model="form.recipients"
@@ -56,7 +86,7 @@
           filterable
           reserve-keyword
           :filter-method="filterRecipient"
-          placeholder="输入姓名/拼音/地区搜索..."
+          placeholder="输入姓名/拼音/部门搜索..."
           style="width: 100%; min-width: 600px;"
           :teleported="false"
           :popper-append-to-body="false"
@@ -72,19 +102,19 @@
             >
               <div style="display:flex;align-items:center;gap:8px;">
                 <span style="font-weight:500;">{{ u.name }}</span>
-                <span style="color:#999;font-size:12px;">{{ u.region || '-' }} · {{ u._roleName || '-' }}</span>
+                <span style="color:#999;font-size:12px;">{{ u.departmentLevel3 || u.departmentLevel2 || u.departmentLevel1 || '-' }} · {{ u._roleName || '-' }}</span>
               </div>
             </el-option>
           </el-option-group>
         </el-select>
         <div style="color: #999; font-size: 12px; margin-top: 4px;">
-          已选择 {{ form.recipients.length }} 人（支持拼音首字母/全拼/地区搜索）
+          已选择 {{ form.recipients.length }} 人（支持拼音首字母/全拼/部门搜索）
         </div>
         <!-- 已选人员名片展示 -->
         <div v-if="form.recipients.length > 0" class="selected-recipient-cards">
           <div v-for="uid in form.recipients" :key="uid" class="recipient-card">
             <span class="recipient-card-name">{{ getUserName(uid) }}</span>
-            <span class="recipient-card-dept">{{ getUserRegion(uid) }}</span>
+            <span class="recipient-card-dept">{{ getUserDept(uid) }}</span>
             <span class="recipient-card-role">{{ getUserRoleName(uid) }}</span>
             <span class="recipient-card-remove" @click="removeRecipient(uid)">×</span>
           </div>
@@ -110,6 +140,7 @@ import { ElMessage } from 'element-plus';
 import { communicationAPI, storageAPI, ROLE_OPTIONS, getRoleDisplayName } from '../api';
 import { supabase } from '../utils/supabase';
 import { buildSearchKeys, filterGroups } from '../utils/pinyinSearch';
+import { DEPARTMENT_LEVEL2_MAP, DEPARTMENT_LEVEL3_MAP } from '../utils/departmentConfig';
 
 const form = reactive({
   type: '',
@@ -118,41 +149,93 @@ const form = reactive({
   recipients: [],
   attachments: []
 });
+
+// 三级部门选择
+const selectedLevel1 = ref('');
+const selectedLevel2 = ref('');
+const selectedLevel3 = ref('');
+const userRole = ref(''); // 当前用户角色
+
+// 部门选项（根据一级部门动态计算）
+const level2Options = computed(() => {
+  if (!selectedLevel1.value) return [];
+  const map = DEPARTMENT_LEVEL2_MAP[selectedLevel1.value] || [];
+  return map;
+});
+
+const level3Options = computed(() => {
+  if (!selectedLevel2.value) return [];
+  const map = DEPARTMENT_LEVEL3_MAP[selectedLevel2.value] || [];
+  return map;
+});
+
+// 一级部门变化
+const onLevel1Change = () => {
+  selectedLevel2.value = '';
+  selectedLevel3.value = '';
+  filterByDepartment();
+};
+
+// 二级部门变化
+const onLevel2Change = () => {
+  selectedLevel3.value = '';
+  filterByDepartment();
+};
+
+// 三级部门变化
+const onLevel3Change = () => {
+  filterByDepartment();
+};
+
+// 按部门过滤接收人列表
+const filterByDepartment = () => {
+  if (!selectedLevel1.value) {
+    loadAllUsers();
+    return;
+  }
+  const filtered = allUsers.value.filter(u => {
+    if (selectedLevel3.value) {
+      return u.departmentLevel3 === selectedLevel3.value;
+    }
+    if (selectedLevel2.value) {
+      return u.departmentLevel2 === selectedLevel2.value;
+    }
+    if (selectedLevel1.value) {
+      return u.departmentLevel1 === selectedLevel1.value;
+    }
+    return true;
+  });
+  buildRecipientGroups(filtered);
+};
+
+const buildRecipientGroups = (users) => {
+  const groups = {};
+  const roleNameMap = {};
+  const roleOrder = [];
+  ROLE_OPTIONS.filter(r => r.value !== 'admin').forEach(r => {
+    roleNameMap[r.value] = r.label;
+    roleOrder.push(r.value);
+  });
+
+  users.forEach(u => {
+    const label = roleNameMap[u.role] || u.role;
+    const userWithKeys = buildSearchKeys(u, roleNameMap);
+    userWithKeys._roleName = label;
+    if (!groups[label]) groups[label] = { label, users: [] };
+    groups[label].users.push(userWithKeys);
+  });
+
+  recipientGroups.value = roleOrder
+    .map(r => roleNameMap[r])
+    .filter(label => groups[label])
+    .map(label => groups[label]);
+};
+
 const showImagePreview = ref(false);
 const previewImageUrl = ref('');
 const allUsers = ref([]);
 const recipientGroups = ref([]);
 const searchQuery = ref('');
-
-// 是否支持 File System Access API
-const supportsFileSystemAPI = ref(typeof window !== 'undefined' && !!window.showOpenFilePicker);
-
-// 使用 File System Access API 选择并上传文件
-const pickFilesWithAPI = async () => {
-  try {
-    const handles = await window.showOpenFilePicker({
-      multiple: true,
-      types: [
-        {
-          description: '图片文件',
-          accept: { 'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp'] }
-        }
-      ]
-    });
-    
-    for (const handle of handles) {
-      const file = await handle.getFile();
-      console.log('通过 File System API 选择文件:', file.name, '大小:', file.size);
-      const result = await storageAPI.upload(file, 'communications');
-      form.attachments.push(result);
-      ElMessage.success(`已上传: ${file.name}`);
-    }
-  } catch (err) {
-    if (err.name === 'AbortError') return; // 用户取消了选择
-    console.error('File System API 上传失败:', err);
-    ElMessage.error('选择文件失败: ' + (err.message || '未知错误'));
-  }
-};
 
 const filteredGroups = computed(() => {
   return filterGroups(searchQuery.value, recipientGroups.value);
@@ -181,6 +264,36 @@ const handleUpload = async (file) => {
   return false;
 };
 
+// 是否支持 File System Access API
+const supportsFileSystemAPI = ref(typeof window !== 'undefined' && !!window.showOpenFilePicker);
+
+// 使用 File System Access API 选择并上传文件
+const pickFilesWithAPI = async () => {
+  try {
+    const handles = await window.showOpenFilePicker({
+      multiple: true,
+      types: [
+        {
+          description: '图片文件',
+          accept: { 'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp'] }
+        }
+      ]
+    });
+    
+    for (const handle of handles) {
+      const file = await handle.getFile();
+      console.log('通过 File System API 选择文件:', file.name, '大小:', file.size);
+      const result = await storageAPI.upload(file, 'communications');
+      form.attachments.push(result);
+      ElMessage.success(`已上传: ${file.name}`);
+    }
+  } catch (err) {
+    if (err.name === 'AbortError') return;
+    console.error('File System API 上传失败:', err);
+    ElMessage.error('选择文件失败: ' + (err.message || '未知错误'));
+  }
+};
+
 const submitForm = async () => {
   if (!form.type || !form.content.trim()) {
     ElMessage.error('请选择沟通类型并填写沟通内容');
@@ -207,6 +320,9 @@ const resetForm = () => {
   form.content = '';
   form.recipients = [];
   form.attachments = [];
+  selectedLevel1.value = '';
+  selectedLevel2.value = '';
+  selectedLevel3.value = '';
 };
 
 // 从所有选项中查找用户信息
@@ -219,7 +335,11 @@ const findUserById = (uid) => {
 };
 
 const getUserName = (uid) => findUserById(uid)?.name || uid;
-const getUserRegion = (uid) => findUserById(uid)?.region || '-';
+const getUserDept = (uid) => {
+  const u = findUserById(uid);
+  if (!u) return '-';
+  return u.departmentLevel3 || u.departmentLevel2 || u.departmentLevel1 || '-';
+};
 const getUserRoleName = (uid) => findUserById(uid)?._roleName || '-';
 
 const removeRecipient = (uid) => {
@@ -237,7 +357,9 @@ const loadAllUsers = async () => {
       .neq('id', authUser?.id || '')
       .eq('is_disabled', false)
       .order('role')
-      .order('department')
+      .order('departmentLevel1')
+      .order('departmentLevel2')
+      .order('departmentLevel3')
       .order('name')
     if (error) throw error
     allUsers.value = data || []
@@ -271,6 +393,15 @@ const loadAllUsers = async () => {
 const preselectRecipients = inject('preselectRecipients', ref([]));
 
 onMounted(() => {
+  // 获取当前用户角色
+  supabase.auth.getUser().then(({ data: { user } }) => {
+    if (user) {
+      supabase.from('profiles').select('role').eq('id', user.id).single().then(({ data }) => {
+        if (data) userRole.value = data.role;
+      });
+    }
+  });
+
   loadAllUsers().then(() => {
     // 如果有预选中用户（从组织架构页面跳转过来），自动填充
     if (preselectRecipients.value && preselectRecipients.value.length > 0) {
@@ -289,7 +420,6 @@ onMounted(() => {
         form.content = editData.content || '';
         form.recipients = editData.recipientIds || [];
         ElMessage.info('已加载撤回消息的内容，请编辑后重新发送');
-        // 清除 localStorage，避免刷新后重复加载
         localStorage.removeItem('recalledMessageEdit');
       } catch (e) {
         console.error('解析撤回消息数据失败:', e);
