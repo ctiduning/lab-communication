@@ -78,6 +78,7 @@ export interface Message {
   status: MessageStatus
   is_completed: boolean
   replied_by: string[]
+  department_card_ids?: string[]   // 部门名片：负责人ID数组
   created_at: string
   updated_at: string
 }

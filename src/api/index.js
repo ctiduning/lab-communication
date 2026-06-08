@@ -78,6 +78,9 @@ export const authAPI = {
       p_phone: phone || '',
       p_region: region || '',
       p_department: department || '',
+      p_department_level1: departmentLevel1 || '',
+      p_department_level2: departmentLevel2 || '',
+      p_department_level3: departmentLevel3 || '',
       p_must_change_pwd: mustChangePwd ? true : false
     })
 
@@ -1665,10 +1668,14 @@ function formatProfile(p) {
     email: p.email,
     region: p.region,
     department: p.department,
+    // 新字段：三级部门
+    departmentLevel1: p.department_level1 || '',
+    departmentLevel2: p.department_level2 || '',
+    departmentLevel3: p.department_level3 || '',
     priority: p.priority === 1 ? 'leader' : 'member',
     isDisabled: p.is_disabled === true,
-    last_active_at: p.last_active_at || null,    // 新增：最后活跃时间
-    last_sign_in_at: p.last_sign_in_at || null,  // 新增：最后登录时间
+    last_active_at: p.last_active_at || null,
+    last_sign_in_at: p.last_sign_in_at || null,
     createdAt: p.created_at
   }
 }
@@ -1882,3 +1889,109 @@ export const messageReadsAPI = {
     return { data: data || [] };
   }
 };;
+
+// ==========================================
+// 部门名片相关 API
+// ==========================================
+export const departmentCardAPI = {
+  // 获取所有部门名片列表（前端计算，不依赖后端函数）
+  async getDepartmentCards() {
+    // 查出所有部门名片负责人（组长 + 组长助理）
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, name, role, department_level1, department_level2, department_level3, is_disabled')
+      .eq('department_level1', '实验室')
+      .in('role', [
+        'inspection_leader', 'inspection_leader_assistant',
+        'cs_leader', 'cs_leader_assistant',
+        'sample_prep_leader', 'report_leader'
+      ])
+      .eq('is_disabled', false)
+      .not('department_level3', 'is', null)
+      .order('department_level2', { ascending: true })
+      .order('department_level3', { ascending: true })
+
+    if (error) throw error
+
+    // 前端按 department_level3 分组，配成部门名片
+    const cardMap = {}
+    ;(data || []).forEach(u => {
+      const key = u.department_level3
+      if (!cardMap[key]) {
+        cardMap[key] = {
+          departmentLevel3: u.department_level3,
+          departmentLevel2: u.department_level2,
+          leader: null,
+          assistant: null,
+          holders: []
+        }
+      }
+      if (u.role.endsWith('_leader') || u.role === 'sample_prep_leader' || u.role === 'report_leader') {
+        cardMap[key].leader = { id: u.id, name: u.name, role: u.role }
+        cardMap[key].holders.push({ id: u.id, name: u.name, role: u.role })
+      } else {
+        cardMap[key].assistant = { id: u.id, name: u.name, role: u.role }
+        cardMap[key].holders.push({ id: u.id, name: u.name, role: u.role })
+      }
+    })
+
+    // 只返回同时有 leader 的部门名片
+    return {
+      data: Object.values(cardMap).filter(c => c.leader !== null)
+    }
+  },
+
+  // 发送消息时校验部门名片负责人是否都在职
+  async validateCardHolders(departmentLevel3) {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, name, is_disabled')
+      .eq('department_level3', departmentLevel3)
+      .in('role', [
+        'inspection_leader', 'inspection_leader_assistant',
+        'cs_leader', 'cs_leader_assistant',
+        'sample_prep_leader', 'report_leader'
+      ])
+
+    if (error) throw error
+    const active = (data || []).filter(u => !u.is_disabled)
+    return {
+      data: {
+        valid: active.length > 0,
+        holders: active,
+        message: active.length === 0 ? '该部门暂无负责人' : ''
+      }
+    }
+  }
+}
+
+// ==========================================
+// 三级部门架构 API（管理员用）
+// ==========================================
+export const departmentAPI = {
+  // 更新用户三级部门信息
+  async updateProfile(userId, updates) {
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        department_level1: updates.departmentLevel1 || null,
+        department_level2: updates.departmentLevel2 || null,
+        department_level3: updates.departmentLevel3 || null,
+      })
+      .eq('id', userId)
+
+    if (error) throw error
+    return { data: { message: '已更新' } }
+  },
+
+  // 获取三级部门架构统计
+  async getStats() {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('department_level1, department_level2, department_level3, role, is_disabled')
+      .not('department_level1', 'is', null)
+
+    if (error) throw error
+    return { data: data || [] }
+  }
+}

@@ -61,6 +61,15 @@
                   <el-icon><Delete /></el-icon>
                   清理旧数据
                 </el-button>
+                <el-button 
+                  type="danger" 
+                  @click="showClearTestDataDialog = true"
+                  size="large"
+                  style="margin-left: 12px;"
+                >
+                  <el-icon><Delete /></el-icon>
+                  清除测试数据
+                </el-button>
               </div>
               <div class="header-right">
                 <el-input 
@@ -142,7 +151,10 @@
               </template>
             </el-table-column>
             <el-table-column prop="department" label="部门" width="110" sortable></el-table-column>
-            <el-table-column prop="region" label="地区" width="80" sortable></el-table-column>
+            <el-table-column prop="departmentLevel1" label="一级部门" width="100" sortable></el-table-column>
+            <el-table-column prop="departmentLevel2" label="二级部门" width="120" sortable></el-table-column>
+            <el-table-column prop="departmentLevel3" label="三级部门" width="120" sortable></el-table-column>
+            <el-table-column prop="region" label="地区(旧)" width="80" sortable></el-table-column>
             <el-table-column prop="phone" label="电话" width="115" sortable></el-table-column>
             <el-table-column prop="email" label="邮箱" min-width="150" sortable show-overflow-tooltip></el-table-column>
             <el-table-column label="是否在线" width="90" align="center" sortable>
@@ -544,15 +556,42 @@
             ></el-option>
           </el-select>
         </el-form-item>
-        <!-- 业务端显示属地，实验室端显示检测组 -->
-        <el-form-item :label="getRoleCategory(userForm.role) === 'business' ? '属地' : '检测组'">
-          <el-input
-            v-model="userForm.region"
-            :placeholder="getRoleCategory(userForm.role) === 'business' ? '如：青岛、哈尔滨' : '如：有机检测组、无机检测组'"
-          ></el-input>
+        <!-- 三级部门架构 -->
+        <el-form-item label="一级部门">
+          <el-select v-model="userForm.departmentLevel1" placeholder="请选择" style="width:100%" @change="onLevel1Change">
+            <el-option label="业务" value="业务" />
+            <el-option label="实验室" value="实验室" />
+          </el-select>
         </el-form-item>
-        <el-form-item label="部门/组别备注">
-          <el-input v-model="userForm.department" placeholder="补充信息（选填）"></el-input>
+        <el-form-item label="二级部门">
+          <el-select v-model="userForm.departmentLevel2" placeholder="请先选择一级部门" style="width:100%" @change="onLevel2Change" :disabled="!userForm.departmentLevel1">
+            <el-option
+              v-for="opt in level2Options"
+              :key="opt.value"
+              :label="opt.label"
+              :value="opt.value"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="三级部门">
+          <el-select
+            v-model="userForm.departmentLevel3"
+            placeholder="业务端请填写属地（如：青岛）"
+            style="width:100%"
+            :disabled="!userForm.departmentLevel2"
+            filterable
+            allow-create
+          >
+            <el-option
+              v-for="opt in level3Options"
+              :key="opt.value"
+              :label="opt.label"
+              :value="opt.value"
+            />
+          </el-select>
+          <div style="font-size:12px;color:#909399;margin-top:4px;">
+            实验室端从下拉选择；业务端请直接输入属地（如：青岛、哈尔滨）
+          </div>
         </el-form-item>
         <el-form-item label="电话">
           <el-input v-model="userForm.phone"></el-input>
@@ -604,9 +643,10 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { userAPI, authAPI, communicationAPI, notificationAPI, reactionAPI, ROLE_OPTIONS, getRoleDisplayName, getRoleCategory, adminLogAPI } from '../api';
+import { userAPI, authAPI, communicationAPI, notificationAPI, reactionAPI, ROLE_OPTIONS, getRoleDisplayName, getRoleCategory, adminLogAPI, departmentAPI } from '../api';
 import { supabase } from '../utils/supabase';
 import * as XLSX from 'xlsx';
+import { DEPARTMENT_LEVEL2_MAP, DEPARTMENT_LEVEL3_MAP } from '../utils/departmentConfig';
 
 const activeTab = ref('users');
 const users = ref([]);
@@ -622,10 +662,12 @@ const backupLoading = ref(false);
 const storageStatus = ref(null);
 const storageWarning = ref(false);
 const showCleanupDialog = ref(false);
+const showClearTestDataDialog = ref(false);
 const cleanupDate = ref('');
 const oldCommunications = ref([]);
 const cleanupLoading = ref(false);
 const cleanupPreviewLoading = ref(false);
+const clearTestDataLoading = ref(false);
 
 const allRoleOptions = ROLE_OPTIONS;
 
@@ -636,10 +678,13 @@ const userForm = reactive({
   employeeId: '',
   role: 'business',
   department: '',
+  departmentLevel1: '',
+  departmentLevel2: '',
+  departmentLevel3: '',
   region: '',
   phone: '',
   email: ''
-});
+));
 
 const commSearchKeyword = ref('');
 

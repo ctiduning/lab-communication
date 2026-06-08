@@ -1,0 +1,20 @@
+sequenceDiagram
+    participant U as 业务用户
+    participant UI as BusinessInitiate.vue
+    participant API as messageAPI
+    participant DB as Supabase DB
+    participant RT as Realtime
+    participant R as 组长/助理
+
+    U->>UI: 选择部门名片（如"企业气相组"）
+    UI->>UI: 校验：该部门未选个人且不超1人
+    U->>UI: 填写表单，点击发送
+    UI->>API: createMessage({ receiver_ids: [], department_card_ids: ['企业气相组'] })
+    API->>DB: INSERT messages + INSERT message_receivers (leader_ids)
+    DB-->>RT: 触发 Realtime UPDATE
+    RT-->>R: 推送新消息通知
+    R->>UI: 任一人回复
+    UI->>API: replyMessage(messageId, content)
+    API->>DB: UPDATE messages SET replied_by = [leader1_id]
+    DB-->>RT: 触发 Realtime UPDATE
+    RT-->>R: 另一人收到同步：status = 'replied'，禁用操作按钮
