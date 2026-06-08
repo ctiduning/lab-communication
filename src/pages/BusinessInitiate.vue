@@ -202,7 +202,7 @@ import { ElMessage } from 'element-plus';
 import { communicationAPI, storageAPI, departmentCardAPI, ROLE_OPTIONS, getRoleDisplayName } from '../api';
 import { supabase } from '../utils/supabase';
 import { buildSearchKeys, filterGroups } from '../utils/pinyinSearch';
-import { DEPARTMENT_LEVEL2_MAP, DEPARTMENT_LEVEL3_MAP, isDepartmentCardRole } from '../utils/departmentConfig';
+import { getLevel2Options, getLevel3Options, getRoleOptions, isDepartmentCardRole } from '../utils/departmentConfig';
 
 const form = reactive({
   type: '',
@@ -230,17 +230,8 @@ const selectedLevel3 = ref('');
 const userRole = ref(''); // 当前用户角色
 
 // 部门选项（根据一级部门动态计算）
-const level2Options = computed(() => {
-  if (!selectedLevel1.value) return [];
-  const map = DEPARTMENT_LEVEL2_MAP[selectedLevel1.value] || [];
-  return map;
-});
-
-const level3Options = computed(() => {
-  if (!selectedLevel2.value) return [];
-  const map = DEPARTMENT_LEVEL3_MAP[selectedLevel2.value] || [];
-  return map;
-});
+const level2Options = computed(() => getLevel2Options(selectedLevel1.value));
+const level3Options = computed(() => getLevel3Options(selectedLevel1.value));
 
 // 一级部门变化
 const onLevel1Change = () => {

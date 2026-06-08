@@ -139,22 +139,20 @@
               />
             </div>
             <el-table :data="filteredUsers" border stripe height="550" style="width: 100%; margin-top: 16px;">
-            <el-table-column label="用户名" width="100" sortable>
+            <el-table-column label="姓名" width="90" sortable>
               <template #default="scope">
                 {{ scope.row.name || scope.row.username }}
               </template>
             </el-table-column>
             <el-table-column prop="employeeId" label="工号" width="90" sortable></el-table-column>
-            <el-table-column prop="role" label="角色" width="100" sortable>
+            <el-table-column prop="departmentLevel1" label="一级部门" width="90" sortable></el-table-column>
+            <el-table-column prop="departmentLevel2" label="二级部门" width="140" sortable></el-table-column>
+            <el-table-column prop="departmentLevel3" label="三级部门" width="110" sortable></el-table-column>
+            <el-table-column prop="role" label="角色" width="110" sortable>
               <template #default="scope">
-                <el-tag :type="getRoleTag(scope.row.role)" size="small">{{ getRoleName(scope.row.role) }}</el-tag>
+                <el-tag :type="getRoleTag(scope.row.role)" size="small">{{ scope.row.role }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="department" label="部门" width="110" sortable></el-table-column>
-            <el-table-column prop="departmentLevel1" label="一级部门" width="100" sortable></el-table-column>
-            <el-table-column prop="departmentLevel2" label="二级部门" width="120" sortable></el-table-column>
-            <el-table-column prop="departmentLevel3" label="三级部门" width="120" sortable></el-table-column>
-            <el-table-column prop="region" label="地区(旧)" width="80" sortable></el-table-column>
             <el-table-column prop="phone" label="电话" width="115" sortable></el-table-column>
             <el-table-column prop="email" label="邮箱" min-width="150" sortable show-overflow-tooltip></el-table-column>
             <el-table-column label="是否在线" width="90" align="center" sortable>
@@ -546,52 +544,46 @@
         <el-form-item label="工号">
           <el-input v-model="userForm.employeeId" placeholder="唯一标识，不可重复"></el-input>
         </el-form-item>
-        <el-form-item label="角色">
-          <el-select v-model="userForm.role" placeholder="请选择角色" style="width: 100%;">
+        <!-- 一级部门 -->
+        <el-form-item label="一级部门">
+          <el-select v-model="userForm.departmentLevel1" placeholder="请选择" style="width:100%" @change="onAdminLevel1Change">
+            <el-option label="业务" value="业务" />
+            <el-option label="实验室" value="实验室" />
+          </el-select>
+        </el-form-item>
+        <!-- 二级部门 -->
+        <el-form-item label="二级部门">
+          <el-select v-model="userForm.departmentLevel2" placeholder="请先选择一级部门" style="width:100%" :disabled="!userForm.departmentLevel1">
             <el-option
-              v-for="opt in allRoleOptions"
+              v-for="opt in adminLevel2Options"
+              :key="opt.value"
+              :label="opt.label"
+              :value="opt.value"
+            />
+          </el-select>
+        </el-form-item>
+        <!-- 三级部门 -->
+        <el-form-item label="三级部门">
+          <el-input v-if="isAdminLevel3Manual" v-model="userForm.departmentLevel3" placeholder="请填写属地，如：青岛、上海"></el-input>
+          <el-select v-else v-model="userForm.departmentLevel3" placeholder="请先选择一级部门" style="width:100%" :disabled="!userForm.departmentLevel1">
+            <el-option
+              v-for="opt in adminLevel3Options"
+              :key="opt.value"
+              :label="opt.label"
+              :value="opt.value"
+            />
+          </el-select>
+        </el-form-item>
+        <!-- 角色 -->
+        <el-form-item label="角色">
+          <el-select v-model="userForm.role" placeholder="请先选择一级部门" style="width: 100%;" :disabled="!userForm.departmentLevel1">
+            <el-option
+              v-for="opt in adminRoleOptions"
               :key="opt.value"
               :label="opt.label"
               :value="opt.value"
             ></el-option>
           </el-select>
-        </el-form-item>
-        <!-- 三级部门架构 -->
-        <el-form-item label="一级部门">
-          <el-select v-model="userForm.departmentLevel1" placeholder="请选择" style="width:100%" @change="onLevel1Change">
-            <el-option label="业务" value="业务" />
-            <el-option label="实验室" value="实验室" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="二级部门">
-          <el-select v-model="userForm.departmentLevel2" placeholder="请先选择一级部门" style="width:100%" @change="onLevel2Change" :disabled="!userForm.departmentLevel1">
-            <el-option
-              v-for="opt in level2Options"
-              :key="opt.value"
-              :label="opt.label"
-              :value="opt.value"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="三级部门">
-          <el-select
-            v-model="userForm.departmentLevel3"
-            placeholder="业务端请填写属地（如：青岛）"
-            style="width:100%"
-            :disabled="!userForm.departmentLevel2"
-            filterable
-            allow-create
-          >
-            <el-option
-              v-for="opt in level3Options"
-              :key="opt.value"
-              :label="opt.label"
-              :value="opt.value"
-            />
-          </el-select>
-          <div style="font-size:12px;color:#909399;margin-top:4px;">
-            实验室端从下拉选择；业务端请直接输入属地（如：青岛、哈尔滨）
-          </div>
         </el-form-item>
         <el-form-item label="电话">
           <el-input v-model="userForm.phone"></el-input>
@@ -646,7 +638,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { userAPI, authAPI, communicationAPI, notificationAPI, reactionAPI, ROLE_OPTIONS, getRoleDisplayName, getRoleCategory, adminLogAPI, departmentAPI } from '../api';
 import { supabase } from '../utils/supabase';
 import * as XLSX from 'xlsx';
-import { DEPARTMENT_LEVEL2_MAP, DEPARTMENT_LEVEL3_MAP } from '../utils/departmentConfig';
+import { getLevel2Options, getLevel3Options, getRoleOptions, isLevel3ManualInput } from '../utils/departmentConfig';
 
 const activeTab = ref('users');
 const users = ref([]);
@@ -676,15 +668,25 @@ const userForm = reactive({
   password: '',
   name: '',
   employeeId: '',
-  role: 'business',
-  department: '',
   departmentLevel1: '',
   departmentLevel2: '',
   departmentLevel3: '',
-  region: '',
+  role: '',
   phone: '',
   email: ''
 });
+
+// 联动计算属性
+const adminLevel2Options = computed(() => getLevel2Options(userForm.departmentLevel1));
+const adminLevel3Options = computed(() => getLevel3Options(userForm.departmentLevel1));
+const adminRoleOptions = computed(() => getRoleOptions(userForm.departmentLevel1));
+const isAdminLevel3Manual = computed(() => isLevel3ManualInput(userForm.departmentLevel1));
+
+const onAdminLevel1Change = () => {
+  userForm.departmentLevel2 = '';
+  userForm.departmentLevel3 = '';
+  userForm.role = '';
+};
 
 const commSearchKeyword = ref('');
 
@@ -694,8 +696,10 @@ const filteredUsers = computed(() => {
   return users.value.filter(u =>
     u.name?.toLowerCase().includes(kw) ||
     u.employeeId?.toLowerCase().includes(kw) ||
-    u.department?.toLowerCase().includes(kw) ||
-    u.region?.toLowerCase().includes(kw)
+    u.departmentLevel1?.toLowerCase().includes(kw) ||
+    u.departmentLevel2?.toLowerCase().includes(kw) ||
+    u.departmentLevel3?.toLowerCase().includes(kw) ||
+    u.role?.toLowerCase().includes(kw)
   );
 });
 
@@ -722,10 +726,8 @@ const filteredCommunications = computed(() => {
 });
 
 const getRoleTag = (role) => {
-  const bizRoles = ['business', 'business_assistant'];
-  const adminRoles = ['admin'];
-  if (adminRoles.includes(role)) return 'danger';
-  if (bizRoles.includes(role)) return 'warning';
+  if (role === '管理员' || role === 'admin') return 'danger';
+  if (role === '业务' || role === '业务助理') return 'warning';
   return 'success'; // 实验室端角色统一用 success
 };
 
@@ -985,26 +987,14 @@ const handleExcelImport = async (file) => {
       }
 
       const roleMap = {
-        // 新角色名（15个）
-        '业务': 'business',
-        '业务助理': 'business_assistant',
-        '实验室主管': 'supervisor',
-        '实验室主管助理': 'supervisor_assistant',
-        '客服': 'customer_service',
-        '客服组长': 'cs_leader',
-        '客服组长助理': 'cs_leader_assistant',
-        '检测组长': 'inspection_leader',
-        '检测组长助理': 'inspection_leader_assistant',
-        '检测工程师': 'inspection_engineer',
-        '制样组组长': 'sample_prep_leader',
-        '报告组组长': 'report_leader',
-        '数据二审': 'data_review',
-        '报告编制': 'report_compiler',
-        '技术支持': 'tech_support',
-        '管理员': 'admin',
-        // 向后兼容：保留旧角色名
-        '主管': 'supervisor',
-        '实验室': 'lab'
+        '业务': '业务',
+        '业务助理': '业务助理',
+        '实验室主管': '实验室主管',
+        '实验室主管助理': '实验室主管助理',
+        '组长': '组长',
+        '组长助理': '组长助理',
+        '检测工程师': '检测工程师',
+        '管理员': 'admin'
       };
 
       const usersToCreate = rows.map(row => ({
@@ -1074,36 +1064,36 @@ const handleExcelImport = async (file) => {
   reader.readAsArrayBuffer(file.raw);
 };
 
-// 下载 Excel 模板（新15角色 + 三级部门）
+// 下载 Excel 模板（8列通讯录架构）
 const downloadTemplate = () => {
   const templateData = [
     {
       '姓名': '张三',
       '工号': 'CTI001',
-      '角色': '业务',
       '一级部门': '业务',
-      '二级部门': '业务一部',
+      '二级部门': '食品产品线',
       '三级部门': '青岛',
+      '角色': '业务',
       '电话': '13800138000',
       '邮箱': 'zhangsan@cti-cert.com'
     },
     {
       '姓名': '李四',
       '工号': 'CTI002',
-      '角色': '检测组长',
       '一级部门': '实验室',
-      '二级部门': '理化实验室',
-      '三级部门': '色谱组',
+      '二级部门': '青岛食品实验室',
+      '三级部门': '理化组',
+      '角色': '组长',
       '电话': '13800138001',
       '邮箱': 'lisi@cti-cert.com'
     },
     {
-      '姓名': '（以下为角色说明，实际填写时删除本行）',
+      '姓名': '（以下为填写说明，实际填写时删除本行）',
       '工号': '',
-      '角色': '业务、业务助理、实验室主管、实验室主管助理、客服、客服组长、客服组长助理、检测组长、检测组长助理、检测工程师、制样组组长、报告组组长、数据二审、报告编制、技术支持、管理员',
       '一级部门': '业务 或 实验室',
-      '二级部门': '业务端：业务一部~五部；实验室端：理化/微生物/分子等',
-      '三级部门': '实验室端：具体组别；业务端：属地如青岛/哈尔滨',
+      '二级部门': '业务端：食品产品线/特食及日化产品线/饲料产品线/农产品产品线/其他产品线；实验室端：青岛食品企业实验室/青岛食品实验室/青岛大客户实验室',
+      '三级部门': '业务端填属地如青岛、上海；实验室端：企业气相组/企业液相组/政府气相组/政府液相组/综合组/理化组/营养标签组/包材组/分子生物组/元素组/微生物组/标签审核组/放射性检测组/客服组/制样组/报告组',
+      '角色': '业务端：业务/业务助理；实验室端：实验室主管/实验室主管助理/组长/组长助理/检测工程师',
       '电话': '',
       '邮箱': ''
     }

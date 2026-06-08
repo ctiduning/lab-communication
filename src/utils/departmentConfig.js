@@ -1,57 +1,89 @@
 // ============================================
-// 三级部门架构配置
+// 三级部门架构配置（最终版）
 // ============================================
 
 // 一级部门列表
 export const DEPARTMENT_LEVEL1 = ['业务', '实验室']
 
-// 二级部门映射
-export const DEPARTMENT_LEVEL2_MAP = {
-  '业务': [
-    { value: '业务一部', label: '业务一部' },
-    { value: '业务二部', label: '业务二部' },
-    { value: '业务三部', label: '业务三部' },
-    { value: '业务四部', label: '业务四部' },
-    { value: '业务五部', label: '业务五部' }
-  ],
-  '实验室': [
-    { value: '理化实验室', label: '理化实验室' },
-    { value: '微生物实验室', label: '微生物实验室' },
-    { value: '重金属实验室', label: '重金属实验室' },
-    { value: '有机物实验室', label: '有机物实验室' }
-  ]
+// 业务端二级部门
+export const BUSINESS_LEVEL2 = [
+  { value: '食品产品线', label: '食品产品线' },
+  { value: '特食及日化产品线', label: '特食及日化产品线' },
+  { value: '饲料产品线', label: '饲料产品线' },
+  { value: '农产品产品线', label: '农产品产品线' },
+  { value: '其他产品线', label: '其他产品线' }
+]
+
+// 实验室端二级部门
+export const LAB_LEVEL2 = [
+  { value: '青岛食品企业实验室', label: '青岛食品企业实验室' },
+  { value: '青岛食品实验室', label: '青岛食品实验室' },
+  { value: '青岛大客户实验室', label: '青岛大客户实验室' }
+]
+
+// 实验室端三级部门
+export const LAB_LEVEL3 = [
+  { value: '企业气相组', label: '企业气相组' },
+  { value: '企业液相组', label: '企业液相组' },
+  { value: '政府气相组', label: '政府气相组' },
+  { value: '政府液相组', label: '政府液相组' },
+  { value: '综合组', label: '综合组' },
+  { value: '理化组', label: '理化组' },
+  { value: '营养标签组', label: '营养标签组' },
+  { value: '包材组', label: '包材组' },
+  { value: '分子生物组', label: '分子生物组' },
+  { value: '元素组', label: '元素组' },
+  { value: '微生物组', label: '微生物组' },
+  { value: '标签审核组', label: '标签审核组' },
+  { value: '放射性检测组', label: '放射性检测组' },
+  { value: '客服组', label: '客服组' },
+  { value: '制样组', label: '制样组' },
+  { value: '报告组', label: '报告组' }
+]
+
+// 业务端角色
+export const BUSINESS_ROLES = [
+  { value: '业务', label: '业务' },
+  { value: '业务助理', label: '业务助理' }
+]
+
+// 实验室端角色
+export const LAB_ROLES = [
+  { value: '实验室主管', label: '实验室主管' },
+  { value: '实验室主管助理', label: '实验室主管助理' },
+  { value: '组长', label: '组长' },
+  { value: '组长助理', label: '组长助理' },
+  { value: '检测工程师', label: '检测工程师' }
+]
+
+// 获取二级部门选项
+export function getLevel2Options(level1) {
+  if (level1 === '业务') return BUSINESS_LEVEL2
+  if (level1 === '实验室') return LAB_LEVEL2
+  return []
 }
 
-// 三级部门映射（仅实验室）
-export const DEPARTMENT_LEVEL3_MAP = {
-  '理化实验室': [
-    { value: '色谱组', label: '色谱组' },
-    { value: '光谱组', label: '光谱组' },
-    { value: '常规分析组', label: '常规分析组' }
-  ],
-  '微生物实验室': [
-    { value: '细菌组', label: '细菌组' },
-    { value: '真菌组', label: '真菌组' }
-  ],
-  '重金属实验室': [
-    { value: '前处理组', label: '前处理组' },
-    { value: 'ICP组', label: 'ICP组' }
-  ],
-  '有机物实验室': [
-    { value: 'GC组', label: 'GC组' },
-    { value: 'GCMS组', label: 'GCMS组' }
-  ]
+// 获取三级部门选项
+export function getLevel3Options(level1) {
+  if (level1 === '业务') return [] // 业务端手动填写
+  if (level1 === '实验室') return LAB_LEVEL3
+  return []
+}
+
+// 获取角色选项
+export function getRoleOptions(level1) {
+  if (level1 === '业务') return BUSINESS_ROLES
+  if (level1 === '实验室') return LAB_ROLES
+  return []
+}
+
+// 业务端三级部门是手动输入（属地）
+export function isLevel3ManualInput(level1) {
+  return level1 === '业务'
 }
 
 // 部门名片角色（组长 + 组长助理）
-export const DEPARTMENT_CARD_ROLES = [
-  'inspection_leader',    // 检测组长
-  'inspection_leader_assistant', // 检测组长助理
-  'cs_leader',        // 客服组长
-  'cs_leader_assitant', // 客服组长助理
-  'sample_prep_leader', // 制样组组长
-  'report_leader'      // 报告组组长
-]
+export const DEPARTMENT_CARD_ROLES = ['组长', '组长助理']
 
 // 判断是否是部门名片角色
 export function isDepartmentCardRole(role) {

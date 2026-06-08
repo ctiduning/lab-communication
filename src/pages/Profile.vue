@@ -13,38 +13,49 @@
             <span style="font-weight:600;">基本信息</span>
           </template>
           <el-form :model="form" :rules="rules" ref="formRef" label-width="100px">
+            <!-- 姓名 -->
             <el-form-item label="姓名">
               <el-input v-model="form.name" disabled></el-input>
             </el-form-item>
+            <!-- 工号 -->
             <el-form-item label="工号">
               <el-input v-model="form.employee_id" disabled></el-input>
             </el-form-item>
+            <!-- 一级部门 -->
+            <el-form-item label="一级部门" prop="departmentLevel1">
+              <el-select v-model="form.departmentLevel1" placeholder="请选择一级部门" style="width: 100%;" @change="onLevel1Change">
+                <el-option label="业务" value="业务" />
+                <el-option label="实验室" value="实验室" />
+              </el-select>
+            </el-form-item>
+            <!-- 二级部门 -->
+            <el-form-item label="二级部门" prop="departmentLevel2">
+              <el-select v-model="form.departmentLevel2" placeholder="请选择二级部门" style="width: 100%;" :disabled="!form.departmentLevel1">
+                <el-option v-for="opt in level2Options" :key="opt.value" :label="opt.label" :value="opt.value" />
+              </el-select>
+            </el-form-item>
+            <!-- 三级部门 -->
+            <el-form-item label="三级部门" prop="departmentLevel3">
+              <el-input v-if="isLevel3Manual" v-model="form.departmentLevel3" placeholder="请填写属地，如：青岛、上海"></el-input>
+              <el-select v-else v-model="form.departmentLevel3" placeholder="请选择三级部门" style="width: 100%;" :disabled="!form.departmentLevel1">
+                <el-option v-for="opt in level3Options" :key="opt.value" :label="opt.label" :value="opt.value" />
+              </el-select>
+            </el-form-item>
+            <!-- 角色 -->
+            <el-form-item label="角色" prop="role">
+              <el-select v-model="form.role" placeholder="请选择角色" style="width: 100%;" :disabled="!form.departmentLevel1">
+                <el-option v-for="opt in roleOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+              </el-select>
+            </el-form-item>
+            <!-- 电话 -->
             <el-form-item label="电话" prop="phone">
               <el-input v-model="form.phone" placeholder="请输入电话号码"></el-input>
             </el-form-item>
+            <!-- 邮箱 -->
             <el-form-item label="邮箱">
               <el-input v-model="form.email" disabled></el-input>
             </el-form-item>
-            <el-form-item label="角色" prop="role">
-              <el-select v-model="form.role" placeholder="请选择角色" style="width: 100%;">
-                <el-option
-                  v-for="opt in roleOptions"
-                  :key="opt.value"
-                  :label="opt.label"
-                  :value="opt.value"
-                  :disabled="opt.value === 'admin'"
-                ></el-option>
-              </el-select>
-            </el-form-item>
-            <el-form-item :label="getRoleCategory(form.role) === 'business' ? '属地' : '检测组'">
-              <el-input
-                v-model="form.region"
-                :placeholder="getRoleCategory(form.role) === 'business' ? '如：青岛、哈尔滨' : '如：有机检测组、无机检测组'"
-              ></el-input>
-            </el-form-item>
-            <el-form-item label="部门备注">
-              <el-input v-model="form.department" placeholder="补充信息（选填）"></el-input>
-            </el-form-item>
+            <!-- 创建时间 -->
             <el-form-item label="创建时间">
               <el-input v-model="form.created_at" disabled></el-input>
             </el-form-item>
@@ -82,10 +93,11 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
-import { userAPI, ROLE_OPTIONS, getRoleDisplayName, getRoleCategory } from '../api'
+import { userAPI } from '../api'
 import { supabase } from '../utils/supabase'
+import { getLevel2Options, getLevel3Options, getRoleOptions, isLevel3ManualInput } from '../utils/departmentConfig'
 
 const formRef = ref(null)
 const pwdFormRef = ref(null)
@@ -96,19 +108,14 @@ const user = ref(JSON.parse(localStorage.getItem('user') || '{}'))
 
 // 从 localStorage 或 Supabase 获取当前用户ID
 const getCurrentUserId = async () => {
-  // 优先从 localStorage 获取
   const cached = localStorage.getItem('user')
   if (cached) {
     const u = JSON.parse(cached)
     if (u.id) return u.id
   }
-  // 如果 localStorage 中没有，从 Supabase 获取
   const { data: { user: authUser } } = await supabase.auth.getUser()
   return authUser?.id || null
 }
-
-// 角色选项（排除 admin，admin 不可自行选择）
-const roleOptions = ROLE_OPTIONS.filter(r => r.value !== 'admin')
 
 const form = reactive({
   id: '',
@@ -116,11 +123,25 @@ const form = reactive({
   email: '',
   employee_id: '',
   phone: '',
+  departmentLevel1: '',
+  departmentLevel2: '',
+  departmentLevel3: '',
   role: '',
-  department: '',
-  region: '',
   created_at: ''
 })
+
+// 联动计算属性
+const level2Options = computed(() => getLevel2Options(form.departmentLevel1))
+const level3Options = computed(() => getLevel3Options(form.departmentLevel1))
+const roleOptions = computed(() => getRoleOptions(form.departmentLevel1))
+const isLevel3Manual = computed(() => isLevel3ManualInput(form.departmentLevel1))
+
+// 一级部门变化时清空下游
+const onLevel1Change = () => {
+  form.departmentLevel2 = ''
+  form.departmentLevel3 = ''
+  form.role = ''
+}
 
 const pwdForm = reactive({
   currentPassword: '',
@@ -129,7 +150,11 @@ const pwdForm = reactive({
 })
 
 const rules = {
-  phone: [{ pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号', trigger: 'blur' }]
+  phone: [{ pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号', trigger: 'blur' }],
+  departmentLevel1: [{ required: true, message: '请选择一级部门', trigger: 'change' }],
+  departmentLevel2: [{ required: true, message: '请选择二级部门', trigger: 'change' }],
+  departmentLevel3: [{ required: true, message: '请填写三级部门', trigger: 'blur' }],
+  role: [{ required: true, message: '请选择角色', trigger: 'change' }]
 }
 
 const pwdRules = {
@@ -153,7 +178,6 @@ const loadProfile = async () => {
       console.error('无法获取当前用户ID')
       return
     }
-    // 更新 user ref
     const cached = localStorage.getItem('user')
     if (cached) user.value = JSON.parse(cached)
 
@@ -165,9 +189,10 @@ const loadProfile = async () => {
         email: data.email || '',
         employee_id: data.employeeId || '',
         phone: data.phone || '',
+        departmentLevel1: data.departmentLevel1 || '',
+        departmentLevel2: data.departmentLevel2 || '',
+        departmentLevel3: data.departmentLevel3 || '',
         role: data.role || '',
-        department: data.department || '',
-        region: data.region || '',
         created_at: data.createdAt ? new Date(data.createdAt).toLocaleString('zh-CN') : ''
       })
     }
@@ -184,18 +209,20 @@ const handleSave = async () => {
     try {
       await userAPI.update(form.id, {
         phone: form.phone,
-        role: form.role,
-        department: form.department,
-        region: form.region
+        departmentLevel1: form.departmentLevel1,
+        departmentLevel2: form.departmentLevel2,
+        departmentLevel3: form.departmentLevel3,
+        role: form.role
       })
       ElMessage.success('保存成功')
       // 更新 localStorage
       const u = JSON.parse(localStorage.getItem('user') || '{}')
       Object.assign(u, {
         phone: form.phone,
-        role: form.role,
-        department: form.department,
-        region: form.region
+        departmentLevel1: form.departmentLevel1,
+        departmentLevel2: form.departmentLevel2,
+        departmentLevel3: form.departmentLevel3,
+        role: form.role
       })
       localStorage.setItem('user', JSON.stringify(u))
     } catch (error) {
