@@ -329,10 +329,16 @@ const buildRecipientGroups = (users) => {
     groups[label].users.push(userWithKeys);
   });
 
-  recipientGroups.value = roleOrder
-    .map(r => roleNameMap[r])
-    .filter(label => groups[label])
-    .map(label => groups[label]);
+  recipientGroups.value = (() => {
+    const seen = new Map()
+    roleOrder.forEach(r => {
+      const label = roleNameMap[r]
+      if (label && groups[label] && !seen.has(label)) {
+        seen.set(label, groups[label])
+      }
+    })
+    return Array.from(seen.values())
+  })()
 };
 
 const allUsers = ref([]);
@@ -447,9 +453,6 @@ const loadAllUsers = async () => {
       .from('profiles')
       .select('*')
       .neq('id', authUser?.id || '')
-      .eq('is_disabled', false)
-      .order('role')
-      .order('department')
       .order('name')
     if (error) throw error
     allUsers.value = data || []
@@ -471,10 +474,15 @@ const loadAllUsers = async () => {
       groups[label].users.push(userWithKeys)
     })
 
-    recipientGroups.value = roleOrder
-      .map(r => roleNameMap[r])
-      .filter(label => groups[label])
-      .map(label => groups[label])
+    // 用 Map 去重：同一个 label 只保留一个 group
+    const seen = new Map()
+    roleOrder.forEach(r => {
+      const label = roleNameMap[r]
+      if (label && groups[label] && !seen.has(label)) {
+        seen.set(label, groups[label])
+      }
+    })
+    recipientGroups.value = Array.from(seen.values())
   } catch (error) {
     ElMessage.error('加载用户失败');
   }

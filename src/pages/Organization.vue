@@ -326,20 +326,35 @@ const toggleSection = (key) => {
 const ROLE_MAP = {
   admin: '管理员',
   business: '业务',
+  '业务': '业务',
   business_assistant: '业务助理',
+  '业务助理': '业务助理',
   supervisor: '实验室主管',
+  '实验室主管': '实验室主管',
   supervisor_assistant: '实验室主管助理',
+  '实验室主管助理': '实验室主管助理',
   customer_service: '客服',
+  '客服': '客服',
   cs_leader: '客服组长',
+  '客服组长': '客服组长',
   cs_leader_assistant: '客服组长助理',
+  '客服组长助理': '客服组长助理',
   inspection_leader: '检测组长',
+  '检测组长': '检测组长',
   inspection_leader_assistant: '检测组长助理',
+  '检测组长助理': '检测组长助理',
   inspection_engineer: '检测工程师',
+  '检测工程师': '检测工程师',
   sample_prep_leader: '制样组组长',
+  '制样组组长': '制样组组长',
   report_leader: '报告组组长',
+  '报告组组长': '报告组组长',
   data_review: '数据二审',
+  '数据二审': '数据二审',
   report_compiler: '报告编制',
+  '报告编制': '报告编制',
   tech_support: '技术支持',
+  '技术支持': '技术支持',
   lab: '实验室人员'
 }
 
@@ -348,21 +363,21 @@ const getRoleName = (role) => ROLE_MAP[role] || role || '-'
 // 角色标签颜色映射
 const getRoleTagClass = (role) => {
   const map = {
-    business: 'tag-gold',
-    business_assistant: 'tag-light-gold',
-    supervisor: 'tag-brown',
-    supervisor_assistant: 'tag-light-brown',
-    cs_leader: 'tag-blue',
-    inspection_leader: 'tag-blue',
-    sample_prep_leader: 'tag-blue',
-    report_leader: 'tag-blue',
-    cs_leader_assistant: 'tag-light-blue',
-    inspection_leader_assistant: 'tag-light-blue',
-    inspection_engineer: 'tag-light-green',
-    data_review: 'tag-light-green',
-    report_compiler: 'tag-light-green',
-    tech_support: 'tag-light-green',
-    customer_service: 'tag-purple',
+    business: 'tag-gold', '业务': 'tag-gold',
+    business_assistant: 'tag-light-gold', '业务助理': 'tag-light-gold',
+    supervisor: 'tag-brown', '实验室主管': 'tag-brown',
+    supervisor_assistant: 'tag-light-brown', '实验室主管助理': 'tag-light-brown',
+    cs_leader: 'tag-blue', '客服组长': 'tag-blue',
+    inspection_leader: 'tag-blue', '检测组长': 'tag-blue',
+    sample_prep_leader: 'tag-blue', '制样组组长': 'tag-blue',
+    report_leader: 'tag-blue', '报告组组长': 'tag-blue',
+    cs_leader_assistant: 'tag-light-blue', '客服组长助理': 'tag-light-blue',
+    inspection_leader_assistant: 'tag-light-blue', '检测组长助理': 'tag-light-blue',
+    inspection_engineer: 'tag-light-green', '检测工程师': 'tag-light-green',
+    data_review: 'tag-light-green', '数据二审': 'tag-light-green',
+    report_compiler: 'tag-light-green', '报告编制': 'tag-light-green',
+    tech_support: 'tag-light-green', '技术支持': 'tag-light-green',
+    customer_service: 'tag-purple', '客服': 'tag-purple',
     admin: 'tag-red'
   }
   return map[role] || 'tag-gray'
@@ -370,21 +385,21 @@ const getRoleTagClass = (role) => {
 
 const getAvatarClass = (role) => {
   const map = {
-    business: 'avatar-gold',
-    business_assistant: 'avatar-light-gold',
-    supervisor: 'avatar-brown',
-    supervisor_assistant: 'avatar-light-brown',
-    cs_leader: 'avatar-blue',
-    inspection_leader: 'avatar-blue',
-    sample_prep_leader: 'avatar-blue',
-    report_leader: 'avatar-blue',
-    cs_leader_assistant: 'avatar-light-blue',
-    inspection_leader_assistant: 'avatar-light-blue',
-    inspection_engineer: 'avatar-light-green',
-    data_review: 'avatar-light-green',
-    report_compiler: 'avatar-light-green',
-    tech_support: 'avatar-light-green',
-    customer_service: 'avatar-purple',
+    business: 'avatar-gold', '业务': 'avatar-gold',
+    business_assistant: 'avatar-light-gold', '业务助理': 'avatar-light-gold',
+    supervisor: 'avatar-brown', '实验室主管': 'avatar-brown',
+    supervisor_assistant: 'avatar-light-brown', '实验室主管助理': 'avatar-light-brown',
+    cs_leader: 'avatar-blue', '客服组长': 'avatar-blue',
+    inspection_leader: 'avatar-blue', '检测组长': 'avatar-blue',
+    sample_prep_leader: 'avatar-blue', '制样组组长': 'avatar-blue',
+    report_leader: 'avatar-blue', '报告组组长': 'avatar-blue',
+    cs_leader_assistant: 'avatar-light-blue', '客服组长助理': 'avatar-light-blue',
+    inspection_leader_assistant: 'avatar-light-blue', '检测组长助理': 'avatar-light-blue',
+    inspection_engineer: 'avatar-light-green', '检测工程师': 'avatar-light-green',
+    data_review: 'avatar-light-green', '数据二审': 'avatar-light-green',
+    report_compiler: 'avatar-light-green', '报告编制': 'avatar-light-green',
+    tech_support: 'avatar-light-green', '技术支持': 'avatar-light-green',
+    customer_service: 'avatar-purple', '客服': 'avatar-purple',
     admin: 'avatar-red'
   }
   return map[role] || 'avatar-default'
@@ -393,17 +408,17 @@ const getAvatarClass = (role) => {
 // 按角色分组
 const activeUsers = computed(() => users.value.filter(u => !u.is_disabled && u.name !== '已删除用户'))
 
-// 业务端角色
-const BIZ_ROLE_VALUES = ['business', 'business_assistant']
-// 实验室端角色
-const LAB_ROLE_VALUES = ['supervisor', 'supervisor_assistant', 'customer_service', 'cs_leader', 'cs_leader_assistant', 'inspection_leader', 'inspection_leader_assistant', 'inspection_engineer', 'sample_prep_leader', 'report_leader', 'data_review', 'report_compiler', 'tech_support']
+// 业务端角色（同时支持英文和中文角色名）
+const BIZ_ROLE_VALUES = ['business', 'business_assistant', '业务', '业务助理']
+// 实验室端角色（同时支持英文和中文角色名）
+const LAB_ROLE_VALUES = ['supervisor', 'supervisor_assistant', 'customer_service', 'cs_leader', 'cs_leader_assistant', 'inspection_leader', 'inspection_leader_assistant', 'inspection_engineer', 'sample_prep_leader', 'report_leader', 'data_review', 'report_compiler', 'tech_support', '实验室主管', '实验室主管助理', '客服', '客服组长', '客服组长助理', '检测组长', '检测组长助理', '检测工程师', '制样组组长', '报告组组长', '数据二审', '报告编制', '技术支持']
 
-// 业务端（按属地分组）
+// 业务端（按属地分组 - 使用三级部门字段）
 const businessRegionGroups = computed(() => {
   const bizUsers = activeUsers.value.filter(u => BIZ_ROLE_VALUES.includes(u.role))
   const groups = {}
   bizUsers.forEach(u => {
-    const region = u.region || '未分配属地'
+    const region = u.department_level3 || u.department_level2 || u.department_level1 || '未分配属地'
     if (!groups[region]) groups[region] = []
     groups[region].push(u)
   })
@@ -417,12 +432,12 @@ const businessRegionGroups = computed(() => {
 
 const businessUsers = computed(() => activeUsers.value.filter(u => BIZ_ROLE_VALUES.includes(u.role)))
 
-// 实验室端（按检测组/部门分组）
+// 实验室端（按检测组/部门分组 - 使用三级部门字段）
 const labDeptGroups = computed(() => {
   const labUsers = activeUsers.value.filter(u => LAB_ROLE_VALUES.includes(u.role))
   const groups = {}
   labUsers.forEach(u => {
-    const dept = u.department || '未分配检测组'
+    const dept = u.department_level3 || u.department_level2 || u.department_level1 || '未分配检测组'
     if (!groups[dept]) groups[dept] = []
     groups[dept].push(u)
   })
@@ -486,8 +501,6 @@ const loadUsers = async () => {
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
-      .order('role')
-      .order('department')
       .order('name')
 
     if (error) throw error

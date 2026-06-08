@@ -352,11 +352,6 @@ const loadAllUsers = async () => {
       .from('profiles')
       .select('*')
       .neq('id', authUser?.id || '')
-      .eq('is_disabled', false)
-      .order('role')
-      .order('departmentLevel1')
-      .order('departmentLevel2')
-      .order('departmentLevel3')
       .order('name')
     if (error) throw error
     allUsers.value = data || []
