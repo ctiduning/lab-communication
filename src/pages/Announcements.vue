@@ -280,7 +280,7 @@ const currentUser = ref(null)
 const isAdmin = computed(() => currentUser.value?.role === 'admin')
 const currentUserRole = computed(() => {
   if (!currentUser.value) return 'all'
-  return getRoleCategory(currentUser.value.role)
+  return getRoleCategory(currentUser.value.role, currentUser.value.department_level1)
 })
 
 // 数据

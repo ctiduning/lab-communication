@@ -1383,10 +1383,10 @@ export const announcementAPI = {
       // 获取当前用户的角色分类
       const { data: profile } = await supabase
         .from('profiles')
-        .select('role')
+        .select('role, department_level1')
         .eq('id', user.id)
         .single()
-      const userRole = profile ? getRoleCategory(profile.role) : 'lab'
+      const userRole = profile ? getRoleCategory(profile.role, profile.department_level1) : 'lab'
 
       // 查公告（含 target_role，过滤出对当前用户可见的）
       const { data: allAnn, error: annError } = await supabase
@@ -1807,8 +1807,17 @@ export function getRoleDisplayName(role) {
 }
 
 // 角色 → 导航分类映射
-export function getRoleCategory(role) {
-  const opt = ROLE_OPTIONS.find(r => r.value === role)
+// department_level1 为可选参数，传入时优先使用（比 role 更准确）
+export function getRoleCategory(role, departmentLevel1) {
+  // 有一级部门时直接使用（最准确）
+  if (departmentLevel1 === '实验室') return 'lab'
+  if (departmentLevel1 === '业务') return 'business'
+  // 降级：通过 role 判断
+  let opt = ROLE_OPTIONS.find(r => r.value === role)
+  // 如果没找到，尝试按 label（中文）查找（兼容遗留数据）
+  if (!opt) {
+    opt = ROLE_OPTIONS.find(r => r.label === role)
+  }
   if (!opt) return 'lab'
   if (opt.dept === 'admin') return 'admin'
   if (opt.dept === 'lab') return 'lab'

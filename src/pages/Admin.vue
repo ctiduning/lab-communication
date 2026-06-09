@@ -158,7 +158,7 @@
             <el-table-column prop="departmentLevel3" label="三级部门" width="110" sortable></el-table-column>
             <el-table-column prop="role" label="角色" width="110" sortable>
               <template #default="scope">
-                <el-tag :type="getRoleTag(scope.row.role)" size="small">{{ scope.row.role }}</el-tag>
+                <el-tag :type="getRoleTag(scope.row)" size="small">{{ scope.row.role }}</el-tag>
               </template>
             </el-table-column>
             <el-table-column prop="phone" label="电话" width="115" sortable></el-table-column>
@@ -712,14 +712,13 @@ const filteredUsers = computed(() => {
 });
 
 const totalUsers = computed(() => users.value.length);
-const businessUserCount = computed(() => users.value.filter(u =>
-  ['business', 'business_assistant'].includes(u.role)
-).length);
-const labUserCount = computed(() => users.value.filter(u =>
-  ['supervisor', 'supervisor_assistant', 'customer_service', 'cs_leader', 'cs_leader_assistant',
-   'inspection_leader', 'inspection_leader_assistant', 'inspection_engineer',
-   'sample_prep_leader', 'report_leader', 'data_review', 'report_compiler', 'tech_support'].includes(u.role)
-).length);
+
+// 按一级部门划分（最准确），无一级部门时降级为按角色判断
+const isBizUser = (u) => u.department_level1 === '业务' || (!u.department_level1 && ['business', 'business_assistant'].includes(u.role));
+const isLabUser = (u) => u.department_level1 === '实验室' || (!u.department_level1 && !isBizUser(u) && u.role !== 'admin');
+
+const businessUserCount = computed(() => users.value.filter(u => isBizUser(u)).length);
+const labUserCount = computed(() => users.value.filter(u => isLabUser(u)).length);
 
 const filteredCommunications = computed(() => {
   if (!commSearchKeyword.value) return communications.value;
@@ -733,7 +732,12 @@ const filteredCommunications = computed(() => {
   );
 });
 
-const getRoleTag = (role) => {
+const getRoleTag = (user) => {
+  // 按一级部门划分（最准确）
+  if (user.department_level1 === '实验室') return 'success';
+  if (user.department_level1 === '业务') return 'warning';
+  // 降级：按角色判断
+  const role = user.role || user;
   if (role === '管理员' || role === 'admin') return 'danger';
   if (role === '业务' || role === '业务助理' || role === 'business' || role === 'business_assistant') return 'warning';
   return 'success'; // 实验室端角色统一用 success
@@ -1066,33 +1070,67 @@ const handleExcelImport = async (file) => {
       });
 
       let successCount = 0;
+      let updateCount = 0;
       let failList = [];
       for (const u of usersToCreate) {
         try {
           const defaultPwd = 'Ct1@2026';
           const email = u.email || `${u.employeeId}@cti-cert.com`;
           const mappedRole = roleMap[u.role] || u.role;
-          await authAPI.register({
-            email,
-            password: defaultPwd,
-            username: `${u.name}${u.employeeId}`,
-            name: u.name,
-            employeeId: u.employeeId,
-            role: mappedRole,
-            departmentLevel1: u.departmentLevel1,
-            departmentLevel2: u.departmentLevel2,
-            departmentLevel3: u.departmentLevel3,
-            phone: u.phone,
-            priority: 'member',
-            mustChangePwd: true
-          });
-          successCount++;
+          try {
+            await authAPI.register({
+              email,
+              password: defaultPwd,
+              username: `${u.name}${u.employeeId}`,
+              name: u.name,
+              employeeId: u.employeeId,
+              role: mappedRole,
+              departmentLevel1: u.departmentLevel1,
+              departmentLevel2: u.departmentLevel2,
+              departmentLevel3: u.departmentLevel3,
+              phone: u.phone,
+              priority: 'member',
+              mustChangePwd: true
+            });
+            successCount++;
+          } catch (registerErr) {
+            // 如果用户已存在（邮箱/用户名重复），尝试更新其 profile
+            if (registerErr.message && registerErr.message.includes('已被注册')) {
+              // 查找已存在的用户
+              const { data: existingUsers } = await supabase
+                .from('profiles')
+                .select('id')
+                .or(`email.eq.${email},username.eq.${u.name}${u.employeeId}`)
+                .limit(1);
+              if (existingUsers && existingUsers.length > 0) {
+                const existingId = existingUsers[0].id;
+                await supabase
+                  .from('profiles')
+                  .update({
+                    name: u.name,
+                    role: mappedRole,
+                    department_level1: u.departmentLevel1,
+                    department_level2: u.departmentLevel2,
+                    department_level3: u.departmentLevel3,
+                    phone: u.phone,
+                    employee_id: u.employeeId
+                  })
+                  .eq('id', existingId);
+                updateCount++;
+              } else {
+                throw registerErr;
+              }
+            } else {
+              throw registerErr;
+            }
+          }
         } catch (err) {
           failList.push(`${u.name}(${u.employeeId}): ${err.message || '未知错误'}`);
         }
       }
 
       let resultMsg = `成功创建 ${successCount} 个账号`;
+      if (updateCount > 0) resultMsg += `，更新 ${updateCount} 个已有账号`;
       if (failList.length > 0) {
         resultMsg += `\n失败 ${failList.length} 个：\n${failList.slice(0, 5).join('\n')}`;
         if (failList.length > 5) resultMsg += `\n... 共 ${failList.length} 个失败`;

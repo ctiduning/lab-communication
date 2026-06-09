@@ -242,7 +242,7 @@ provide('preselectRecipients', preselectRecipients);
 provide('preselectDeptCards', preselectDeptCards);
 
 // 实际用户角色
-const realRoleCategory = computed(() => getRoleCategory(user.value.role));
+const realRoleCategory = computed(() => getRoleCategory(user.value.role, user.value.department_level1));
 // 视图角色
 const roleCategory = computed(() => viewRole.value);
 // 是否是管理员
@@ -329,7 +329,7 @@ const loadUser = async () => {
 };
 
 const initMenu = async () => {
-  const cat = getRoleCategory(user.value.role);
+  const cat = getRoleCategory(user.value.role, user.value.department_level1);
   const preselect = sessionStorage.getItem('preselectRecipients');
   const preselectDept = sessionStorage.getItem('preselectDeptCards');
   if (preselect) {
