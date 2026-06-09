@@ -167,25 +167,41 @@
         </div>
       </el-form-item>
       
-      <!-- 部门名片选择（支持多选） -->
-      <el-form-item label="部门名片" v-if="departmentCards.length > 0">
+      <!-- 按部门发起沟通（多选 + 模糊搜索） -->
+      <el-form-item label="按部门发起沟通" v-if="departmentCards.length > 0">
         <el-select
           v-model="form.departmentCards"
           multiple
-          placeholder="选择部门名片（可多选）"
+          filterable
+          placeholder="搜索或选择检测部门（可多选）"
           style="width: 100%;"
+          popper-class="dept-card-popper"
           @change="onDepartmentCardsChange"
           clearable
         >
           <el-option
             v-for="card in departmentCards"
             :key="card.departmentLevel3"
-            :label="card.departmentLevel3 + '（' + (card.leader?.name || '') + '）'"
+            :label="(card.departmentLevel2 || '') + ' · ' + (card.departmentLevel3 || '')"
             :value="card.departmentLevel3"
-          />
+          >
+            <div style="padding: 6px 0;">
+              <div style="font-weight: 600; font-size: 14px; color: #303133;">
+                {{ card.departmentLevel2 }} · {{ card.departmentLevel3 }}
+              </div>
+              <div style="font-size: 12px; color: #606266; margin-top: 4px; line-height: 1.6;">
+                <span style="display: inline-flex; align-items: center; gap: 4px;">
+                  🧑 检测组长：{{ card.leader?.name || '-' }}
+                </span>
+                <span v-if="card.assistant" style="margin-left: 12px; display: inline-flex; align-items: center; gap: 4px;">
+                  👤 检测组长助理：{{ card.assistant.name }}
+                </span>
+              </div>
+            </div>
+          </el-option>
         </el-select>
         <div style="font-size: 12px; color: #909399; margin-top: 4px;">
-          选择部门名片后，消息将发送给该部门的负责人（组长+组长助理），同组任意一人回复即为该组已处理
+          选择部门后，消息将发送给该部门的负责人（组长+组长助理），同组任意一人回复即为该组已处理
         </div>
       </el-form-item>
       
@@ -704,5 +720,19 @@ onMounted(() => {
 /* 让el-select的标签也显示正确 */
 :deep(.recipient-select .el-select__tags) {
   max-width: 100% !important;
+}
+</style>
+
+<!-- 部门名片下拉框全局样式 -->
+<style>
+.dept-card-popper {
+  width: 480px !important;
+}
+.dept-card-popper .el-select-dropdown__item {
+  height: auto !important;
+  padding: 6px 16px !important;
+}
+.dept-card-popper .el-select-dropdown__item:hover {
+  background: #ecf5ff;
 }
 </style>
