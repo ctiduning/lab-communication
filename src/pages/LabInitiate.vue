@@ -464,6 +464,7 @@ const loadAllUsers = async () => {
 };
 
 const preselectRecipients = inject('preselectRecipients', ref([]));
+const preselectDeptCards = inject('preselectDeptCards', ref([]));
 
 onMounted(() => {
   // 获取当前用户角色
@@ -487,6 +488,21 @@ onMounted(() => {
     if (preselectRecipients.value && preselectRecipients.value.length > 0) {
       form.recipients = [...preselectRecipients.value];
       preselectRecipients.value = [];
+    }
+    // 如果有预选中的部门名片
+    if (preselectDeptCards.value && preselectDeptCards.value.length > 0) {
+      form.departmentCards = [...preselectDeptCards.value];
+      preselectDeptCards.value = [];
+      form.departmentCards.forEach(cardKey => {
+        const holders = departmentCardAPI.getHolderIds(cardKey, departmentCards.value)
+        holders.forEach(id => {
+          if (!form.recipients.includes(id)) {
+            form.recipients.push(id)
+          }
+        })
+      })
+    }
+    if (form.recipients.length > 0) {
       ElMessage.success(`已自动选中 ${form.recipients.length} 位接收人`);
     }
     

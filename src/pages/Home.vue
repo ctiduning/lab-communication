@@ -237,7 +237,9 @@ const onMobileMenuSelect = (index) => {
 };
 
 const preselectRecipients = ref([]);
+const preselectDeptCards = ref([]);
 provide('preselectRecipients', preselectRecipients);
+provide('preselectDeptCards', preselectDeptCards);
 
 // 实际用户角色
 const realRoleCategory = computed(() => getRoleCategory(user.value.role));
@@ -329,10 +331,15 @@ const loadUser = async () => {
 const initMenu = async () => {
   const cat = getRoleCategory(user.value.role);
   const preselect = sessionStorage.getItem('preselectRecipients');
+  const preselectDept = sessionStorage.getItem('preselectDeptCards');
   if (preselect) {
     try {
       preselectRecipients.value = JSON.parse(preselect);
       sessionStorage.removeItem('preselectRecipients');
+      if (preselectDept) {
+        preselectDeptCards.value = JSON.parse(preselectDept);
+        sessionStorage.removeItem('preselectDeptCards');
+      }
       if (cat === 'lab') activeMenu.value = 'lab-initiate';
       else activeMenu.value = 'initiate';
       return;
@@ -389,10 +396,15 @@ const switchRole = (role) => {
 
 const handleSwitchToInitiate = () => {
   const preselect = sessionStorage.getItem('preselectRecipients');
+  const preselectDept = sessionStorage.getItem('preselectDeptCards');
   if (preselect) {
     try {
       preselectRecipients.value = JSON.parse(preselect);
       sessionStorage.removeItem('preselectRecipients');
+      if (preselectDept) {
+        preselectDeptCards.value = JSON.parse(preselectDept);
+        sessionStorage.removeItem('preselectDeptCards');
+      }
       if (viewRole.value === 'lab') activeMenu.value = 'lab-initiate';
       else activeMenu.value = 'initiate';
     } catch (e) { console.error('解析预选中用户失败:', e); }

@@ -17,8 +17,16 @@
 
     <!-- 已选人员展示 -->
     <div v-if="totalSelected > 0" class="selected-persons-bar">
-      <div class="selected-title">已选人员 ({{ totalSelected }})：</div>
+      <div class="selected-title">已选人员与部门 ({{ totalSelected }})：</div>
       <div class="selected-persons-list">
+        <!-- 部门名片 -->
+        <div v-for="card in selectedDeptCardValues" :key="card.departmentLevel3" class="selected-deptcard-chip">
+          <span class="deptcard-icon">🏢</span>
+          <span class="selected-deptname">{{ card.departmentLevel3 }}</span>
+          <span class="deptcard-count">({{ card.holders.length }}人)</span>
+          <span class="remove-btn" @click="removeDeptCard(card.departmentLevel3)">×</span>
+        </div>
+        <!-- 个人 -->
         <div v-for="p in selectedPersons" :key="p.id" class="selected-person-card">
           <div class="selected-avatar" :class="getAvatarClass(p.role)">{{ (p.name || '?')[0] }}</div>
           <div class="selected-info">
@@ -135,6 +143,16 @@
                 <span class="sub-count">{{ group.length }}人</span>
                 <span class="sub-arrow">{{ expandedSections['lab_' + dept] ? '▲' : '▼' }}</span>
               </div>
+              <!-- 部门名片按钮 -->
+              <div v-if="hasDeptCard(dept)" class="dept-card-bar" @click.stop="toggleDeptCard(dept)">
+                <span class="dept-card-btn" :class="{ 'dept-card-selected': isDeptCardSelected(dept) }">
+                  <span v-if="isDeptCardSelected(dept)" class="check-icon">✓</span>
+                  <span v-else class="dept-card-icon-text">🏢</span>
+                </span>
+                <span class="dept-card-label" :class="{ 'dept-card-label-selected': isDeptCardSelected(dept) }">
+                  {{ isDeptCardSelected(dept) ? '✅ 已选部门名片' : '🏢 选择部门名片' }}
+                </span>
+              </div>
               <div v-show="expandedSections['lab_' + dept]" class="sub-body">
                 <div class="person-grid">
                   <div
@@ -218,6 +236,7 @@ import { ref, computed, onMounted, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { supabase } from '../utils/supabase'
+import { departmentCardAPI } from '../api'
 
 const router = useRouter()
 
@@ -226,20 +245,95 @@ const searchText = ref('')
 const detailVisible = ref(false)
 const selectedPerson = ref(null)
 
-// 多选状态
+// 部门名片数据
+const departmentCards = ref([])
+
+// 多选状态（个人）
 const selectedBizIds = ref([])
 const selectedLabIds = ref([])
+// 多选状态（部门名片，存 departmentLevel3 key）
+const selectedDeptCardKeys = ref([])
 
-// 总选择人数
-const totalSelected = computed(() => selectedBizIds.value.length + selectedLabIds.value.length)
+// 总选择人数（含部门名片涉及的人数）
+const totalSelected = computed(() => {
+  const personCount = selectedBizIds.value.length + selectedLabIds.value.length
+  const deptCardCount = selectedDeptCardValues.value.length
+  return personCount + deptCardCount
+})
 
-// 已选人员列表
+// 选中部门名片展开的持有人ID（用于合并到总选择列表）
+const selectedDeptCardHolderIds = computed(() => {
+  const ids = []
+  selectedDeptCardKeys.value.forEach(key => {
+    const card = departmentCards.value.find(c => c.departmentLevel3 === key)
+    if (card) {
+      card.holders.forEach(h => {
+        if (!ids.includes(h.id)) ids.push(h.id)
+      })
+    }
+  })
+  return ids
+})
+
+// 已选部门名片展示用数据
+const selectedDeptCardValues = computed(() => {
+  return selectedDeptCardKeys.value.map(key => {
+    const card = departmentCards.value.find(c => c.departmentLevel3 === key)
+    return card || { departmentLevel3: key, holders: [] }
+  })
+})
+
+// 总已选（个人ID + 部门名片持有人ID，用于去重）
+const allSelectedIds = computed(() => {
+  const ids = [...selectedBizIds.value, ...selectedLabIds.value]
+  selectedDeptCardHolderIds.value.forEach(id => {
+    if (!ids.includes(id)) ids.push(id)
+  })
+  return ids
+})
+
+// 已选人员列表（展示用，不含部门名片）
 const selectedPersons = computed(() => {
   const ids = [...selectedBizIds.value, ...selectedLabIds.value]
   return users.value.filter(u => ids.includes(u.id))
 })
 
+// 部门名片切换选择
+const toggleDeptCard = (deptKey) => {
+  const idx = selectedDeptCardKeys.value.indexOf(deptKey)
+  if (idx > -1) {
+    selectedDeptCardKeys.value.splice(idx, 1)
+  } else {
+    // 如果已选中了该部门的个人，不能同时选部门名片
+    const card = departmentCards.value.find(c => c.departmentLevel3 === deptKey)
+    if (card) {
+      const conflict = card.holders.some(h => allSelectedIds.value.includes(h.id) 
+        && !selectedDeptCardHolderIds.value.includes(h.id))
+      if (conflict) {
+        ElMessage.warning('已选择该部门的人员，不能同时选择部门名片')
+        return
+      }
+    }
+    selectedDeptCardKeys.value.push(deptKey)
+  }
+}
+
+// 判断部门名片是否被选中
+const isDeptCardSelected = (deptKey) => {
+  return selectedDeptCardKeys.value.includes(deptKey)
+}
+
+// 判断某个ID是否被选中（含部门名片持有人）
+const isIdSelected = (userId) => {
+  return allSelectedIds.value.includes(userId)
+}
+
 const toggleSelect = (userId, side) => {
+  // 如果该用户是某张已选部门名片的持有人，阻止操作
+  if (selectedDeptCardHolderIds.value.includes(userId)) {
+    ElMessage.warning('该人员已被部门名片覆盖，请取消部门名片后再操作')
+    return
+  }
   if (side === 'business') {
     const idx = selectedBizIds.value.indexOf(userId)
     if (idx > -1) {
@@ -257,14 +351,19 @@ const toggleSelect = (userId, side) => {
   }
 }
 
-// 判断人员是否被选中
+// 判断人员是否被选中（含部门名片持有人）
 const isSelected = (userId) => {
-  return selectedBizIds.value.includes(userId) || selectedLabIds.value.includes(userId)
+  return isIdSelected(userId)
 }
 
 // 从搜索结果中切换选择状态
 const toggleSelectFromSearch = (person) => {
   const userId = person.id
+  // 如果是部门名片持有人，引导用户使用部门名片
+  if (selectedDeptCardHolderIds.value.includes(userId)) {
+    ElMessage.warning('该人员已被部门名片覆盖')
+    return
+  }
   const role = person.role
   // 判断属于业务端还是实验室端
   if (BIZ_ROLE_VALUES.includes(role)) {
@@ -285,31 +384,48 @@ const toggleSelectFromSearch = (person) => {
   }
 }
 
-// 移除已选人员
+// 移除已选人员或部门名片
 const removeSelected = (person) => {
   const userId = person.id
   const bizIdx = selectedBizIds.value.indexOf(userId)
   if (bizIdx > -1) {
     selectedBizIds.value.splice(bizIdx, 1)
+    return
   }
   const labIdx = selectedLabIds.value.indexOf(userId)
   if (labIdx > -1) {
     selectedLabIds.value.splice(labIdx, 1)
+    return
+  }
+}
+// 移除部门名片
+const removeDeptCard = (deptKey) => {
+  const idx = selectedDeptCardKeys.value.indexOf(deptKey)
+  if (idx > -1) {
+    selectedDeptCardKeys.value.splice(idx, 1)
   }
 }
 
 // 快捷发起沟通
 const startCommunication = () => {
   const allIds = [...selectedBizIds.value, ...selectedLabIds.value]
-  if (allIds.length === 0) {
-    ElMessage.warning('请先选择要沟通的人员')
+  const deptCardIds = selectedDeptCardHolderIds.value
+  // 合并个人和部门名片持有人，去重
+  const merged = [...allIds]
+  deptCardIds.forEach(id => {
+    if (!merged.includes(id)) merged.push(id)
+  })
+  
+  if (merged.length === 0) {
+    ElMessage.warning('请先选择要沟通的人员或部门名片')
     return
   }
-  // 存储选中的用户ID
-  sessionStorage.setItem('preselectRecipients', JSON.stringify(allIds))
+  // 存储选中的用户ID和部门名片
+  sessionStorage.setItem('preselectRecipients', JSON.stringify(merged))
+  sessionStorage.setItem('preselectDeptCards', JSON.stringify(selectedDeptCardKeys.value))
   // 派发事件通知父组件Home.vue立即切换
   window.dispatchEvent(new CustomEvent('switch-to-initiate'))
-  ElMessage.success(`已选择 ${allIds.length} 人，正在跳转...`)
+  ElMessage.success(`已选择 ${merged.length} 人，正在跳转...`)
 }
 
 const expandedSections = reactive({
@@ -496,6 +612,11 @@ const showDetail = (person) => {
   detailVisible.value = true
 }
 
+// 判断某部门是否有部门名片
+const hasDeptCard = (deptKey) => {
+  return departmentCards.value.some(c => c.departmentLevel3 === deptKey)
+}
+
 const loadUsers = async () => {
   try {
     const { data, error } = await supabase
@@ -513,6 +634,12 @@ const loadUsers = async () => {
 
 onMounted(() => {
   loadUsers()
+  // 加载部门名片数据
+  departmentCardAPI.getDepartmentCards().then(({ data }) => {
+    departmentCards.value = data || []
+  }).catch(err => {
+    console.error('加载部门名片失败:', err)
+  })
 })
 </script>
 
@@ -645,6 +772,92 @@ onMounted(() => {
 .remove-btn:hover {
   background: #e44d4d;
   transform: scale(1.1);
+}
+
+/* 部门名片选中标签 */
+.selected-deptcard-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px 4px 4px;
+  background: #f0fff0;
+  border: 1px solid #67c23a;
+  border-radius: 20px;
+  font-size: 12px;
+  transition: all 0.2s;
+}
+
+.selected-deptcard-chip:hover {
+  background: #e0ffe0;
+  box-shadow: 0 2px 6px rgba(103, 194, 58, 0.2);
+}
+
+.deptcard-icon {
+  font-size: 14px;
+}
+
+.selected-deptname {
+  font-weight: 600;
+  color: #333;
+  white-space: nowrap;
+}
+
+.deptcard-count {
+  font-size: 10px;
+  color: #67c23a;
+  white-space: nowrap;
+}
+
+/* 部门名片按钮栏 */
+.dept-card-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  background: #f6ffed;
+  border-bottom: 1px solid #d9f7be;
+  cursor: pointer;
+  transition: all 0.2s;
+  user-select: none;
+}
+
+.dept-card-bar:hover {
+  background: #edffe0;
+}
+
+.dept-card-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid #67c23a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s;
+  font-size: 12px;
+}
+
+.dept-card-btn.dept-card-selected {
+  border-color: #67c23a;
+  background: #67c23a;
+  color: white;
+}
+
+.dept-card-icon-text {
+  font-size: 12px;
+  line-height: 1;
+}
+
+.dept-card-label {
+  font-size: 13px;
+  color: #67c23a;
+  font-weight: 500;
+}
+
+.dept-card-label-selected {
+  color: #333;
+  font-weight: 600;
 }
 
 .search-bar {
