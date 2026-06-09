@@ -61,9 +61,8 @@ BEGIN
   IF existing_disabled_id IS NOT NULL THEN
     -- ============================================
     -- 情况 A：已禁用用户 → 重新激活
+    -- 不需要 INSERT auth.users（已存在），只更新
     -- ============================================
-
-    -- 更新 profiles 记录
     UPDATE public.profiles SET
       name = p_name,
       username = p_username,
@@ -77,7 +76,6 @@ BEGIN
       is_disabled = false
     WHERE id = existing_disabled_id;
 
-    -- 重置密码（auth.users 的 encrypted_password 字段）
     UPDATE auth.users SET
       encrypted_password = extensions.crypt(p_password, extensions.gen_salt('bf')),
       updated_at = now(),
@@ -88,7 +86,9 @@ BEGIN
   END IF;
 
   -- ============================================
-  -- 情况 B：全新用户 → INSERT
+  -- 情况 B：全新用户 → 先创建 auth.users，
+  -- on_auth_user_created 触发器会自动创建 profiles 记录
+  -- 然后 UPDATE 覆盖为正确的数据
   -- ============================================
   new_user_id := extensions.uuid_generate_v4();
 
@@ -103,23 +103,37 @@ BEGIN
     extensions.crypt(p_password, extensions.gen_salt('bf')),
     now(),
     jsonb_build_object('provider', 'email', 'providers', ARRAY['email']),
-    jsonb_build_object('username', p_username),
+    jsonb_build_object(
+      'username', p_username,
+      'name', p_name,
+      'role', p_role,
+      'employee_id', p_employee_id,
+      'phone', p_phone,
+      'department_level1', p_department_level1,
+      'department_level2', p_department_level2,
+      'department_level3', p_department_level3
+    ),
     now(), now(),
     '', '', '', ''
   );
 
-  INSERT INTO public.profiles (
-    id, name, username, role, employee_id,
-    phone, email, region, department,
-    department_level1, department_level2, department_level3,
-    created_at, is_disabled
-  ) VALUES (
-    new_user_id,
-    p_name, p_username, p_role, p_employee_id,
-    p_phone, p_email, p_region, p_department,
-    p_department_level1, p_department_level2, p_department_level3,
-    now(), false
-  );
+  -- 触发器 on_auth_user_created 已在 auth.users INSERT 后自动创建了 profiles 记录
+  -- 但触发器中不包含 email/region/department 字段，也拿不到 p_must_change_pwd
+  -- 所以需要 UPDATE 覆盖完整数据
+  UPDATE public.profiles SET
+    name = p_name,
+    username = p_username,
+    role = p_role,
+    employee_id = p_employee_id,
+    phone = p_phone,
+    email = p_email,
+    region = p_region,
+    department = p_department,
+    department_level1 = p_department_level1,
+    department_level2 = p_department_level2,
+    department_level3 = p_department_level3,
+    is_disabled = false
+  WHERE id = new_user_id;
 
   RETURN new_user_id;
 END;

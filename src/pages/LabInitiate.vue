@@ -147,9 +147,11 @@
                 <span style="display: inline-flex; align-items: center; gap: 4px;">
                   🧑 检测组长：{{ card.leader?.name || '-' }}
                 </span>
-                <span v-if="card.assistant" style="margin-left: 12px; display: inline-flex; align-items: center; gap: 4px;">
-                  👤 检测组长助理：{{ card.assistant.name }}
-                </span>
+                <template v-if="card.assistants && card.assistants.length > 0">
+                  <span v-for="(a, i) in card.assistants" :key="a.id" style="margin-left: 12px; display: inline-flex; align-items: center; gap: 4px;">
+                    👤 检测组长助理{{ card.assistants.length > 1 ? (i + 1) : '' }}：{{ a.name }}
+                  </span>
+                </template>
               </div>
             </div>
           </el-option>

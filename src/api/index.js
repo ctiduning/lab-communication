@@ -1991,16 +1991,15 @@ export const departmentCardAPI = {
           departmentLevel3: u.department_level3,
           departmentLevel2: u.department_level2,
           leader: null,
-          assistant: null,
+          assistants: [],
           holders: []
         }
       }
-      // 角色为"组长"（含变体）的作为 leader，角色为"组长助理"（含变体）的作为 assistant
       if (u.role === '组长' || u.role === '检测组长' || u.role === 'inspection_leader') {
         cardMap[key].leader = { id: u.id, name: u.name, role: u.role }
         cardMap[key].holders.push({ id: u.id, name: u.name, role: u.role })
       } else {
-        cardMap[key].assistant = { id: u.id, name: u.name, role: u.role }
+        cardMap[key].assistants.push({ id: u.id, name: u.name, role: u.role })
         cardMap[key].holders.push({ id: u.id, name: u.name, role: u.role })
       }
     })
