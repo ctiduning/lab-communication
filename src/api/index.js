@@ -273,25 +273,17 @@ export const userAPI = {
     return { data: formatProfile(data) }
   },
 
-  // 管理员软删除用户：将 profiles 标记为已禁用 + 释放邮箱
+  // 管理员软删除用户：标记为已禁用，保留邮箱和用户名（便于重新激活）
   async deleteAccount(id) {
-    const releasedEmail = `deleted_${id}@deleted.local`
-    const releasedUsername = `deleted_${id.substring(0, 8)}`
     const { error: profileError } = await supabase
       .from('profiles')
       .update({
-        name: '已删除用户',
-        username: releasedUsername,
-        email: releasedEmail,
-        phone: '',
-        region: '',
-        department: '',
         is_disabled: true,
         must_change_password: false
       })
       .eq('id', id)
     if (profileError) throw new Error('删除用户失败：' + profileError.message)
-    return { data: { message: '用户已删除，邮箱已释放，可重新注册' } }
+    return { data: { message: '用户已禁用，可重新导入激活' } }
   },
 
   // 管理员重置用户密码为 cti123

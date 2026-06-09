@@ -51,9 +51,9 @@ BEGIN
     RAISE EXCEPTION '注册邮箱必须为 @cti-cert.com 企业邮箱';
   END IF;
 
-  -- 查找已禁用的用户（相同 email 或 username）
+  -- 查找已禁用的用户（相同 email、username 或 name）
   SELECT id INTO existing_disabled_id FROM public.profiles
-  WHERE (email = p_email OR username = p_username)
+  WHERE (email = p_email OR username = p_username OR name = p_name)
     AND is_disabled = true
   ORDER BY created_at ASC
   LIMIT 1;

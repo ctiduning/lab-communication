@@ -32,7 +32,7 @@ CREATE FUNCTION admin_create_user(
 RETURNS UUID
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 DECLARE
   new_user_id UUID;
