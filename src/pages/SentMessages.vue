@@ -175,7 +175,11 @@
             </div>
             <el-table :data="group.recipients" border size="small">
               <el-table-column prop="name" label="姓名" width="80"></el-table-column>
-              <el-table-column prop="role" label="角色" width="100"></el-table-column>
+              <el-table-column label="角色" width="100">
+  <template #default="scope">
+    {{ getRoleDisplayName(scope.row.role) }}
+  </template>
+</el-table-column>
               <el-table-column label="回复记录" min-width="250">
                 <template #default="scope">
                   <div v-if="getRecipientReplies(scope.row.recipient_id).length > 0">
@@ -330,7 +334,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, Refresh } from '@element-plus/icons-vue'
-import { communicationAPI } from '../api'
+import { communicationAPI, getRoleDisplayName } from '../api'
 import { supabase } from '../utils/supabase'
 
 const communications = ref([])
