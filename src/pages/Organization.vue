@@ -143,52 +143,62 @@
         </div>
           <div class="dept-body">
 
-            <!-- 实验室端按检测组分组 -->
-            <div v-for="(group, dept) in labDeptGroups" :key="dept" class="sub-section">
-              <div class="sub-header" @click="toggleSection('lab_' + dept)">
-                <span class="sub-title">🧪 {{ dept }}</span>
-                <span class="sub-count">{{ group.length }}人</span>
-                <span class="sub-arrow">{{ expandedSections['lab_' + dept] ? '▲' : '▼' }}</span>
+            <!-- 实验室端按二级部门 → 三级部门两级分组 -->
+            <div v-for="(l3groups, l2) in labLevel2Groups" :key="l2" class="level2-section">
+              <div class="level2-header">
+                <span class="level2-title">🏢 {{ l2 }}</span>
+                <span class="level2-count">
+                  {{ Object.values(l3groups).reduce((sum, g) => sum + g.length, 0) }}人
+                </span>
               </div>
-              <div v-show="expandedSections['lab_' + dept]" class="sub-body">
-                <div class="person-grid">
-                  <!-- 部门名片卡片（跟个人名片一样大） -->
-                  <div
-                    v-if="hasDeptCard(dept)"
-                    class="person-card dept-card"
-                    :class="{ 'dept-card-selected': isDeptCardSelected(dept) }"
-                  >
-                    <div class="select-btn" @click.stop="toggleDeptCard(dept)">
-                      <span v-if="isDeptCardSelected(dept)" class="check-icon">✓</span>
-                      <span v-else class="plus-icon">+</span>
-                    </div>
-                    <div class="person-avatar dept-card-avatar">🏢</div>
-                    <div class="person-info">
-                      <div class="person-name">
-                        {{ getDeptCardLabel(dept) }}
-                        <span class="role-tag tag-dept-card">部门名片</span>
-                      </div>
-                      <div class="person-dept">{{ getDeptCardSubtitle(dept) }}</div>
-                    </div>
+              <div class="level2-body">
+                <div v-for="(group, l3) in l3groups" :key="l3" class="sub-section">
+                  <div class="sub-header" @click="toggleSection('lab_' + l2 + '_' + l3)">
+                    <span class="sub-title">🧪 {{ l3 }}</span>
+                    <span class="sub-count">{{ group.length }}人</span>
+                    <span class="sub-arrow">{{ expandedSections['lab_' + l2 + '_' + l3] ? '▲' : '▼' }}</span>
                   </div>
-                  <!-- 个人名片 -->
-                  <div
-                    v-for="p in group"
-                    :key="p.id"
-                    class="person-card"
-                    :class="{ selected: selectedLabIds.includes(p.id) }"
-                  >
-                    <div class="select-btn" @click.stop="toggleSelect(p.id, 'lab')">
-                      <span v-if="selectedLabIds.includes(p.id)" class="check-icon">✓</span>
-                      <span v-else class="plus-icon">+</span>
-                    </div>
-                    <div class="person-avatar" :class="getAvatarClass(p.role)" @click="showDetail(p)">{{ (p.name || '?')[0] }}</div>
-                    <div class="person-info" @click="showDetail(p)">
-                      <div class="person-name">
-                        {{ p.name || '-' }}
-                        <span class="role-tag" :class="getRoleTagClass(p.role)">{{ getRoleName(p.role) }}</span>
+                  <div v-show="expandedSections['lab_' + l2 + '_' + l3]" class="sub-body">
+                    <div class="person-grid">
+                      <!-- 部门名片卡片（跟个人名片一样大） -->
+                      <div
+                        v-if="hasDeptCard(l3)"
+                        class="person-card dept-card"
+                        :class="{ 'dept-card-selected': isDeptCardSelected(l3) }"
+                      >
+                        <div class="select-btn" @click.stop="toggleDeptCard(l3)">
+                          <span v-if="isDeptCardSelected(l3)" class="check-icon">✓</span>
+                          <span v-else class="plus-icon">+</span>
+                        </div>
+                        <div class="person-avatar dept-card-avatar">🏢</div>
+                        <div class="person-info">
+                          <div class="person-name">
+                            {{ l3 }}
+                            <span class="role-tag tag-dept-card">部门名片</span>
+                          </div>
+                          <div class="person-dept">{{ getDeptCardSubtitle(l3) }}</div>
+                        </div>
                       </div>
-                      <div class="person-dept">{{ (p.department_level2 || '') + ' · ' + (p.department_level3 || '') || '-' }}</div>
+                      <!-- 个人名片（按检测组长→检测组长助理→检测工程师排序） -->
+                      <div
+                        v-for="p in group"
+                        :key="p.id"
+                        class="person-card"
+                        :class="{ selected: selectedLabIds.includes(p.id) }"
+                      >
+                        <div class="select-btn" @click.stop="toggleSelect(p.id, 'lab')">
+                          <span v-if="selectedLabIds.includes(p.id)" class="check-icon">✓</span>
+                          <span v-else class="plus-icon">+</span>
+                        </div>
+                        <div class="person-avatar" :class="getAvatarClass(p.role)" @click="showDetail(p)">{{ (p.name || '?')[0] }}</div>
+                        <div class="person-info" @click="showDetail(p)">
+                          <div class="person-name">
+                            {{ p.name || '-' }}
+                            <span class="role-tag" :class="getRoleTagClass(p.role)">{{ getRoleName(p.role) }}</span>
+                          </div>
+                          <div class="person-dept">{{ (p.department_level2 || '') + ' · ' + (p.department_level3 || '') || '-' }}</div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -239,13 +249,6 @@
             <span class="detail-label">电话</span>
             <span class="detail-value">
               <a v-if="selectedPerson.phone" :href="'tel:' + selectedPerson.phone">{{ selectedPerson.phone }}</a>
-              <span v-else>-</span>
-            </span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">邮箱</span>
-            <span class="detail-value">
-              <a v-if="selectedPerson.email" :href="'mailto:' + selectedPerson.email">{{ selectedPerson.email }}</a>
               <span v-else>-</span>
             </span>
           </div>
@@ -575,18 +578,28 @@ const businessRegionGroups = computed(() => {
 
 const businessUsers = computed(() => activeUsers.value.filter(u => BIZ_ROLE_VALUES.includes(u.role)))
 
-// 实验室端（按检测组/部门分组 - 使用三级部门字段）
-const labDeptGroups = computed(() => {
+// 实验室端（按二级部门→三级部门两级分组，角色排序）
+const labLevel2Groups = computed(() => {
   const labUsers = activeUsers.value.filter(u => LAB_ROLE_VALUES.includes(u.role))
   const groups = {}
   labUsers.forEach(u => {
-    const dept = u.department_level3 || u.department_level2 || u.department_level1 || '未分配检测组'
-    if (!groups[dept]) groups[dept] = []
-    groups[dept].push(u)
+    const l2 = u.department_level2 || '未分配实验室'
+    const l3 = u.department_level3 || '未分配检测组'
+    if (!groups[l2]) groups[l2] = {}
+    if (!groups[l2][l3]) groups[l2][l3] = []
+    groups[l2][l3].push(u)
   })
-  for (const dept in groups) {
-    if (expandedSections['lab_' + dept] === undefined) {
-      expandedSections['lab_' + dept] = true
+  // 每个三级组内按角色排序：检测组长→检测组长助理→检测工程师
+  for (const l2 of Object.keys(groups)) {
+    for (const l3 of Object.keys(groups[l2])) {
+      groups[l2][l3].sort((a, b) => {
+        const roleOrder = { inspection_leader: 0, inspection_leader_assistant: 1, inspection_engineer: 2 }
+        return (roleOrder[a.role] ?? 99) - (roleOrder[b.role] ?? 99)
+      })
+      const key = 'lab_' + l2 + '_' + l3
+      if (expandedSections[key] === undefined) {
+        expandedSections[key] = true
+      }
     }
   }
   return groups
@@ -851,6 +864,37 @@ onMounted(() => {
 }
 
 /* 部门名片卡片 - 跟个人名片一模一样大 */
+/* 二级部门分组 */
+.level2-section {
+  margin-bottom: 4px;
+}
+
+.level2-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #f0f5ff;
+  border-radius: 8px;
+  margin-bottom: 4px;
+  border-left: 3px solid #409EFF;
+}
+
+.level2-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: #303133;
+}
+
+.level2-count {
+  font-size: 12px;
+  color: #909399;
+}
+
+.level2-body {
+  padding-left: 4px;
+}
+
 .person-card.dept-card {
   background: #ecf5ff;
   border-color: #b3d8ff;

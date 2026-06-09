@@ -16,9 +16,8 @@ export const BUSINESS_LEVEL2 = [
 
 // 实验室端二级部门
 export const LAB_LEVEL2 = [
-  { value: '青岛食品企业实验室', label: '青岛食品企业实验室' },
   { value: '青岛食品实验室', label: '青岛食品实验室' },
-  { value: '青岛大客户实验室', label: '青岛大客户实验室' }
+  { value: '青岛食品大客户实验室', label: '青岛食品大客户实验室' }
 ]
 
 // 实验室端三级部门
