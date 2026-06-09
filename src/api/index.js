@@ -1293,7 +1293,7 @@ export const communicationAPI = {
 // ==========================================
 export const announcementAPI = {
   // 创建公告（管理员）—— 只写入 announcements 表，不再推通知
-  async create({ title, content, attachments }) {
+  async create({ title, content, attachments, target_role }) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error('未登录')
 
@@ -1302,7 +1302,7 @@ export const announcementAPI = {
       .insert([{
         title,
         content,
-        target_role: 'all',
+        target_role: target_role || 'all',
         target_regions: null,
         sender_id: user.id,
         attachments: attachments || []

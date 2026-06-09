@@ -143,18 +143,28 @@
                 <span class="sub-count">{{ group.length }}人</span>
                 <span class="sub-arrow">{{ expandedSections['lab_' + dept] ? '▲' : '▼' }}</span>
               </div>
-              <!-- 部门名片按钮 -->
-              <div v-if="hasDeptCard(dept)" class="dept-card-bar" @click.stop="toggleDeptCard(dept)">
-                <span class="dept-card-btn" :class="{ 'dept-card-selected': isDeptCardSelected(dept) }">
-                  <span v-if="isDeptCardSelected(dept)" class="check-icon">✓</span>
-                  <span v-else class="dept-card-icon-text">🏢</span>
-                </span>
-                <span class="dept-card-label" :class="{ 'dept-card-label-selected': isDeptCardSelected(dept) }">
-                  {{ isDeptCardSelected(dept) ? '✅ 已选部门名片' : '🏢 选择部门名片' }}
-                </span>
-              </div>
               <div v-show="expandedSections['lab_' + dept]" class="sub-body">
                 <div class="person-grid">
+                  <!-- 部门名片卡片（跟个人名片一样大） -->
+                  <div
+                    v-if="hasDeptCard(dept)"
+                    class="person-card dept-card"
+                    :class="{ 'dept-card-selected': isDeptCardSelected(dept) }"
+                  >
+                    <div class="select-btn" @click.stop="toggleDeptCard(dept)">
+                      <span v-if="isDeptCardSelected(dept)" class="check-icon">✓</span>
+                      <span v-else class="plus-icon">+</span>
+                    </div>
+                    <div class="person-avatar dept-card-avatar">🏢</div>
+                    <div class="person-info">
+                      <div class="person-name">
+                        {{ getDeptCardLabel(dept) }}
+                        <span class="role-tag tag-dept-card">部门名片</span>
+                      </div>
+                      <div class="person-dept">{{ getDeptCardSubtitle(dept) }}</div>
+                    </div>
+                  </div>
+                  <!-- 个人名片 -->
                   <div
                     v-for="p in group"
                     :key="p.id"
@@ -617,6 +627,21 @@ const hasDeptCard = (deptKey) => {
   return departmentCards.value.some(c => c.departmentLevel3 === deptKey)
 }
 
+// 部门名片显示名：二级部门·三级部门
+const getDeptCardLabel = (deptKey) => {
+  const card = departmentCards.value.find(c => c.departmentLevel3 === deptKey)
+  if (!card) return deptKey
+  return (card.departmentLevel2 || '') + '·' + deptKey
+}
+
+// 部门名片副标题：显示持有人数量
+const getDeptCardSubtitle = (deptKey) => {
+  const card = departmentCards.value.find(c => c.departmentLevel3 === deptKey)
+  if (!card) return ''
+  const names = card.holders.map(h => h.name).join('、')
+  return `负责人：${names}`
+}
+
 const loadUsers = async () => {
   try {
     const { data, error } = await supabase
@@ -808,56 +833,35 @@ onMounted(() => {
   white-space: nowrap;
 }
 
-/* 部门名片按钮栏 */
-.dept-card-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 14px;
-  background: #f6ffed;
-  border-bottom: 1px solid #d9f7be;
-  cursor: pointer;
+/* 部门名片卡片 - 跟个人名片一模一样大 */
+.person-card.dept-card {
+  background: #ecf5ff;
+  border-color: #b3d8ff;
   transition: all 0.2s;
-  user-select: none;
 }
 
-.dept-card-bar:hover {
-  background: #edffe0;
+.person-card.dept-card:hover {
+  border-color: #409eff;
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.15);
+  background: #d9ecff;
 }
 
-.dept-card-btn {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: 2px solid #67c23a;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: all 0.2s;
-  font-size: 12px;
+.person-card.dept-card.dept-card-selected {
+  border-color: #409eff;
+  background: #b3d8ff;
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.25);
 }
 
-.dept-card-btn.dept-card-selected {
-  border-color: #67c23a;
-  background: #67c23a;
-  color: white;
+.dept-card-avatar {
+  background: linear-gradient(135deg, #409EFF, #79bbff) !important;
+  color: #fff !important;
+  font-size: 16px !important;
 }
 
-.dept-card-icon-text {
-  font-size: 12px;
-  line-height: 1;
-}
-
-.dept-card-label {
-  font-size: 13px;
-  color: #67c23a;
-  font-weight: 500;
-}
-
-.dept-card-label-selected {
-  color: #333;
-  font-weight: 600;
+.tag-dept-card {
+  background: #ecf5ff;
+  color: #409eff;
+  border: 1px solid #b3d8ff;
 }
 
 .search-bar {

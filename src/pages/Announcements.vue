@@ -45,6 +45,13 @@
                 show-word-limit
               ></el-input>
             </el-form-item>
+            <el-form-item label="发送范围">
+              <el-radio-group v-model="form.targetRole">
+                <el-radio value="all">全部用户</el-radio>
+                <el-radio value="business">仅业务端</el-radio>
+                <el-radio value="lab">仅实验室端</el-radio>
+              </el-radio-group>
+            </el-form-item>
             <el-form-item label="附件图片">
               <el-upload
                 :auto-upload="false"
@@ -265,12 +272,16 @@
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Bell } from '@element-plus/icons-vue'
-import { announcementAPI, storageAPI, reactionAPI } from '../api'
+import { announcementAPI, storageAPI, reactionAPI, getRoleCategory } from '../api'
 import { supabase } from '../utils/supabase'
 
 // 当前用户信息
 const currentUser = ref(null)
 const isAdmin = computed(() => currentUser.value?.role === 'admin')
+const currentUserRole = computed(() => {
+  if (!currentUser.value) return 'all'
+  return getRoleCategory(currentUser.value.role)
+})
 
 // 数据
 const announcements = ref([])
@@ -286,6 +297,7 @@ const sending = ref(false)
 const form = reactive({
   title: '',
   content: '',
+  targetRole: 'all',
   attachments: []
 })
 
@@ -352,7 +364,14 @@ const handleBatchDelete = async () => {
 }
 
 // 过滤后的列表
-const filteredAnnouncements = computed(() => announcements.value)
+// 根据角色过滤公告（业务端只看到 business/all，实验室只看到 lab/all）
+const filteredAnnouncements = computed(() => {
+  return announcements.value.filter(a => {
+    if (a.targetRole === 'all') return true
+    if (a.targetRole === currentUserRole.value) return true
+    return false
+  })
+})
 
 const previewImage = (url) => {
   previewImageUrl.value = url
@@ -564,7 +583,8 @@ const handleSend = async () => {
     await announcementAPI.create({
       title: form.title,
       content: form.content,
-      attachments: form.attachments
+      attachments: form.attachments,
+      target_role: form.targetRole
     })
     ElMessage.success('发布成功')
     resetForm()
@@ -580,6 +600,7 @@ const handleSend = async () => {
 const resetForm = () => {
   form.title = ''
   form.content = ''
+  form.targetRole = 'all'
   form.attachments = []
 }
 
