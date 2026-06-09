@@ -873,21 +873,24 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px;
-  background: #f0f5ff;
+  padding: 12px 16px;
+  background: #fef0f0;
   border-radius: 8px;
-  margin-bottom: 4px;
-  border-left: 3px solid #409EFF;
+  margin-bottom: 6px;
+  border-left: 4px solid #f56c6c;
 }
 
 .level2-title {
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 16px;
+  font-weight: 700;
+  font-family: 'SimHei', 'Heiti SC', 'Microsoft YaHei', sans-serif;
   color: #303133;
 }
 
 .level2-count {
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'SimHei', 'Heiti SC', 'Microsoft YaHei', sans-serif;
   color: #909399;
 }
 
