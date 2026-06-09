@@ -24,6 +24,14 @@
                   <el-icon><Upload /></el-icon>
                   导入Excel批量注册
                 </el-button>
+                <!-- 传统文件选择兜底（隐藏） -->
+                <input
+                  ref="excelFileInputRef"
+                  type="file"
+                  accept=".xlsx,.xls"
+                  style="display: none"
+                  @change="handleTraditionalFileInput"
+                />
                 <el-button 
                   type="warning" 
                   @click="exportToExcel" 
@@ -930,10 +938,13 @@ const handleDeleteNotification = async (notif) => {
 };
 
 // 用 File System Access API 打开文件选择器（支持桌面等任意路径）
+const excelFileInputRef = ref(null);
+
 const handlePickExcel = async () => {
   try {
     if (!window.showOpenFilePicker) {
-      ElMessage.warning('当前浏览器不支持高级文件选择，请拖拽文件到按钮上，或复制文件到项目目录后重试');
+      // 降级到传统文件选择
+      excelFileInputRef.value?.click();
       return;
     }
     const [fileHandle] = await window.showOpenFilePicker({
@@ -946,8 +957,29 @@ const handlePickExcel = async () => {
     const file = await fileHandle.getFile();
     handleExcelImport({ raw: file, name: file.name });
   } catch (err) {
-    if (err.name !== 'AbortError') ElMessage.error('选择文件失败：' + err.message);
+    if (err.name === 'AbortError') return;
+    // File System Access API 失败，降级到传统文件选择
+    if (err.message?.includes('user declined') || err.message?.includes('The user aborted')) return;
+    try {
+      excelFileInputRef.value?.click();
+    } catch {
+      ElMessage.error('选择文件失败：' + err.message);
+    }
   }
+};
+
+// 传统文件选择兜底
+const handleTraditionalFileInput = (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  const ext = file.name.split('.').pop().toLowerCase();
+  if (ext !== 'xlsx' && ext !== 'xls') {
+    ElMessage.error('请上传 .xlsx 或 .xls 格式的 Excel 文件');
+    return;
+  }
+  handleExcelImport({ raw: file, name: file.name });
+  // 清空 input 以便重新选择同一个文件
+  e.target.value = '';
 };
 
 // Excel 拖拽导入
