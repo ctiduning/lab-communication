@@ -433,8 +433,8 @@ const loadAnnouncements = async () => {
   try {
     const { data } = await announcementAPI.list()
     announcements.value = data || []
-    // 计算未读数
-    unreadCount.value = announcements.value.filter(a => !a.isRead).length
+    // 计算未读数（按角色过滤后统计）
+    unreadCount.value = filteredAnnouncements.value.filter(a => !a.isRead).length
     // 加载所有公告的点赞统计
     await loadAnnouncementReactions()
   } catch (error) {

@@ -1373,19 +1373,32 @@ export const announcementAPI = {
     }
   },
 
-  // 获取未读公告数量
+  // 获取未读公告数量（按角色 & 已读状态过滤）
   async getUnreadCount() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { data: { count: 0 } }
 
     try {
-      // 查所有公告ID
+      // 获取当前用户的角色分类
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+      const userRole = profile ? getRoleCategory(profile.role) : 'lab'
+
+      // 查公告（含 target_role，过滤出对当前用户可见的）
       const { data: allAnn, error: annError } = await supabase
         .from('announcements')
-        .select('id')
+        .select('id, target_role')
       if (annError) throw annError
 
-      // 查已读的公告ID（表可能不存在，优雅降级）
+      // 过滤：只保留对当前角色可见的公告
+      const visible = (allAnn || []).filter(a =>
+        a.target_role === 'all' || a.target_role === userRole
+      )
+
+      // 查已读的公告ID
       let readIds = new Set()
       try {
         const { data: reads } = await supabase
@@ -1394,11 +1407,10 @@ export const announcementAPI = {
           .eq('user_id', user.id)
         readIds = new Set((reads || []).map(r => r.announcement_id))
       } catch (e) {
-        // announcement_reads 表不存在时，所有公告都算未读
         console.warn('读取已读记录失败，所有公告算未读:', e.message)
       }
 
-      const count = (allAnn || []).filter(a => !readIds.has(a.id)).length
+      const count = visible.filter(a => !readIds.has(a.id)).length
       return { data: { count } }
     } catch (error) {
       console.error('获取未读公告数失败:', error)
