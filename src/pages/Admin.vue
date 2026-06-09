@@ -735,7 +735,7 @@ const filteredCommunications = computed(() => {
 
 const getRoleTag = (role) => {
   if (role === '管理员' || role === 'admin') return 'danger';
-  if (role === '业务' || role === '业务助理') return 'warning';
+  if (role === '业务' || role === '业务助理' || role === 'business' || role === 'business_assistant') return 'warning';
   return 'success'; // 实验室端角色统一用 success
 };
 
@@ -1028,6 +1028,14 @@ const handleExcelImport = async (file) => {
         '组长助理': 'inspection_leader_assistant',
         '检测组长助理': 'inspection_leader_assistant',
         '检测工程师': 'inspection_engineer',
+        '客服': 'customer_service',
+        '客服组长': 'cs_leader',
+        '客服组长助理': 'cs_leader_assistant',
+        '制样组组长': 'sample_prep_leader',
+        '报告组组长': 'report_leader',
+        '数据二审': 'data_review',
+        '报告编制': 'report_compiler',
+        '技术支持': 'tech_support',
         '管理员': 'admin'
       };
 
@@ -1117,7 +1125,7 @@ const downloadTemplate = () => {
       '一级部门': '实验室',
       '二级部门': '青岛食品实验室',
       '三级部门': '理化组',
-      '角色': '组长',
+      '角色': '检测组长',
       '电话': '13800138001',
       '邮箱': 'lisi@cti-cert.com'
     },
@@ -1127,7 +1135,7 @@ const downloadTemplate = () => {
       '一级部门': '业务 或 实验室',
       '二级部门': '业务端：食品产品线/特食及日化产品线/饲料产品线/农产品产品线/其他产品线；实验室端：青岛食品企业实验室/青岛食品实验室/青岛大客户实验室',
       '三级部门': '业务端填属地如青岛、上海；实验室端：企业气相组/企业液相组/政府气相组/政府液相组/综合组/理化组/营养标签组/包材组/分子生物组/元素组/微生物组/标签审核组/放射性检测组/客服组/制样组/报告组',
-      '角色': '业务端：业务/业务助理；实验室端：实验室主管/实验室主管助理/组长/组长助理/检测工程师',
+      '角色': '业务端：业务/业务助理；实验室端：实验室主管/实验室主管助理/检测组长/检测组长助理/检测工程师',
       '电话': '',
       '邮箱': ''
     }

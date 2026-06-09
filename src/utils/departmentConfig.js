@@ -41,19 +41,19 @@ export const LAB_LEVEL3 = [
   { value: '报告组', label: '报告组' }
 ]
 
-// 业务端角色
+// 业务端角色（使用英文 value，与 ROLE_OPTIONS 一致）
 export const BUSINESS_ROLES = [
-  { value: '业务', label: '业务' },
-  { value: '业务助理', label: '业务助理' }
+  { value: 'business', label: '业务' },
+  { value: 'business_assistant', label: '业务助理' }
 ]
 
-// 实验室端角色
+// 实验室端角色（使用英文 value，与 ROLE_OPTIONS 一致）
 export const LAB_ROLES = [
-  { value: '实验室主管', label: '实验室主管' },
-  { value: '实验室主管助理', label: '实验室主管助理' },
-  { value: '组长', label: '组长' },
-  { value: '组长助理', label: '组长助理' },
-  { value: '检测工程师', label: '检测工程师' }
+  { value: 'supervisor', label: '实验室主管' },
+  { value: 'supervisor_assistant', label: '实验室主管助理' },
+  { value: 'inspection_leader', label: '检测组长' },
+  { value: 'inspection_leader_assistant', label: '检测组长助理' },
+  { value: 'inspection_engineer', label: '检测工程师' }
 ]
 
 // 获取二级部门选项
@@ -83,14 +83,14 @@ export function isLevel3ManualInput(level1) {
 }
 
 // 部门名片角色（组长 + 组长助理）
-export const DEPARTMENT_CARD_ROLES = ['组长', '组长助理']
+export const DEPARTMENT_CARD_ROLES = ['inspection_leader', 'inspection_leader_assistant']
 
 // 判断是否是部门名片角色
 export function isDepartmentCardRole(role) {
   return DEPARTMENT_CARD_ROLES.includes(role)
 }
 
-// 获取某三级部门的所有名片持有人
+// 获取某三级部门的所有名片持有人（检测组长/检测组长助理）
 export function getDepartmentCardHolders(level3, allUsers) {
   return allUsers.filter(u =>
     u.departmentLevel3 === level3 &&
