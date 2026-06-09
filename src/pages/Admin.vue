@@ -1019,15 +1019,15 @@ const handleExcelImport = async (file) => {
       }
 
       const roleMap = {
-        '业务': '业务',
-        '业务助理': '业务助理',
-        '实验室主管': '实验室主管',
-        '实验室主管助理': '实验室主管助理',
-        '组长': '检测组长',
-        '检测组长': '检测组长',
-        '组长助理': '检测组长助理',
-        '检测组长助理': '检测组长助理',
-        '检测工程师': '检测工程师',
+        '业务': 'business',
+        '业务助理': 'business_assistant',
+        '实验室主管': 'supervisor',
+        '实验室主管助理': 'supervisor_assistant',
+        '组长': 'inspection_leader',
+        '检测组长': 'inspection_leader',
+        '组长助理': 'inspection_leader_assistant',
+        '检测组长助理': 'inspection_leader_assistant',
+        '检测工程师': 'inspection_engineer',
         '管理员': 'admin'
       };
 
