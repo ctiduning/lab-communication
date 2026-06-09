@@ -90,7 +90,7 @@
         <div class="dept-header">
           <div class="dept-header-left">
             <span class="dept-icon">💼</span>
-            <span class="dept-title">业务端</span>
+            <span class="dept-title">业务</span>
             <span class="dept-count">{{ businessUsers.length }}人</span>
           </div>
         </div>
@@ -137,7 +137,7 @@
         <div class="dept-header">
           <div class="dept-header-left">
             <span class="dept-icon">🔬</span>
-            <span class="dept-title">实验室端</span>
+            <span class="dept-title">实验室</span>
             <span class="dept-count">{{ labUsersTotal }}人</span>
           </div>
         </div>
