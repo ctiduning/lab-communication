@@ -359,7 +359,7 @@ export const communicationAPI = {
       .from('communications')
       .select(`
         *,
-        sender:sender_id(id, name, employee_id, phone, email, region, department, priority),
+        sender:sender_id(id, name, employee_id, phone, email, region, department, priority, role, department_level1),
         communication_recipients(
           recipient_id,
           is_read,
@@ -384,7 +384,7 @@ export const communicationAPI = {
     const formatted = communications.map(c => ({
       id: c.id,
       senderId: c.sender_id,
-      senderRole: c.sender?.role || '',
+      senderRole: c.sender?.department_level1 === '实验室' ? 'lab' : 'business',
       senderName: c.sender?.name || '',
       type: c.type,
       vip: c.vip,
@@ -1174,7 +1174,7 @@ export const communicationAPI = {
       .from('communications')
       .select(`
         *,
-        sender:sender_id(id, name, employee_id, phone, email, region, department, priority),
+        sender:sender_id(id, name, employee_id, phone, email, region, department, priority, role, department_level1),
         communication_recipients(
           recipient_id,
           is_read,
@@ -1206,7 +1206,7 @@ export const communicationAPI = {
     const formatted = (data || []).map(c => ({
       id: c.id,
       senderId: c.sender_id,
-      senderRole: c.sender?.role || '',
+      senderRole: c.sender?.department_level1 === '实验室' ? 'lab' : 'business',
       senderName: c.sender?.name || '',
       type: c.type,
       vip: c.vip,

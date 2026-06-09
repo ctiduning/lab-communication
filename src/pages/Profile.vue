@@ -36,10 +36,9 @@
             </el-form-item>
             <!-- 三级部门（支持手动输入） -->
             <el-form-item label="三级部门" prop="departmentLevel3">
-              <el-select v-if="!isLevel3Manual" v-model="form.departmentLevel3" placeholder="请选择或手动输入三级部门" style="width: 100%;" :disabled="!form.departmentLevel1" filterable allow-create>
+              <el-select v-model="form.departmentLevel3" placeholder="请选择或手动输入三级部门" style="width: 100%;" :disabled="!form.departmentLevel1" filterable allow-create>
                 <el-option v-for="opt in level3Options" :key="opt.value" :label="opt.label" :value="opt.value" />
               </el-select>
-              <el-input v-else v-model="form.departmentLevel3" placeholder="请填写属地，如：青岛、上海"></el-input>
             </el-form-item>
             <!-- 角色 -->
             <el-form-item label="角色" prop="role">
@@ -97,7 +96,7 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { userAPI } from '../api'
 import { supabase } from '../utils/supabase'
-import { getLevel2Options, getLevel3Options, getRoleOptions, isLevel3ManualInput } from '../utils/departmentConfig'
+import { getLevel2Options, getLevel3Options, getRoleOptions } from '../utils/departmentConfig'
 
 const formRef = ref(null)
 const pwdFormRef = ref(null)
@@ -134,7 +133,6 @@ const form = reactive({
 const level2Options = computed(() => getLevel2Options(form.departmentLevel1))
 const level3Options = computed(() => getLevel3Options(form.departmentLevel1))
 const roleOptions = computed(() => getRoleOptions(form.departmentLevel1))
-const isLevel3Manual = computed(() => isLevel3ManualInput(form.departmentLevel1))
 
 // 一级部门变化时清空下游
 const onLevel1Change = () => {
@@ -152,8 +150,8 @@ const pwdForm = reactive({
 const rules = {
   phone: [{ pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号', trigger: 'blur' }],
   departmentLevel1: [{ required: true, message: '请选择一级部门', trigger: 'change' }],
-  departmentLevel2: [{ required: true, message: '请选择二级部门', trigger: 'change' }],
-  departmentLevel3: [{ required: true, message: '请填写三级部门', trigger: 'blur' }],
+  departmentLevel2: [{ required: true, message: '请选择或输入二级部门', trigger: ['change', 'blur'] }],
+  departmentLevel3: [{ required: true, message: '请选择或输入三级部门', trigger: ['change', 'blur'] }],
   role: [{ required: true, message: '请选择角色', trigger: 'change' }]
 }
 

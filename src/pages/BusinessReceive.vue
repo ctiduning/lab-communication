@@ -3,96 +3,6 @@
     <h2 class="page-title">接收消息</h2>
 
     <el-tabs v-model="activeTab" class="message-tabs">
-      <!-- 全部 -->
-      <el-tab-pane label="全部" name="all">
-        <div class="table-toolbar">
-          <div class="toolbar-left">
-            <el-input
-              v-model="searchKeyword"
-              placeholder="搜索全部内容（含回复）..."
-              clearable
-              style="width: 300px;"
-              :prefix-icon="Search"
-            />
-            <el-checkbox v-model="showFlaggedOnly" style="margin-left: 12px;">
-              仅红旗
-            </el-checkbox>
-          </div>
-        </div>
-
-        <el-table :data="allMessages" border stripe v-loading="loading" :row-class-name="tableRowClassName">
-          <el-table-column label="状态" width="100" align="center" fixed="left">
-            <template #default="scope">
-              <el-tag v-if="scope.row.myCompleted || scope.row.isCompleted" size="small" type="info">已完结</el-tag>
-              <el-tag v-else-if="scope.row.hasReplied" size="small" type="success">已回复</el-tag>
-              <el-tag v-else size="small" type="warning">待处理</el-tag>
-            </template>
-          </el-table-column>
-
-          <el-table-column label="" width="40" align="center">
-            <template #default="scope">
-              <span v-if="scope.row.hasFlagged" style="color: #f56c6c; font-size: 16px;">🚩</span>
-            </template>
-          </el-table-column>
-
-          <el-table-column label="沟通类型" width="110">
-            <template #default="scope">
-              <el-tag size="small" :type="getTypeTag(scope.row.type)">
-                {{ getTypeName(scope.row.type) }}
-              </el-tag>
-            </template>
-          </el-table-column>
-
-          <el-table-column label="沟通内容" min-width="200" show-overflow-tooltip>
-            <template #default="scope">
-              {{ scope.row.content || '-' }}
-            </template>
-          </el-table-column>
-
-          <el-table-column label="发送人" width="100">
-            <template #default="scope">
-              {{ getSenderName(scope.row.senderId) }}
-            </template>
-          </el-table-column>
-
-          <el-table-column label="发送时间" width="160">
-            <template #default="scope">
-              {{ formatTime(scope.row.createdAt) }}
-            </template>
-          </el-table-column>
-
-          <el-table-column label="操作" width="280" align="center" fixed="right">
-            <template #default="scope">
-              <div class="row-op-btns">
-                <el-button size="small" @click="viewDetail(scope.row)">查看</el-button>
-                <el-button 
-                  v-if="!scope.row.myCompleted && !scope.row.isCompleted && !scope.row.isRecalled"
-                  size="small" 
-                  class="quick-btn agree-btn"
-                  @click="sendQuickReplyFromRow(scope.row, '同意')"
-                  :loading="scope.row._replyLoading"
-                >同意</el-button>
-                <el-button
-                  v-if="!scope.row.myCompleted && !scope.row.isCompleted && !scope.row.isRecalled"
-                  size="small"
-                  class="quick-btn reject-btn"
-                  @click="sendQuickReplyFromRow(scope.row, '拒绝')"
-                  :loading="scope.row._replyLoading"
-                >拒绝</el-button>
-                <el-button
-                  v-if="!scope.row.isCompleted && !scope.row.isRecalled && !scope.row.myCompleted"
-                  size="small"
-                  type="warning"
-                  @click="showActionDialog(scope.row)"
-                >处理</el-button>
-              </div>
-            </template>
-          </el-table-column>
-        </el-table>
-        <div v-if="allMessages.length === 0 && !loading" class="empty-tip">
-          {{ showFlaggedOnly ? '暂无带红旗的消息' : '暂无消息' }}
-        </div>
-      </el-tab-pane>
       <!-- 待处理标签页 -->
       <el-tab-pane label="待处理" name="pending">
         <div class="table-toolbar">
@@ -457,6 +367,96 @@
 
         <div v-if="recalledMessages.length === 0 && !loading" class="empty-state">
           暂无已被撤回的消息
+        </div>
+      </el-tab-pane>
+      <!-- 全部 -->
+      <el-tab-pane label="全部" name="all">
+        <div class="table-toolbar">
+          <div class="toolbar-left">
+            <el-input
+              v-model="searchKeyword"
+              placeholder="搜索全部内容（含回复）..."
+              clearable
+              style="width: 300px;"
+              :prefix-icon="Search"
+            />
+            <el-checkbox v-model="showFlaggedOnly" style="margin-left: 12px;">
+              仅红旗
+            </el-checkbox>
+          </div>
+        </div>
+
+        <el-table :data="allMessages" border stripe v-loading="loading" :row-class-name="tableRowClassName">
+          <el-table-column label="状态" width="100" align="center" fixed="left">
+            <template #default="scope">
+              <el-tag v-if="scope.row.myCompleted || scope.row.isCompleted" size="small" type="info">已完结</el-tag>
+              <el-tag v-else-if="scope.row.hasReplied" size="small" type="success">已回复</el-tag>
+              <el-tag v-else size="small" type="warning">待处理</el-tag>
+            </template>
+          </el-table-column>
+
+          <el-table-column label="" width="40" align="center">
+            <template #default="scope">
+              <span v-if="scope.row.hasFlagged" style="color: #f56c6c; font-size: 16px;">🚩</span>
+            </template>
+          </el-table-column>
+
+          <el-table-column label="沟通类型" width="110">
+            <template #default="scope">
+              <el-tag size="small" :type="getTypeTag(scope.row.type)">
+                {{ getTypeName(scope.row.type) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+
+          <el-table-column label="沟通内容" min-width="200" show-overflow-tooltip>
+            <template #default="scope">
+              {{ scope.row.content || '-' }}
+            </template>
+          </el-table-column>
+
+          <el-table-column label="发送人" width="100">
+            <template #default="scope">
+              {{ getSenderName(scope.row.senderId) }}
+            </template>
+          </el-table-column>
+
+          <el-table-column label="发送时间" width="160">
+            <template #default="scope">
+              {{ formatTime(scope.row.createdAt) }}
+            </template>
+          </el-table-column>
+
+          <el-table-column label="操作" width="280" align="center" fixed="right">
+            <template #default="scope">
+              <div class="row-op-btns">
+                <el-button size="small" @click="viewDetail(scope.row)">查看</el-button>
+                <el-button 
+                  v-if="!scope.row.myCompleted && !scope.row.isCompleted && !scope.row.isRecalled"
+                  size="small" 
+                  class="quick-btn agree-btn"
+                  @click="sendQuickReplyFromRow(scope.row, '同意')"
+                  :loading="scope.row._replyLoading"
+                >同意</el-button>
+                <el-button
+                  v-if="!scope.row.myCompleted && !scope.row.isCompleted && !scope.row.isRecalled"
+                  size="small"
+                  class="quick-btn reject-btn"
+                  @click="sendQuickReplyFromRow(scope.row, '拒绝')"
+                  :loading="scope.row._replyLoading"
+                >拒绝</el-button>
+                <el-button
+                  v-if="!scope.row.isCompleted && !scope.row.isRecalled && !scope.row.myCompleted"
+                  size="small"
+                  type="warning"
+                  @click="showActionDialog(scope.row)"
+                >处理</el-button>
+              </div>
+            </template>
+          </el-table-column>
+        </el-table>
+        <div v-if="allMessages.length === 0 && !loading" class="empty-tip">
+          {{ showFlaggedOnly ? '暂无带红旗的消息' : '暂无消息' }}
         </div>
       </el-tab-pane>
     </el-tabs>
