@@ -64,7 +64,14 @@
               {{ p.name || '-' }}
               <span class="role-tag" :class="getRoleTagClass(p.role)">{{ getRoleName(p.role) }}</span>
             </div>
-            <div class="person-dept">{{ p.department || '-' }} · {{ p.region || '-' }}</div>
+            <div class="person-dept">
+              <template v-if="p.department_level1 === '业务'">
+                {{ p.department_level3 || p.department_level2 || p.department_level1 || '-' }}
+              </template>
+              <template v-else>
+                {{ [p.department_level2, p.department_level3].filter(Boolean).join(' · ') || p.department_level1 || '-' }}
+              </template>
+            </div>
           </div>
           <div class="person-contact">
             <div v-if="p.phone" class="contact-item">📞 {{ p.phone }}</div>
@@ -113,7 +120,7 @@
                         {{ p.name || '-' }}
                         <span class="role-tag" :class="getRoleTagClass(p.role)">{{ getRoleName(p.role) }}</span>
                       </div>
-                      <div class="person-dept">{{ p.region || '-' }}</div>
+                      <div class="person-dept">{{ p.department_level3 || p.department_level2 || '-' }}</div>
                     </div>
                   </div>
                 </div>
@@ -181,7 +188,7 @@
                         {{ p.name || '-' }}
                         <span class="role-tag" :class="getRoleTagClass(p.role)">{{ getRoleName(p.role) }}</span>
                       </div>
-                      <div class="person-dept">{{ p.department || '-' }}</div>
+                      <div class="person-dept">{{ (p.department_level2 || '') + ' · ' + (p.department_level3 || '') || '-' }}</div>
                     </div>
                   </div>
                 </div>
@@ -212,11 +219,21 @@
           </div>
           <div class="detail-row">
             <span class="detail-label">部门</span>
-            <span class="detail-value">{{ selectedPerson.department || '-' }}</span>
+            <span class="detail-value">
+              <template v-if="selectedPerson.department_level1 === '业务'">
+                {{ selectedPerson.department_level1 }} · {{ selectedPerson.department_level3 || selectedPerson.department_level2 || '-' }}
+              </template>
+              <template v-else>
+                {{ selectedPerson.department_level1 }} · {{ selectedPerson.department_level2 || '' }}{{ selectedPerson.department_level3 ? ' · ' + selectedPerson.department_level3 : '' }}
+              </template>
+            </span>
           </div>
           <div class="detail-row">
-            <span class="detail-label">地区</span>
-            <span class="detail-value">{{ selectedPerson.region || '-' }}</span>
+            <span class="detail-label">邮箱</span>
+            <span class="detail-value">
+              <a v-if="selectedPerson.email" :href="'mailto:' + selectedPerson.email">{{ selectedPerson.email }}</a>
+              <span v-else>-</span>
+            </span>
           </div>
           <div class="detail-row">
             <span class="detail-label">电话</span>
