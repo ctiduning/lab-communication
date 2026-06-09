@@ -28,18 +28,18 @@
                 <el-option label="实验室" value="实验室" />
               </el-select>
             </el-form-item>
-            <!-- 二级部门 -->
+            <!-- 二级部门（支持手动输入） -->
             <el-form-item label="二级部门" prop="departmentLevel2">
-              <el-select v-model="form.departmentLevel2" placeholder="请选择二级部门" style="width: 100%;" :disabled="!form.departmentLevel1">
+              <el-select v-model="form.departmentLevel2" placeholder="请选择或手动输入二级部门" style="width: 100%;" :disabled="!form.departmentLevel1" filterable allow-create>
                 <el-option v-for="opt in level2Options" :key="opt.value" :label="opt.label" :value="opt.value" />
               </el-select>
             </el-form-item>
-            <!-- 三级部门 -->
+            <!-- 三级部门（支持手动输入） -->
             <el-form-item label="三级部门" prop="departmentLevel3">
-              <el-input v-if="isLevel3Manual" v-model="form.departmentLevel3" placeholder="请填写属地，如：青岛、上海"></el-input>
-              <el-select v-else v-model="form.departmentLevel3" placeholder="请选择三级部门" style="width: 100%;" :disabled="!form.departmentLevel1">
+              <el-select v-if="!isLevel3Manual" v-model="form.departmentLevel3" placeholder="请选择或手动输入三级部门" style="width: 100%;" :disabled="!form.departmentLevel1" filterable allow-create>
                 <el-option v-for="opt in level3Options" :key="opt.value" :label="opt.label" :value="opt.value" />
               </el-select>
+              <el-input v-else v-model="form.departmentLevel3" placeholder="请填写属地，如：青岛、上海"></el-input>
             </el-form-item>
             <!-- 角色 -->
             <el-form-item label="角色" prop="role">

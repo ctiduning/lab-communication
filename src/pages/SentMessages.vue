@@ -622,6 +622,7 @@ const editAndResend = (msg) => {
     sampleCode: msg.sampleCode || '',
     content: msg.content || '',
     recipientIds: (msg.recipientDetails || []).map(r => r.recipient_id || r.id),
+    departmentCardIds: msg.departmentCardIds || [],
     isRecalledEdit: true,
     recalledId: msg.id
   }

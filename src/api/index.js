@@ -1238,6 +1238,7 @@ export const communicationAPI = {
       isRecalled: c.is_recalled || false,
       recallReason: c.recall_reason || '',
       recalledAt: c.recalled_at || null,
+      departmentCardIds: c.department_card_ids || [],
       replyCount: c.replies?.length || 0,
       attachments: c.attachments || [],
       replies: c.replies?.map(r => ({

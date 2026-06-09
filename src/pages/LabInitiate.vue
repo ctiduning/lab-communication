@@ -531,6 +531,7 @@ onMounted(() => {
         form.sampleCode = editData.sampleCode || '';
         form.content = editData.content || '';
         form.recipients = editData.recipientIds || [];
+        form.departmentCards = editData.departmentCardIds || [];
         ElMessage.info('已加载撤回消息的内容，请编辑后重新发送');
         localStorage.removeItem('recalledMessageEdit');
       } catch (e) {
