@@ -55,16 +55,8 @@ export const authAPI = {
       if (activeUser) {
         throw new Error('该邮箱或用户名已被注册')
       }
-      // 所有匹配的都是已删除用户 -> 先清理旧记录（释放 auth.users 邮箱 + 删除 profiles）
-      // 这样新注册时 admin_create_user 插入 auth.users 就不会冲突
-      for (const deletedUser of existingProfiles) {
-        try {
-          await supabase.rpc('delete_user_and_release_email', { target_user_id: deletedUser.id })
-        } catch (e) {
-          // 函数不存在则忽略
-        }
-        await supabase.from('profiles').delete().eq('id', deletedUser.id)
-      }
+      // 已禁用用户：由 admin_create_user RPC 自行重新激活（UPDATE + 重置密码）
+      // 前端不做删除操作（anon key 无 RLS 权限，删了也白删）
     }
 
     // 调用数据库函数创建用户（在数据库内完成，不影响前端 session）
@@ -281,38 +273,24 @@ export const userAPI = {
     return { data: formatProfile(data) }
   },
 
-  // 管理员删除用户账号（调用数据库函数，同时释放 auth.users 的邮箱）
+  // 管理员软删除用户：将 profiles 标记为已禁用 + 释放邮箱
   async deleteAccount(id) {
-    // 调用数据库函数：更新 auth.users.email + 更新 profiles 为已删除
-    const { error } = await supabase
-      .rpc('delete_user_and_release_email', { target_user_id: id })
-
-    if (error) {
-      // 如果函数不存在，降级为只更新 profiles（需要用户手动运行 SQL）
-      if (error.message.includes('does not exist') || error.message.includes('Could not find')) {
-        console.warn('delete_user_and_release_email 函数不存在，请先在 Supabase SQL 编辑器中运行 supabase_fix_delete_user.sql')
-        // 降级方案：只更新 profiles
-        const releasedEmail = `deleted_${id}@deleted.local`
-        const releasedUsername = `deleted_${id.substring(0, 8)}`
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .update({
-            name: '已删除用户',
-            username: releasedUsername,
-            email: releasedEmail,
-            phone: '',
-            region: '',
-            department: '',
-            is_disabled: true,
-            must_change_password: false
-          })
-          .eq('id', id)
-        if (profileError) throw new Error('删除用户失败：' + profileError.message)
-        throw new Error('删除成功，但 auth.users 邮箱未释放（函数不存在）。请先运行 supabase_fix_delete_user.sql')
-      }
-      throw new Error('删除用户失败：' + error.message)
-    }
-
+    const releasedEmail = `deleted_${id}@deleted.local`
+    const releasedUsername = `deleted_${id.substring(0, 8)}`
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({
+        name: '已删除用户',
+        username: releasedUsername,
+        email: releasedEmail,
+        phone: '',
+        region: '',
+        department: '',
+        is_disabled: true,
+        must_change_password: false
+      })
+      .eq('id', id)
+    if (profileError) throw new Error('删除用户失败：' + profileError.message)
     return { data: { message: '用户已删除，邮箱已释放，可重新注册' } }
   },
 
