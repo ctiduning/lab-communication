@@ -1076,7 +1076,7 @@ const toggleMyCompletedFromDetail = async (isCompleted) => {
 const sendQuickReplyFromRow = async (msg, content) => {
   msg._replyLoading = true;
   try {
-    await communicationAPI.createReply(msg.id, { content });
+    await communicationAPI.createReply(msg.id, { content }, content === '等我确认后回复');
     ElMessage.success('回复成功');
     // 立即在本地更新状态（不等待服务器同步，避免延迟）
     const idx = messages.value.findIndex(m => m.id === msg.id);
@@ -1106,21 +1106,23 @@ const submitReplyFromDetail = async () => {
     ElMessage.error('请输入回复内容');
     return;
   }
-  await doSendReply(replyContent.value);
+  const skipReplied = replyContent.value.trim() === '等我确认后回复';
+  await doSendReply(replyContent.value, skipReplied);
 };
 
 // 发送快捷回复
 const sendQuickReply = async (content) => {
-  await doSendReply(content);
+  const skipReplied = content === '等我确认后回复';
+  await doSendReply(content, skipReplied);
 };
 
 // 实际发送回复
-const doSendReply = async (content) => {
+const doSendReply = async (content, skipReplied = false) => {
   replyLoading.value = true;
   try {
     await communicationAPI.createReply(selectedMessage.value.id, {
       content: content
-    });
+    }, skipReplied);
     ElMessage.success('回复成功');
     replyContent.value = '';
     // 重新加载详情

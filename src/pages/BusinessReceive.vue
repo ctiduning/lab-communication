@@ -1069,17 +1069,20 @@ const replyFromTable = (msg) => {
 
 // 从列表行发送快捷回复
 const sendQuickReplyFromRow = async (msg, content) => {
+  const skipReplied = content === '等我确认后回复';
   // 设置当前行的 loading 状态
   msg._replyLoading = true;
   try {
-    await communicationAPI.createReply(msg.id, { content });
+    await communicationAPI.createReply(msg.id, { content }, skipReplied);
     ElMessage.success('回复成功');
     // 立即在本地更新状态（不等待服务器同步，避免延迟）
-    const idx = messages.value.findIndex(m => m.id === msg.id);
-    if (idx >= 0) {
-      messages.value[idx].hasReplied = true;
+    if (!skipReplied) {
+      const idx = messages.value.findIndex(m => m.id === msg.id);
+      if (idx >= 0) {
+        messages.value[idx].hasReplied = true;
+      }
+      Object.assign(msg, { hasReplied: true });
     }
-    Object.assign(msg, { hasReplied: true });
     // 延迟刷新列表（给服务器时间同步，但不阻塞UI）
     setTimeout(() => loadMessages(), 300);
     // 如果点了同意或拒绝，自动切换到已处理标签页
@@ -1123,21 +1126,23 @@ const submitReplyFromDetail = async () => {
     ElMessage.error('请输入回复内容');
     return;
   }
-  await doSendReply(replyContent.value);
+  const skipReplied = replyContent.value.trim() === '等我确认后回复';
+  await doSendReply(replyContent.value, skipReplied);
 };
 
 // 发送快捷回复
 const sendQuickReply = async (content) => {
-  await doSendReply(content);
+  const skipReplied = content === '等我确认后回复';
+  await doSendReply(content, skipReplied);
 };
 
 // 实际发送回复
-const doSendReply = async (content) => {
+const doSendReply = async (content, skipReplied = false) => {
   replyLoading.value = true;
   try {
     await communicationAPI.createReply(selectedMessage.value.id, {
       content: content
-    });
+    }, skipReplied);
     ElMessage.success('回复成功');
     replyContent.value = '';
     // 重新加载详情

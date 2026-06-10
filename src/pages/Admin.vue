@@ -53,9 +53,9 @@
                   一键备份
                 </el-button>
                 <el-button 
-                  type="text" 
+                  type="default" 
                   @click="downloadTemplate" 
-                  style="margin-left: 12px; color: #888; font-size: 13px;"
+                  style="margin-left: 12px;"
                 >
                   <el-icon><Download /></el-icon>
                   下载模板
@@ -704,10 +704,12 @@ const filteredUsers = computed(() => {
   return users.value.filter(u =>
     u.name?.toLowerCase().includes(kw) ||
     u.employeeId?.toLowerCase().includes(kw) ||
+    u.email?.toLowerCase().includes(kw) ||
     u.departmentLevel1?.toLowerCase().includes(kw) ||
     u.departmentLevel2?.toLowerCase().includes(kw) ||
     u.departmentLevel3?.toLowerCase().includes(kw) ||
-    u.role?.toLowerCase().includes(kw)
+    u.role?.toLowerCase().includes(kw) ||
+    u.phone?.toLowerCase().includes(kw)
   );
 });
 

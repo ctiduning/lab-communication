@@ -568,14 +568,16 @@ onMounted(() => {
     }
   });
 
-  // 加载部门名片数据
-  departmentCardAPI.getDepartmentCards().then(({ data }) => {
-    departmentCards.value = data || [];
-  }).catch(err => {
-    console.error('加载部门名片失败:', err);
-  });
-
-  loadAllUsers().then(() => {
+  // 并行加载用户和部门名片数据
+  Promise.all([
+    loadAllUsers(),
+    departmentCardAPI.getDepartmentCards().then(({ data }) => {
+      departmentCards.value = data || [];
+    }).catch(err => {
+      console.error('加载部门名片失败:', err);
+    })
+  ]).then(() => {
+    // 所有数据加载完成后，处理预选和撤回编辑恢复
     // 如果有预选中用户（从组织架构页面跳转过来），自动填充
     if (preselectRecipients.value && preselectRecipients.value.length > 0) {
       form.recipients = [...preselectRecipients.value];
@@ -609,7 +611,26 @@ onMounted(() => {
         form.sampleCode = editData.sampleCode || '';
         form.content = editData.content || '';
         form.recipients = editData.recipientIds || [];
-        form.departmentCards = editData.departmentCardIds || [];
+        // 将 holder ID 转换为部门名片 key（departmentLevel3 名称）
+        if (editData.departmentCardIds && editData.departmentCardIds.length > 0) {
+          const cardKeys = departmentCardAPI.getCardKeysByHolderIds(editData.departmentCardIds, departmentCards.value);
+          form.departmentCards = cardKeys;
+          // 同步添加 holders 到接收人列表
+          cardKeys.forEach(cardKey => {
+            const holders = departmentCardAPI.getHolderIds(cardKey, departmentCards.value);
+            holders.forEach(id => {
+              if (!form.recipients.includes(id)) {
+                form.recipients.push(id);
+              }
+            });
+          });
+          // 重建 currentCardMap
+          cardKeys.forEach(cardKey => {
+            currentCardMap[cardKey] = departmentCardAPI.getHolderIds(cardKey, departmentCards.value);
+          });
+        } else {
+          form.departmentCards = editData.departmentCardIds || [];
+        }
         ElMessage.info('已加载撤回消息的内容，请编辑后重新发送');
         // 清除 localStorage，避免刷新后重复加载
         localStorage.removeItem('recalledMessageEdit');

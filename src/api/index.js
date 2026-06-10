@@ -469,7 +469,7 @@ export const communicationAPI = {
     return { data: communication }
   },
 
-  async createReply(communicationId, { content }) {
+  async createReply(communicationId, { content }, skipRepliedFlag = false) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error('未登录')
 
@@ -497,6 +497,25 @@ export const communicationAPI = {
       .single()
 
     if (error) throw error
+
+    // 如果 skipRepliedFlag 为 true，只创建回复记录，不标记 has_replied
+    if (skipRepliedFlag) {
+      // 通知发起人（标记为"待确认"类型通知）
+      const { data: comm } = await supabase
+        .from('communications')
+        .select('sender_id')
+        .eq('id', communicationId)
+        .single()
+      if (comm) {
+        await supabase.from('notifications').insert({
+          user_id: comm.sender_id,
+          communication_id: communicationId,
+          type: 'reply',
+          content: `接收人回复：等我确认后回复`
+        })
+      }
+      return { data: reply }
+    }
 
     // ====== 第三步：获取回复者信息 ======
     const { data: replierProfile } = await supabase
@@ -2033,6 +2052,19 @@ export const departmentCardAPI = {
   getHolderIds(cardKey, allCards) {
     const card = allCards.find(c => c.departmentLevel3 === cardKey)
     return card ? card.holders.map(h => h.id) : []
+  },
+
+  // 根据持有人 ID 列表，反向查找对应的部门名片 key（departmentLevel3）
+  // 用于撤回编辑重发时，将 DB 中存储的 holder UUID 转回卡片 key
+  getCardKeysByHolderIds(holderIds, allCards) {
+    const cardKeys = new Set()
+    holderIds.forEach(id => {
+      const card = allCards.find(c => c.holders.some(h => h.id === id))
+      if (card) {
+        cardKeys.add(card.departmentLevel3)
+      }
+    })
+    return Array.from(cardKeys)
   }
 }
 
