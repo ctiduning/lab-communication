@@ -1488,6 +1488,52 @@ export const announcementAPI = {
 
     if (error) throw error
     return { data: { message: '删除成功' } }
+  },
+
+  // ========== 公告红旗标记（每用户独立） ==========
+
+  // 切换红旗标记：存在则删除，不存在则新增
+  async toggleFlag(announcementId) {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('未登录')
+
+    // 查是否已标记
+    const { data: existing } = await supabase
+      .from('announcement_flags')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('announcement_id', announcementId)
+      .maybeSingle()
+
+    if (existing) {
+      // 已标记 → 删除
+      await supabase
+        .from('announcement_flags')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('announcement_id', announcementId)
+      return { flagged: false }
+    } else {
+      // 未标记 → 插入
+      await supabase
+        .from('announcement_flags')
+        .insert({ user_id: user.id, announcement_id: announcementId })
+      return { flagged: true }
+    }
+  },
+
+  // 获取当前用户所有已标记的公告ID
+  async getMyFlaggedIds() {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { data: [] }
+
+    const { data, error } = await supabase
+      .from('announcement_flags')
+      .select('announcement_id')
+      .eq('user_id', user.id)
+
+    if (error) throw error
+    return { data: (data || []).map(f => f.announcement_id) }
   }
 }
 

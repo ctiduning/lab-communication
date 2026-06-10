@@ -87,10 +87,9 @@
         style="width:300px;"
         :prefix-icon="Search"
       />
-      <el-checkbox v-model="onlyImportant">仅显示🚩重要</el-checkbox>
+      <el-checkbox v-model="onlyFlagged">仅显示🚩标记</el-checkbox>
       <span style="font-size:13px;color:#909399;">
         共 {{ filteredAnnouncements.length }} 条
-        <template v-if="importantAnnouncements.length">，其中 {{ importantAnnouncements.length }} 条重要</template>
       </span>
     </div>
 
@@ -114,7 +113,6 @@
       </el-table-column>
       <el-table-column label="标题" min-width="200">
         <template #default="scope">
-          <span v-if="isImportant(scope.row)" style="color:red;margin-right:4px;">🚩</span>
           <span :class="{ 'is-unread-text': !scope.row.isRead }">{{ scope.row.title }}</span>
           <span v-if="scope.row.attachments && scope.row.attachments.length > 0" class="attach-icon">📎</span>
         </template>
@@ -140,6 +138,17 @@
         <template #default="scope">
           <el-tag v-if="scope.row.isRead" type="info" size="small">已读</el-tag>
           <el-tag v-else type="danger" size="small" effect="dark">未读</el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="操作" width="100" align="center">
+        <template #default="scope">
+          <el-button
+            size="small"
+            :type="myFlaggedIds.has(scope.row.id) ? 'warning' : 'default'"
+            @click.stop="toggleFlag(scope.row)"
+          >
+            {{ myFlaggedIds.has(scope.row.id) ? '🚩 已标记' : '🚩 标记' }}
+          </el-button>
         </template>
       </el-table-column>
       <el-table-column v-if="isAdmin" label="操作" width="140" align="center">
@@ -380,9 +389,37 @@ const handleBatchDelete = async () => {
   }
 }
 
-// 搜索与重要标记
+// 搜索与标记
 const searchKeyword = ref('')
-const onlyImportant = ref(false)
+const onlyFlagged = ref(false)
+
+const myFlaggedIds = ref(new Set())
+
+// 加载我的红旗标记
+const loadMyFlags = async () => {
+  try {
+    const { data } = await announcementAPI.getMyFlaggedIds()
+    myFlaggedIds.value = new Set(data || [])
+  } catch (e) {
+    console.error('加载红旗标记失败:', e)
+  }
+}
+
+// 切换红旗标记
+const toggleFlag = async (ann) => {
+  try {
+    const result = await announcementAPI.toggleFlag(ann.id)
+    if (result.flagged) {
+      myFlaggedIds.value = new Set([...myFlaggedIds.value, ann.id])
+    } else {
+      const newSet = new Set(myFlaggedIds.value)
+      newSet.delete(ann.id)
+      myFlaggedIds.value = newSet
+    }
+  } catch (e) {
+    ElMessage.error('操作失败：' + (e.message || '权限不足，请先配置数据库RLS策略'))
+  }
+}
 
 const fuzzyMatch = (text, query) => {
   if (!query) return true
@@ -396,15 +433,7 @@ const fuzzyMatch = (text, query) => {
   return qi === q.length
 }
 
-// 重要公告（模拟：标题或内容包含"重要""紧急""系统"的标记为重要）
-const importantAnnouncements = computed(() => {
-  return announcements.value.filter(a => {
-    const kw = (a.title + '' + (a.content || '')).toLowerCase()
-    return kw.includes('重要') || kw.includes('紧急') || kw.includes('系统')
-  })
-})
-
-// 过滤后的列表（角色过滤 + 模糊搜索 + 重要筛选）
+// 过滤后的列表（角色过滤 + 模糊搜索 + 红旗筛选）
 const filteredAnnouncements = computed(() => {
   let list = announcements.value.filter(a => {
     if (a.targetRole === 'all') return true
@@ -416,10 +445,9 @@ const filteredAnnouncements = computed(() => {
     const kw = searchKeyword.value
     list = list.filter(a => fuzzyMatch(a.title, kw) || fuzzyMatch(a.content, kw))
   }
-  // 仅显示重要
-  if (onlyImportant.value) {
-    const importantIds = new Set(importantAnnouncements.value.map(a => a.id))
-    list = list.filter(a => importantIds.has(a.id))
+  // 仅显示红旗标记
+  if (onlyFlagged.value) {
+    list = list.filter(a => myFlaggedIds.value.has(a.id))
   }
   return list
 })
@@ -427,11 +455,6 @@ const filteredAnnouncements = computed(() => {
 const previewImage = (url) => {
   previewImageUrl.value = url
   showImagePreview.value = true
-}
-
-const isImportant = (ann) => {
-  const kw = (ann.title + '' + (ann.content || '')).toLowerCase()
-  return kw.includes('重要') || kw.includes('紧急') || kw.includes('系统')
 }
 
 const formatTime = (t) => {
@@ -489,6 +512,8 @@ const loadAnnouncements = async () => {
   try {
     const { data } = await announcementAPI.list()
     announcements.value = data || []
+    // 同时加载我的红旗标记
+    await loadMyFlags()
     // 计算未读数（按角色过滤后统计）
     unreadCount.value = filteredAnnouncements.value.filter(a => !a.isRead).length
     // 加载所有公告的点赞统计
@@ -740,6 +765,7 @@ const subscribeAnnouncements = () => {
 onMounted(async () => {
   await loadUser()
   loadAnnouncements()
+  loadMyFlags()
   subscribeAnnouncements()
 })
 

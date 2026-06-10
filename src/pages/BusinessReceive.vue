@@ -20,7 +20,7 @@
           </div>
         </div>
 
-        <el-table :data="pendingMessages" border stripe v-loading="loading" :row-class-name="tableRowClassName">
+        <el-table :data="pendingMessages" border stripe v-loading="loading" :row-class-name="tableRowClassName" @row-click="viewDetail">
           <!-- 状态列 - 移到最前面 -->
           <el-table-column label="状态" width="100" align="center" fixed="left">
             <template #default="scope">
@@ -65,50 +65,34 @@
           <el-table-column label="操作" width="280" align="center" fixed="right">
             <template #default="scope">
               <div class="row-op-btns">
-                <el-button size="small" @click="viewDetail(scope.row)">查看</el-button>
+                <el-button size="small" @click.stop="viewDetail(scope.row)">查看</el-button>
                 <el-button 
                   v-if="!scope.row.myCompleted && !scope.row.isCompleted && !scope.row.isRecalled"
                   size="small" 
                   class="quick-btn agree-btn"
-                  @click="sendQuickReplyFromRow(scope.row, '同意')"
+                  @click.stop="sendQuickReplyFromRow(scope.row, '同意')"
                   :loading="scope.row._replyLoading"
                 >同意</el-button>
                 <el-button
                   v-if="!scope.row.myCompleted && !scope.row.isCompleted && !scope.row.isRecalled"
                   size="small"
                   class="quick-btn reject-btn"
-                  @click="sendQuickReplyFromRow(scope.row, '拒绝')"
+                  @click.stop="sendQuickReplyFromRow(scope.row, '拒绝')"
                   :loading="scope.row._replyLoading"
                 >拒绝</el-button>
                 <el-button
                   v-if="!scope.row.myCompleted && !scope.row.isCompleted && !scope.row.isRecalled"
                   size="small"
                   class="quick-btn pending-btn"
-                  @click="sendQuickReplyFromRow(scope.row, '等我确认后回复')"
+                  @click.stop="sendQuickReplyFromRow(scope.row, '等我确认后回复')"
                   :loading="scope.row._replyLoading"
                 >等我确认</el-button>
                 <el-button 
                   size="small" 
                   :type="scope.row.hasFlagged ? 'warning' : 'default'"
-                  @click="toggleFlag(scope.row)"
+                  @click.stop="toggleFlag(scope.row)"
                 >
                   {{ scope.row.hasFlagged ? '取消红旗' : '红旗' }}
-                </el-button>
-                <el-button 
-                  v-if="!scope.row.myCompleted && !scope.row.isCompleted && !scope.row.isRecalled"
-                  size="small" 
-                  type="success"
-                  @click="toggleMyCompleted(scope.row, true)"
-                >
-                  完结
-                </el-button>
-                <el-button 
-                  v-if="scope.row.myCompleted && !scope.row.isCompleted && !scope.row.isRecalled"
-                  size="small" 
-                  type="info"
-                  @click="toggleMyCompleted(scope.row, false)"
-                >
-                  取消完结
                 </el-button>
               </div>
             </template>
@@ -134,7 +118,7 @@
           </div>
         </div>
 
-        <el-table :data="processedMessages" border stripe v-loading="loading">
+        <el-table :data="processedMessages" border stripe v-loading="loading" @row-click="viewDetail">
           <!-- 状态列 - 移到最前面 -->
           <el-table-column label="状态" width="100" align="center" fixed="left">
             <template #default="scope">
@@ -179,50 +163,34 @@
           <el-table-column label="操作" width="280" align="center" fixed="right">
             <template #default="scope">
               <div class="row-op-btns">
-                <el-button size="small" @click="viewDetail(scope.row)">查看</el-button>
+                <el-button size="small" @click.stop="viewDetail(scope.row)">查看</el-button>
                 <el-button 
                   v-if="!scope.row.myCompleted && !scope.row.isCompleted && !scope.row.isRecalled"
                   size="small" 
                   class="quick-btn agree-btn"
-                  @click="sendQuickReplyFromRow(scope.row, '同意')"
+                  @click.stop="sendQuickReplyFromRow(scope.row, '同意')"
                   :loading="scope.row._replyLoading"
                 >同意</el-button>
                 <el-button
                   v-if="!scope.row.myCompleted && !scope.row.isCompleted && !scope.row.isRecalled"
                   size="small"
                   class="quick-btn reject-btn"
-                  @click="sendQuickReplyFromRow(scope.row, '拒绝')"
+                  @click.stop="sendQuickReplyFromRow(scope.row, '拒绝')"
                   :loading="scope.row._replyLoading"
                 >拒绝</el-button>
                 <el-button
                   v-if="!scope.row.myCompleted && !scope.row.isCompleted && !scope.row.isRecalled"
                   size="small"
                   class="quick-btn pending-btn"
-                  @click="sendQuickReplyFromRow(scope.row, '等我确认后回复')"
+                  @click.stop="sendQuickReplyFromRow(scope.row, '等我确认后回复')"
                   :loading="scope.row._replyLoading"
                 >等我确认</el-button>
                 <el-button 
                   size="small" 
                   :type="scope.row.hasFlagged ? 'warning' : 'default'"
-                  @click="toggleFlag(scope.row)"
+                  @click.stop="toggleFlag(scope.row)"
                 >
                   {{ scope.row.hasFlagged ? '取消红旗' : '红旗' }}
-                </el-button>
-                <el-button 
-                  v-if="!scope.row.myCompleted && !scope.row.isCompleted && !scope.row.isRecalled"
-                  size="small" 
-                  type="success"
-                  @click="toggleMyCompleted(scope.row, true)"
-                >
-                  完结
-                </el-button>
-                <el-button 
-                  v-if="scope.row.myCompleted && !scope.row.isCompleted && !scope.row.isRecalled"
-                  size="small" 
-                  type="info"
-                  @click="toggleMyCompleted(scope.row, false)"
-                >
-                  取消完结
                 </el-button>
               </div>
             </template>
@@ -248,7 +216,7 @@
           </div>
         </div>
 
-        <el-table :data="completedMessages" border stripe v-loading="loading">
+        <el-table :data="completedMessages" border stripe v-loading="loading" @row-click="viewDetail">
           <!-- 状态列 - 移到最前面 -->
           <el-table-column label="状态" width="90" align="center" fixed="left">
             <template #default="scope">
@@ -291,20 +259,13 @@
           <el-table-column label="操作" width="240" align="center" fixed="right">
             <template #default="scope">
               <div class="row-op-btns">
-                <el-button size="small" @click="viewDetail(scope.row)">查看</el-button>
+                <el-button size="small" @click.stop="viewDetail(scope.row)">查看</el-button>
                 <el-button 
                   size="small" 
                   :type="scope.row.hasFlagged ? 'warning' : 'default'"
-                  @click="toggleFlag(scope.row)"
+                  @click.stop="toggleFlag(scope.row)"
                 >
                   {{ scope.row.hasFlagged ? '取消红旗' : '红旗' }}
-                </el-button>
-                <el-button 
-                  size="small" 
-                  type="info"
-                  @click="toggleMyCompleted(scope.row, false)"
-                >
-                  取消完结
                 </el-button>
               </div>
             </template>
@@ -330,7 +291,7 @@
           </div>
         </div>
 
-        <el-table :data="recalledMessages" border stripe v-loading="loading">
+        <el-table :data="recalledMessages" border stripe v-loading="loading" @row-click="viewDetail">
           <el-table-column label="撤回原因" min-width="150" show-overflow-tooltip>
             <template #default="scope">
               {{ scope.row.recallReason || '-' }}
@@ -360,7 +321,7 @@
           </el-table-column>
           <el-table-column label="操作" width="80" align="center">
             <template #default="scope">
-              <el-button size="small" @click="viewDetail(scope.row)">查看</el-button>
+              <el-button size="small" @click.stop="viewDetail(scope.row)">查看</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -386,7 +347,7 @@
           </div>
         </div>
 
-        <el-table :data="allMessages" border stripe v-loading="loading" :row-class-name="tableRowClassName">
+        <el-table :data="allMessages" border stripe v-loading="loading" :row-class-name="tableRowClassName" @row-click="viewDetail">
           <el-table-column label="状态" width="100" align="center" fixed="left">
             <template #default="scope">
               <el-tag v-if="scope.row.myCompleted || scope.row.isCompleted" size="small" type="info">已完结</el-tag>
@@ -596,20 +557,6 @@
             @click="toggleFlagFromDetail"
           >
             {{ myRecipient.is_flagged ? '取消红旗' : '标记红旗' }}
-          </el-button>
-          <el-button 
-            v-if="!selectedMessage?.myCompleted && !selectedMessage?.isCompleted"
-            type="success" 
-            @click="toggleMyCompletedFromDetail(true)"
-          >
-            标记完结
-          </el-button>
-          <el-button 
-            v-if="selectedMessage?.myCompleted && !selectedMessage?.isCompleted"
-            type="info" 
-            @click="toggleMyCompletedFromDetail(false)"
-          >
-            取消完结
           </el-button>
           <el-button type="primary" v-if="!selectedMessage?.isRecalled" @click="submitReplyFromDetail" :loading="replyLoading">发送回复</el-button>
           <el-button type="info" plain @click="detailVisible = false">关闭</el-button>
@@ -1040,86 +987,6 @@ const toggleFlagFromDetail = async () => {
   }
 };
 
-// 切换我个人完结状态
-const toggleMyCompleted = async (msg, isCompleted) => {
-  try {
-    await communicationAPI.toggleRecipientCompleted(msg.id, currentUserId.value, isCompleted);
-    msg.myCompleted = isCompleted;
-    // 检查是否所有人都完结了
-    const allDone = msg.recipientDetails?.every(r => 
-      r.recipient_id === currentUserId.value ? isCompleted : r.is_completed
-    );
-    if (allDone) {
-      // 所有人都完结了，标记全局完结
-      await communicationAPI.toggleCommCompleted(msg.id, true);
-      msg.isCompleted = true;
-      msg.allRecipientsCompleted = true;
-    }
-    ElMessage.success(isCompleted ? '已标记完结' : '已取消完结');
-    loadMessages(); // 刷新列表
-  } catch (e) {
-    ElMessage.error('操作失败');
-  }
-};
-
-// 从表格中直接回复
-const replyFromTable = (msg) => {
-  viewDetail(msg);
-};
-
-// 从列表行发送快捷回复
-const sendQuickReplyFromRow = async (msg, content) => {
-  const skipReplied = content === '等我确认后回复';
-  // 设置当前行的 loading 状态
-  msg._replyLoading = true;
-  try {
-    await communicationAPI.createReply(msg.id, { content }, skipReplied);
-    ElMessage.success('回复成功');
-    // 立即在本地更新状态（不等待服务器同步，避免延迟）
-    if (!skipReplied) {
-      const idx = messages.value.findIndex(m => m.id === msg.id);
-      if (idx >= 0) {
-        messages.value[idx].hasReplied = true;
-      }
-      Object.assign(msg, { hasReplied: true });
-    }
-    // 延迟刷新列表（给服务器时间同步，但不阻塞UI）
-    setTimeout(() => loadMessages(), 300);
-    // 如果点了同意或拒绝，自动切换到已处理标签页
-    if (content === '同意' || content === '拒绝') {
-      activeTab.value = 'processed';
-    }
-    // 如果点了待确认，保持在待处理标签页（不需要切换）
-  } catch (error) {
-    ElMessage.error('回复失败：' + (error.message || '未知错误'));
-  } finally {
-    msg._replyLoading = false;
-  }
-};
-
-// 从详情弹窗标记我个人完结
-const toggleMyCompletedFromDetail = async (isCompleted) => {
-  if (!selectedMessage.value) return;
-  try {
-    await communicationAPI.toggleRecipientCompleted(selectedMessage.value.id, currentUserId.value, isCompleted);
-    selectedMessage.value.myCompleted = isCompleted;
-    if (myRecipient.value) myRecipient.value.is_completed = isCompleted;
-    // 检查是否所有人都完结了
-    const allRecipients = selectedMessage.value.recipientDetails || [];
-    const allDone = allRecipients.every(r => 
-      r.recipient_id === currentUserId.value ? isCompleted : r.is_completed
-    );
-    if (allDone) {
-      await communicationAPI.toggleCommCompleted(selectedMessage.value.id, true);
-      selectedMessage.value.isCompleted = true;
-      selectedMessage.value.allRecipientsCompleted = true;
-    }
-    ElMessage.success(isCompleted ? '已标记完结' : '已取消完结');
-    loadMessages(); // 刷新列表
-  } catch (e) {
-    ElMessage.error('操作失败');
-  }
-};
 
 const submitReplyFromDetail = async () => {
   if (!replyContent.value.trim()) {

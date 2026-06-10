@@ -10,10 +10,8 @@
       <el-radio-group v-model="activeFilter" @change="filterList">
         <el-radio-button label="all">全部 ({{ communications.length + recalledMessages.length }})</el-radio-button>
         <el-radio-button label="unreplied">未回复 ({{ unrepliedCount }})</el-radio-button>
-        <el-radio-button label="partial">部分回复 ({{ partialCount }})</el-radio-button>
-        <el-radio-button label="replied">全部已回复 ({{ repliedCount }})</el-radio-button>
-        <el-radio-button label="partialCompleted">部分完结 ({{ partialCompletedCount }})</el-radio-button>
-        <el-radio-button label="allCompleted">全部完结 ({{ allCompletedCount }})</el-radio-button>
+        <el-radio-button label="replied">已回复 ({{ repliedCount }})</el-radio-button>
+        <el-radio-button label="completed">已完结 ({{ completedCount }})</el-radio-button>
         <el-radio-button label="recalled">已撤回 ({{ recalledCount }})</el-radio-button>
       </el-radio-group>
       <el-button 
@@ -38,15 +36,13 @@
       />
     </div>
 
-    <el-table :data="filteredCommunications" border stripe v-loading="loading" empty-text="暂无发送记录" v-if="activeFilter !== 'recalled'">
+    <el-table :data="filteredCommunications" border stripe v-loading="loading" empty-text="暂无发送记录" v-if="activeFilter !== 'recalled'" @row-click="viewDetail">
       <el-table-column label="状态" width="110" align="center">
         <template #default="scope">
           <el-tag v-if="scope.row.isRecalled" size="small" type="warning">已撤回</el-tag>
-          <el-tag v-else-if="computeReplyStatus(scope.row) === 'unreplied'" size="small" type="danger">未回复</el-tag>
-          <el-tag v-else-if="computeReplyStatus(scope.row) === 'partial'" size="small" type="warning">部分回复</el-tag>
-          <el-tag v-else-if="computeReplyStatus(scope.row) === 'replied'" size="small" type="success">全部已回复</el-tag>
-          <el-tag v-else-if="computeReplyStatus(scope.row) === 'partialCompleted'" size="small" type="info">部分完结</el-tag>
-          <el-tag v-else-if="computeReplyStatus(scope.row) === 'allCompleted'" size="small" type="success">全部完结</el-tag>
+          <el-tag v-else-if="scope.row.isCompleted" size="small" type="success">已完结</el-tag>
+          <el-tag v-else-if="computeReplyStatus(scope.row) === 'replied'" size="small" type="success">已回复</el-tag>
+          <el-tag v-else size="small" type="danger">未回复</el-tag>
         </template>
       </el-table-column>
       <el-table-column label="沟通类型" width="110">
@@ -85,8 +81,6 @@
               <span class="recipient-name">{{ r.name || '-' }}</span>
               <el-tag v-if="r.has_replied" size="small" type="success" style="margin-left:4px;">已回复</el-tag>
               <el-tag v-else size="small" type="danger" style="margin-left:4px;">未回复</el-tag>
-              <el-tag v-if="r.is_completed" size="small" type="info" style="margin-left:4px;">已完结</el-tag>
-              <el-tag v-else size="small" type="warning" style="margin-left:4px;">未完结</el-tag>
             </div>
           </template>
         </template>
@@ -98,12 +92,12 @@
       </el-table-column>
       <el-table-column label="操作" width="160" align="center">
         <template #default="scope">
-          <el-button size="small" @click="viewDetail(scope.row)">查看</el-button>
+          <el-button size="small" @click.stop="viewDetail(scope.row)">查看</el-button>
           <el-button 
             v-if="canFollowUp(scope.row)" 
             size="small" 
             type="primary" 
-            @click="openFollowUp(scope.row)"
+            @click.stop="openFollowUp(scope.row)"
             style="margin-left: 4px;"
           >
             追加回复
@@ -121,6 +115,7 @@
       v-loading="recalledLoading"
       empty-text="暂无已撤回消息"
       style="margin-top: 16px;"
+      @row-click="viewDetail"
     >
       <el-table-column label="撤回时间" width="160">
         <template #default="scope">
@@ -154,8 +149,8 @@
       </el-table-column>
       <el-table-column label="操作" width="200" align="center" fixed="right">
         <template #default="scope">
-          <el-button size="small" type="primary" @click="editAndResend(scope.row)">编辑重发</el-button>
-          <el-button size="small" type="danger" @click="deleteRecalled(scope.row)">删除</el-button>
+          <el-button size="small" type="primary" @click.stop="editAndResend(scope.row)">编辑重发</el-button>
+          <el-button size="small" type="danger" @click.stop="deleteRecalled(scope.row)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -237,12 +232,6 @@
                   <el-tag v-else size="small" type="danger">未回复</el-tag>
                 </template>
               </el-table-column>
-              <el-table-column label="个人完结" width="90" align="center">
-                <template #default="scope">
-                  <el-tag v-if="scope.row.is_completed" size="small" type="info">已完结</el-tag>
-                  <el-tag v-else size="small" type="warning">未完结</el-tag>
-                </template>
-              </el-table-column>
             </el-table>
           </div>
         </div>
@@ -270,12 +259,6 @@
             <template #default="scope">
               <span v-if="scope.row.is_read" style="color:#67c23a;">✓</span>
               <span v-else style="color:#f56c6c;">✗</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="个人完结" width="90" align="center">
-            <template #default="scope">
-              <el-tag v-if="scope.row.is_completed" size="small" type="info">已完结</el-tag>
-              <el-tag v-else size="small" type="warning">未完结</el-tag>
             </template>
           </el-table-column>
         </el-table>
@@ -407,48 +390,20 @@ const formatTime = (t) => {
   return new Date(t).toLocaleString('zh-CN')
 }
 
-// 计算回复状态（发件人视角，考虑多个收件人）
-// 状态定义：
-//   - recalled: 已撤回
-//   - unreplied: 未回复（所有收件人都未回复）
-//   - partial: 部分回复（部分收件人已回复，部分未回复）
-//   - replied: 全部已回复（所有收件人都已回复，但都未完结）
-//   - partialCompleted: 部分完结（所有收件人都已回复，部分已完结，部分未完结）
-//   - allCompleted: 全部完结（所有收件人都已回复且都已完结）
+// 计算回复状态（发件人视角，简化版：仅区分 已回复 / 未回复）
+// 已完结由 isCompleted 字段单独控制
 const computeReplyStatus = (comm) => {
-  // 优先检查是否已撤回
-  if (comm.isRecalled) return 'recalled'
-  
   const recipients = comm.recipientDetails || []
   const total = recipients.length
-  if (total === 0) return 'replied' // 没有收件人，视为已回复
-  
+  if (total === 0) return 'replied'
   const repliedCount = recipients.filter(r => r.has_replied).length
-  const completedCount = recipients.filter(r => r.is_completed).length
-  
-  // 未回复：所有收件人都未回复
-  if (repliedCount === 0) return 'unreplied'
-  
-  // 部分回复：部分收件人已回复，部分未回复
-  if (repliedCount < total) return 'partial'
-  
-  // 到此，所有收件人都已回复（repliedCount === total）
-  // 全部完结：所有收件人都已完结
-  if (completedCount === total) return 'allCompleted'
-  
-  // 部分完结：所有收件人都已回复，部分已完结，部分未完结
-  if (completedCount > 0) return 'partialCompleted'
-  
-  // 全部已回复：所有收件人都已回复，但都未完结
-  return 'replied'
+  return repliedCount > 0 ? 'replied' : 'unreplied'
 }
 
 // 各状态计数
-const unrepliedCount = computed(() => communications.value.filter(c => computeReplyStatus(c) === 'unreplied').length)
-const partialCount = computed(() => communications.value.filter(c => computeReplyStatus(c) === 'partial').length)
-const repliedCount = computed(() => communications.value.filter(c => computeReplyStatus(c) === 'replied').length)
-const partialCompletedCount = computed(() => communications.value.filter(c => computeReplyStatus(c) === 'partialCompleted').length)
-const allCompletedCount = computed(() => communications.value.filter(c => computeReplyStatus(c) === 'allCompleted').length)
+const unrepliedCount = computed(() => communications.value.filter(c => computeReplyStatus(c) === 'unreplied' && !c.isCompleted).length)
+const repliedCount = computed(() => communications.value.filter(c => computeReplyStatus(c) === 'replied' && !c.isCompleted).length)
+const completedCount = computed(() => communications.value.filter(c => c.isCompleted).length)
 const recalledCount = computed(() => recalledMessages.value.length)
 
 // 判断消息是否在5分钟撤回窗口内
@@ -470,9 +425,17 @@ const filteredCommunications = computed(() => {
   // 过滤掉已撤回的消息（它们应该在"已撤回"标签页中）
   let result = communications.value.filter(c => !c.isRecalled)
   
-  // 状态过滤
+  // 状态过滤（简化版：未回复/已回复/已完结/已撤回）
   if (activeFilter.value !== 'all') {
-    result = result.filter(c => computeReplyStatus(c) === activeFilter.value)
+    if (activeFilter.value === 'completed') {
+      result = result.filter(c => c.isCompleted)
+    } else if (activeFilter.value === 'recalled') {
+      // 已撤回在单独的表格中处理
+    } else if (activeFilter.value === 'unreplied') {
+      result = result.filter(c => computeReplyStatus(c) === 'unreplied' && !c.isCompleted)
+    } else if (activeFilter.value === 'replied') {
+      result = result.filter(c => computeReplyStatus(c) === 'replied' && !c.isCompleted)
+    }
   }
   
   // 模糊搜索
@@ -698,10 +661,9 @@ const deleteRecalled = async (msg) => {
   }
 }
 
-// 判断是否可追加回复：状态为 replied / partialCompleted / allCompleted
+// 判断是否可追加回复：已回复且未完结
 const canFollowUp = (comm) => {
-  const status = computeReplyStatus(comm)
-  return ['replied', 'partialCompleted', 'allCompleted'].includes(status) && !comm.isRecalled
+  return computeReplyStatus(comm) === 'replied' && !comm.isRecalled && !comm.isCompleted
 }
 
 // 打开追加回复弹窗
