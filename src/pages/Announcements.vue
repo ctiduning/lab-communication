@@ -93,7 +93,7 @@
       </span>
     </div>
 
-    <!-- 收件箱表格 -->
+    <!-- 表格 -->
     <el-table
       ref="annTableRef"
       :data="filteredAnnouncements"
@@ -113,6 +113,7 @@
       </el-table-column>
       <el-table-column label="标题" min-width="200">
         <template #default="scope">
+          <span v-if="scope.row.isFlagged" style="color:red;margin-right:4px;">🚩</span>
           <span :class="{ 'is-unread-text': !scope.row.isRead }">{{ scope.row.title }}</span>
           <span v-if="scope.row.attachments && scope.row.attachments.length > 0" class="attach-icon">📎</span>
         </template>
@@ -134,24 +135,24 @@
           <span>{{ formatTime(scope.row.createdAt) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="状态" width="80" align="center">
+      <el-table-column label="已读状态" width="80" align="center">
         <template #default="scope">
           <el-tag v-if="scope.row.isRead" type="info" size="small">已读</el-tag>
           <el-tag v-else type="danger" size="small" effect="dark">未读</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="100" align="center">
+      <el-table-column label="操作" width="110" align="center" fixed="right">
         <template #default="scope">
           <el-button
             size="small"
-            :type="myFlaggedIds.has(scope.row.id) ? 'warning' : 'default'"
+            :type="scope.row.isFlagged ? 'warning' : 'default'"
             @click.stop="toggleFlag(scope.row)"
           >
-            {{ myFlaggedIds.has(scope.row.id) ? '🚩 已标记' : '🚩 标记' }}
+            {{ scope.row.isFlagged ? '🚩 已标记' : '🚩 标记' }}
           </el-button>
         </template>
       </el-table-column>
-      <el-table-column v-if="isAdmin" label="操作" width="140" align="center">
+      <el-table-column v-if="isAdmin" label="管理" width="140" align="center" fixed="right">
         <template #default="scope">
           <el-button size="small" type="primary" link @click.stop="handleEdit(scope.row)">编辑</el-button>
           <el-button size="small" type="danger" link @click.stop="handleDelete(scope.row)">删除</el-button>
@@ -196,7 +197,6 @@
           >
             👎 踩 {{ getDislikeCount('announcement', selectedAnn.id) }}
           </el-button>
-          <!-- 管理员查看点赞详情 -->
           <el-button
             v-if="isAdmin"
             size="small"
@@ -252,7 +252,7 @@
       </template>
     </el-dialog>
 
-    <!-- 点赞详情弹窗（管理员） -->
+    <!-- 点赞/点踩详情弹窗 -->
     <el-dialog v-model="reactionDetailVisible" title="点赞/点踩详情" width="600px" destroy-on-close>
       <el-table :data="reactionDetailList" border stripe size="small">
         <el-table-column label="用户" width="120">
@@ -297,7 +297,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Bell } from '@element-plus/icons-vue'
+import { Search } from '@element-plus/icons-vue'
 import { announcementAPI, storageAPI, reactionAPI, getRoleCategory } from '../api'
 import { supabase } from '../utils/supabase'
 
@@ -314,7 +314,7 @@ const announcements = ref([])
 const unreadCount = ref(0)
 const loading = ref(false)
 
-// 点赞/点踩数据 { 'announcement-uuid': { likeCount, dislikeCount, myReaction, reactions } }
+// 点赞/点踩数据
 const reactionStats = ref({})
 
 // 创建表单
@@ -345,7 +345,7 @@ const selectedAnn = ref(null)
 const showImagePreview = ref(false)
 const previewImageUrl = ref('')
 
-// 点赞详情弹窗（管理员）
+// 点赞详情弹窗
 const reactionDetailVisible = ref(false)
 const reactionDetailList = ref([])
 
@@ -393,34 +393,6 @@ const handleBatchDelete = async () => {
 const searchKeyword = ref('')
 const onlyFlagged = ref(false)
 
-const myFlaggedIds = ref(new Set())
-
-// 加载我的红旗标记
-const loadMyFlags = async () => {
-  try {
-    const { data } = await announcementAPI.getMyFlaggedIds()
-    myFlaggedIds.value = new Set(data || [])
-  } catch (e) {
-    console.error('加载红旗标记失败:', e)
-  }
-}
-
-// 切换红旗标记
-const toggleFlag = async (ann) => {
-  try {
-    const result = await announcementAPI.toggleFlag(ann.id)
-    if (result.flagged) {
-      myFlaggedIds.value = new Set([...myFlaggedIds.value, ann.id])
-    } else {
-      const newSet = new Set(myFlaggedIds.value)
-      newSet.delete(ann.id)
-      myFlaggedIds.value = newSet
-    }
-  } catch (e) {
-    ElMessage.error('操作失败：' + (e.message || '权限不足，请先配置数据库RLS策略'))
-  }
-}
-
 const fuzzyMatch = (text, query) => {
   if (!query) return true
   if (!text) return false
@@ -433,21 +405,31 @@ const fuzzyMatch = (text, query) => {
   return qi === q.length
 }
 
-// 过滤后的列表（角色过滤 + 模糊搜索 + 红旗筛选）
+// 🌟 跟接收消息一样的标记方式：直接更新 is_flagged 字段
+const toggleFlag = async (ann) => {
+  try {
+    const newVal = !ann.isFlagged
+    await announcementAPI.toggleAnnouncementFlag(ann.id, newVal)
+    ann.isFlagged = newVal
+    ElMessage.success(newVal ? '已标记红旗' : '已取消红旗')
+  } catch (e) {
+    ElMessage.error('操作失败：' + (e.message || '请检查数据库是否已添加 is_flagged 字段'))
+  }
+}
+
+// 过滤后的列表
 const filteredAnnouncements = computed(() => {
   let list = announcements.value.filter(a => {
     if (a.targetRole === 'all') return true
     if (a.targetRole === currentUserRole.value) return true
     return false
   })
-  // 模糊搜索
   if (searchKeyword.value) {
     const kw = searchKeyword.value
     list = list.filter(a => fuzzyMatch(a.title, kw) || fuzzyMatch(a.content, kw))
   }
-  // 仅显示红旗标记
   if (onlyFlagged.value) {
-    list = list.filter(a => myFlaggedIds.value.has(a.id))
+    list = list.filter(a => a.isFlagged)
   }
   return list
 })
@@ -462,37 +444,32 @@ const formatTime = (t) => {
   return new Date(t).toLocaleString('zh-CN')
 }
 
-// 表格行样式
 const tableRowClassName = ({ row }) => {
   return row.isRead ? '' : 'unread-row'
 }
 
-// 截断内容
 const truncateContent = (content, maxLen) => {
   if (!content) return '-'
   if (content.length <= maxLen) return content
   return content.substring(0, maxLen) + '...'
 }
 
-// 获取点赞数
+// 点赞/点踩
 const getLikeCount = (targetType, targetId) => {
   const key = `${targetType}-${targetId}`
   return reactionStats.value[key]?.likeCount || 0
 }
 
-// 获取点踩数
 const getDislikeCount = (targetType, targetId) => {
   const key = `${targetType}-${targetId}`
   return reactionStats.value[key]?.dislikeCount || 0
 }
 
-// 获取当前用户的反应类型
 const getMyReactionType = (targetType, targetId) => {
   const key = `${targetType}-${targetId}`
   return reactionStats.value[key]?.myReaction || null
 }
 
-// 加载当前用户
 const loadUser = async () => {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return
@@ -506,17 +483,12 @@ const loadUser = async () => {
   }
 }
 
-// 加载公告列表
 const loadAnnouncements = async () => {
   loading.value = true
   try {
     const { data } = await announcementAPI.list()
     announcements.value = data || []
-    // 同时加载我的红旗标记
-    await loadMyFlags()
-    // 计算未读数（按角色过滤后统计）
     unreadCount.value = filteredAnnouncements.value.filter(a => !a.isRead).length
-    // 加载所有公告的点赞统计
     await loadAnnouncementReactions()
   } catch (error) {
     console.error('加载公告失败:', error)
@@ -526,7 +498,6 @@ const loadAnnouncements = async () => {
   }
 }
 
-// 批量加载公告的点赞统计
 const loadAnnouncementReactions = async () => {
   try {
     const annIds = announcements.value.map(a => a.id)
@@ -549,7 +520,6 @@ const loadAnnouncementReactions = async () => {
   }
 }
 
-// 点赞/点踩操作
 const handleReaction = async (targetType, targetId, reactionType) => {
   try {
     const result = await reactionAPI.toggle(targetType, targetId, reactionType)
@@ -575,14 +545,12 @@ const handleReaction = async (targetType, targetId, reactionType) => {
       current.myReaction = result.data.reaction_type
     }
 
-    // 强制触发 Vue 响应式更新
     reactionStats.value = { ...reactionStats.value, [key]: { ...current } }
   } catch (error) {
     ElMessage.error('操作失败：' + (error.message || '未知错误'))
   }
 }
 
-// 管理员查看点赞详情
 const showReactionDetail = async (targetType, targetId) => {
   try {
     const { data } = await reactionAPI.getDetail(targetType, targetId)
@@ -596,7 +564,6 @@ const showReactionDetail = async (targetType, targetId) => {
 
 // 点击通知 → 标记已读 + 打开详情
 const handleClickNotice = async (ann) => {
-  // 如果未读，先标记已读
   if (!ann.isRead) {
     try {
       await announcementAPI.markAsRead(ann.id)
@@ -607,7 +574,6 @@ const handleClickNotice = async (ann) => {
       console.error('标记已读失败:', e)
     }
   }
-  // 打开详情
   selectedAnn.value = ann
   detailVisible.value = true
 }
@@ -641,7 +607,6 @@ const handleUploadImage = async (file) => {
   return false
 }
 
-// 编辑时上传图片
 const handleEditUploadImage = async (file) => {
   try {
     const result = await storageAPI.upload(file.raw || file, 'announcements')
@@ -741,23 +706,17 @@ const subscribeAnnouncements = () => {
     .on(
       'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'announcements' },
-      () => {
-        loadAnnouncements()
-      }
+      () => { loadAnnouncements() }
     )
     .on(
       'postgres_changes',
       { event: 'UPDATE', schema: 'public', table: 'announcements' },
-      () => {
-        loadAnnouncements()
-      }
+      () => { loadAnnouncements() }
     )
     .on(
       'postgres_changes',
       { event: 'DELETE', schema: 'public', table: 'announcements' },
-      () => {
-        loadAnnouncements()
-      }
+      () => { loadAnnouncements() }
     )
     .subscribe()
 }
@@ -765,7 +724,6 @@ const subscribeAnnouncements = () => {
 onMounted(async () => {
   await loadUser()
   loadAnnouncements()
-  loadMyFlags()
   subscribeAnnouncements()
 })
 
@@ -777,186 +735,27 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.notice-board {
-  padding: 20px;
-  max-width: 1100px;
-  margin: 0 auto;
-}
-
-.board-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.board-header h2 {
-  margin: 0;
-  font-size: 20px;
-  color: #333;
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.create-section {
-  margin-bottom: 20px;
-}
-
-/* 未读红点 */
-.unread-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #f56c6c;
-  margin: 0 auto;
-}
-
-/* 未读行高亮 - 红色背景 */
-:deep(.unread-row) {
-  background: #fef0f0 !important;
-  font-weight: 500;
-}
-:deep(.unread-row td) {
-  color: #f56c6c;
-}
-
-.is-unread-text {
-  font-weight: 700;
-  color: #f56c6c;
-}
-
-.content-preview {
-  color: #606266;
-  font-size: 13px;
-  line-height: 1.6;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.attach-icon {
-  margin-left: 6px;
-  color: #409eff;
-}
-
-/* 点赞数字可点击 */
-.reaction-num {
-  cursor: pointer;
-  padding: 2px 4px;
-  border-radius: 4px;
-  transition: background 0.2s;
-  user-select: none;
-}
-
-.reaction-num:hover {
-  background: #f0f0f0;
-}
-
-/* 详情中的点赞区 */
-.detail-reactions {
-  margin-top: 16px;
-  padding-top: 12px;
-  border-top: 1px solid #e8e8e8;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-/* 详情弹窗 */
-.detail-meta {
-  display: flex;
-  gap: 20px;
-  color: #999;
-  font-size: 13px;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #e8e8e8;
-}
-
-.detail-body {
-  font-size: 14px;
-  color: #333;
-  line-height: 1.8;
-  background: #f9f9f9;
-  padding: 16px;
-  border-radius: 8px;
-}
-
-.detail-attachments {
-  margin-top: 16px;
-}
-
-.detail-attachments h4 {
-  margin-bottom: 10px;
-  font-size: 14px;
-  color: #666;
-}
-
-.attachments-grid {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.attachment-item {
-  width: 120px;
-  height: 120px;
-  border-radius: 8px;
-  overflow: hidden;
-  border: 1px solid #e8e8e8;
-  cursor: pointer;
-  transition: transform 0.2s;
-}
-
-.attachment-item:hover {
-  transform: scale(1.05);
-}
-
-.attachment-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-/* 上传预览 */
-.upload-preview {
-  display: flex;
-  gap: 8px;
-  margin-top: 10px;
-  flex-wrap: wrap;
-}
-
-.upload-thumb {
-  position: relative;
-  width: 80px;
-  height: 80px;
-  border-radius: 6px;
-  overflow: hidden;
-  border: 1px solid #e8e8e8;
-}
-
-.upload-thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  cursor: pointer;
-}
-
-.upload-thumb .el-button {
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  min-width: 20px;
-  min-height: 20px;
-  width: 20px;
-  height: 20px;
-  padding: 0;
-  font-size: 12px;
-}
+.notice-board { padding: 20px; max-width: 1100px; margin: 0 auto; }
+.board-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.board-header h2 { margin: 0; font-size: 20px; color: #333; }
+.header-actions { display: flex; align-items: center; gap: 12px; }
+.create-section { margin-bottom: 20px; }
+:deep(.unread-row) { background: #fef0f0 !important; font-weight: 500; }
+:deep(.unread-row td) { color: #f56c6c; }
+.is-unread-text { font-weight: 700; color: #f56c6c; }
+.content-preview { color: #606266; font-size: 13px; line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; }
+.attach-icon { margin-left: 6px; color: #409eff; }
+.detail-reactions { margin-top: 16px; padding-top: 12px; border-top: 1px solid #e8e8e8; display: flex; align-items: center; gap: 8px; }
+.detail-meta { display: flex; gap: 20px; color: #999; font-size: 13px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #e8e8e8; }
+.detail-body { font-size: 14px; color: #333; line-height: 1.8; background: #f9f9f9; padding: 16px; border-radius: 8px; }
+.detail-attachments { margin-top: 16px; }
+.detail-attachments h4 { margin-bottom: 10px; font-size: 14px; color: #666; }
+.attachments-grid { display: flex; gap: 10px; flex-wrap: wrap; }
+.attachment-item { width: 120px; height: 120px; border-radius: 8px; overflow: hidden; border: 1px solid #e8e8e8; cursor: pointer; transition: transform 0.2s; }
+.attachment-item:hover { transform: scale(1.05); }
+.attachment-img { width: 100%; height: 100%; object-fit: cover; }
+.upload-preview { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.upload-thumb { position: relative; width: 80px; height: 80px; border-radius: 6px; overflow: hidden; border: 1px solid #e8e8e8; }
+.upload-thumb img { width: 100%; height: 100%; object-fit: cover; cursor: pointer; }
+.upload-thumb .el-button { position: absolute; top: 2px; right: 2px; min-width: 20px; min-height: 20px; width: 20px; height: 20px; padding: 0; font-size: 12px; }
 </style>

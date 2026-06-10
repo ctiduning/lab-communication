@@ -1337,7 +1337,7 @@ export const announcementAPI = {
     try {
       const { data: readData } = await supabase
         .from('announcement_reads')
-        .select('announcement_id, read_at')
+        .select('announcement_id, read_at, is_flagged')
         .eq('user_id', user.id)
       reads = readData || []
     } catch (e) {
@@ -1345,21 +1345,25 @@ export const announcementAPI = {
     }
 
     const readMap = {}
-    reads.forEach(r => { readMap[r.announcement_id] = r.read_at })
+    reads.forEach(r => { readMap[r.announcement_id] = { readAt: r.read_at, isFlagged: r.is_flagged || false } })
 
     return {
-      data: (announcements || []).map(a => ({
-        id: a.id,
-        title: a.title,
-        content: a.content,
-        targetRole: a.target_role,
-        targetRegions: a.target_regions,
-        senderName: senderMap[a.sender_id] || '',
-        createdAt: a.created_at,
-        attachments: a.attachments || [],
-        isRead: !!readMap[a.id],       // 当前用户是否已读
-        readAt: readMap[a.id] || null   // 已读时间
-      }))
+      data: (announcements || []).map(a => {
+        const myRead = readMap[a.id]
+        return {
+          id: a.id,
+          title: a.title,
+          content: a.content,
+          targetRole: a.target_role,
+          targetRegions: a.target_regions,
+          senderName: senderMap[a.sender_id] || '',
+          createdAt: a.created_at,
+          attachments: a.attachments || [],
+          isRead: !!myRead,
+          readAt: myRead?.readAt || null,
+          isFlagged: myRead?.isFlagged || false
+        }
+      })
     }
   },
 
@@ -1490,50 +1494,21 @@ export const announcementAPI = {
     return { data: { message: '删除成功' } }
   },
 
-  // ========== 公告红旗标记（每用户独立） ==========
+  // ========== 公告红旗标记（简单update模式） ==========
 
-  // 切换红旗标记：存在则删除，不存在则新增
-  async toggleFlag(announcementId) {
+  // 切换红旗标记（跟接收消息一样，直接 update announcement_reads）
+  async toggleAnnouncementFlag(announcementId, isFlagged) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error('未登录')
 
-    // 查是否已标记
-    const { data: existing } = await supabase
-      .from('announcement_flags')
-      .select('id')
-      .eq('user_id', user.id)
+    const { error } = await supabase
+      .from('announcement_reads')
+      .update({ is_flagged: isFlagged })
       .eq('announcement_id', announcementId)
-      .maybeSingle()
-
-    if (existing) {
-      // 已标记 → 删除
-      await supabase
-        .from('announcement_flags')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('announcement_id', announcementId)
-      return { flagged: false }
-    } else {
-      // 未标记 → 插入
-      await supabase
-        .from('announcement_flags')
-        .insert({ user_id: user.id, announcement_id: announcementId })
-      return { flagged: true }
-    }
-  },
-
-  // 获取当前用户所有已标记的公告ID
-  async getMyFlaggedIds() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { data: [] }
-
-    const { data, error } = await supabase
-      .from('announcement_flags')
-      .select('announcement_id')
       .eq('user_id', user.id)
 
     if (error) throw error
-    return { data: (data || []).map(f => f.announcement_id) }
+    return { flagged: isFlagged }
   }
 }
 
