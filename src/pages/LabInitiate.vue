@@ -134,9 +134,33 @@
       
       <el-form-item>
         <el-button type="primary" @click="submitForm">发送</el-button>
+        <el-button @click="saveDraft">保存草稿</el-button>
         <el-button @click="resetForm">重置</el-button>
+        <el-button v-if="drafts.length > 0" type="info" @click="showDraftBox = !showDraftBox">
+          草稿箱 ({{ drafts.length }})
+        </el-button>
       </el-form-item>
     </el-form>
+
+    <!-- 草稿箱抽屉 -->
+    <el-drawer v-model="showDraftBox" title="草稿箱" size="400px" direction="rtl">
+      <div v-if="drafts.length === 0" style="text-align:center;color:#999;padding:40px;">
+        暂无草稿
+      </div>
+      <div v-else class="draft-list">
+        <div v-for="(d, idx) in drafts" :key="idx" class="draft-item">
+          <div class="draft-header">
+            <span class="draft-time">{{ formatDraftTime(d.savedAt) }}</span>
+            <el-tag size="small" type="info">{{ d.type || '未选' }}</el-tag>
+          </div>
+          <div class="draft-preview">{{ d.content || '(空)' }}</div>
+          <div class="draft-actions">
+            <el-button size="small" type="primary" @click="loadDraft(idx)">继续编辑</el-button>
+            <el-button size="small" type="danger" @click="deleteDraft(idx)">删除</el-button>
+          </div>
+        </div>
+      </div>
+    </el-drawer>
 
     <!-- 图片预览弹窗 -->
     <el-dialog v-model="showImagePreview" width="80%" :show-close="true" destroy-on-close>
@@ -147,11 +171,43 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, inject } from 'vue';
+import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { communicationAPI, storageAPI, departmentCardAPI, ROLE_OPTIONS, getRoleDisplayName } from '../api';
 import { supabase } from '../utils/supabase';
 import { buildSearchKeys, filterGroups } from '../utils/pinyinSearch';
 import { getLevel2Options, getLevel3Options } from '../utils/departmentConfig';
+
+const router = useRouter();
+
+// 草稿箱
+const showDraftBox = ref(false);
+const drafts = ref([]);
+const loadDraftsFromStorage = () => {
+  try {
+    const saved = localStorage.getItem('lab_initiate_draft');
+    drafts.value = saved ? JSON.parse(saved) : [];
+  } catch { drafts.value = []; }
+};
+const saveDraft = () => {
+  const draftData = { ...form, savedAt: new Date().toISOString() };
+  const current = [...drafts.value, draftData];
+  localStorage.setItem('lab_initiate_draft', JSON.stringify(current));
+  drafts.value = current;
+  ElMessage.success('草稿已保存');
+};
+const loadDraft = (idx) => {
+  const d = drafts.value[idx];
+  if (!d) return;
+  Object.keys(form).forEach(key => { if (key in d) form[key] = d[key]; });
+  showDraftBox.value = false;
+  ElMessage.success('已加载草稿');
+};
+const deleteDraft = (idx) => {
+  drafts.value.splice(idx, 1);
+  localStorage.setItem('lab_initiate_draft', JSON.stringify(drafts.value));
+};
+const formatDraftTime = (t) => t ? new Date(t).toLocaleString('zh-CN') : '';
 
 const form = reactive({
   type: '',
@@ -366,8 +422,11 @@ const submitForm = async () => {
     }
     await communicationAPI.create(payload);
     ElMessage.success('发送成功');
+    // 清除匹配的草稿
+    const draftIdx = drafts.value.findIndex(d => d.content === form.content && d.sampleCode === form.sampleCode);
+    if (draftIdx >= 0) deleteDraft(draftIdx);
     resetForm();
-    window.location.href = '#/home';
+    router.push('/');
   } catch (error) {
     ElMessage.error('发送失败：' + (error.message || '未知错误'));
   }
@@ -456,6 +515,8 @@ const preselectRecipients = inject('preselectRecipients', ref([]));
 const preselectDeptCards = inject('preselectDeptCards', ref([]));
 
 onMounted(() => {
+  loadDraftsFromStorage();
+  
   // 获取当前用户角色
   supabase.auth.getUser().then(({ data: { user } }) => {
     if (user) {
@@ -657,4 +718,16 @@ onMounted(() => {
 .dept-card-popper .el-select-dropdown__item:hover {
   background: #ecf5ff;
 }
+
+/* 草稿箱样式 */
+.draft-list { padding: 0 16px; }
+.draft-item {
+  border: 1px solid #ebeef5; border-radius: 6px; padding: 12px; margin-bottom: 10px; background: #fafafa;
+}
+.draft-header {
+  display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;
+}
+.draft-time { font-size: 12px; color: #909399; }
+.draft-preview { font-size: 13px; color: #606266; margin-bottom: 8px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.draft-actions { display: flex; gap: 8px; }
 </style>

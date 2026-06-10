@@ -78,6 +78,22 @@
       </div>
     </el-collapse-transition>
 
+    <!-- 搜索栏 -->
+    <div class="search-bar" style="margin-bottom:16px;display:flex;gap:12px;align-items:center;">
+      <el-input
+        v-model="searchKeyword"
+        placeholder="搜索标题或内容..."
+        clearable
+        style="width:300px;"
+        :prefix-icon="Search"
+      />
+      <el-checkbox v-model="onlyImportant">仅显示🚩重要</el-checkbox>
+      <span style="font-size:13px;color:#909399;">
+        共 {{ filteredAnnouncements.length }} 条
+        <template v-if="importantAnnouncements.length">，其中 {{ importantAnnouncements.length }} 条重要</template>
+      </span>
+    </div>
+
     <!-- 收件箱表格 -->
     <el-table
       ref="annTableRef"
@@ -98,6 +114,7 @@
       </el-table-column>
       <el-table-column label="标题" min-width="200">
         <template #default="scope">
+          <span v-if="isImportant(scope.row)" style="color:red;margin-right:4px;">🚩</span>
           <span :class="{ 'is-unread-text': !scope.row.isRead }">{{ scope.row.title }}</span>
           <span v-if="scope.row.attachments && scope.row.attachments.length > 0" class="attach-icon">📎</span>
         </template>
@@ -363,19 +380,58 @@ const handleBatchDelete = async () => {
   }
 }
 
-// 过滤后的列表
-// 根据角色过滤公告（业务端只看到 business/all，实验室只看到 lab/all）
-const filteredAnnouncements = computed(() => {
+// 搜索与重要标记
+const searchKeyword = ref('')
+const onlyImportant = ref(false)
+
+const fuzzyMatch = (text, query) => {
+  if (!query) return true
+  if (!text) return false
+  const t = text.toLowerCase()
+  const q = query.toLowerCase().replace(/\s/g, '')
+  let qi = 0
+  for (let i = 0; i < t.length && qi < q.length; i++) {
+    if (t[i] === q[qi]) qi++
+  }
+  return qi === q.length
+}
+
+// 重要公告（模拟：标题或内容包含"重要""紧急""系统"的标记为重要）
+const importantAnnouncements = computed(() => {
   return announcements.value.filter(a => {
+    const kw = (a.title + '' + (a.content || '')).toLowerCase()
+    return kw.includes('重要') || kw.includes('紧急') || kw.includes('系统')
+  })
+})
+
+// 过滤后的列表（角色过滤 + 模糊搜索 + 重要筛选）
+const filteredAnnouncements = computed(() => {
+  let list = announcements.value.filter(a => {
     if (a.targetRole === 'all') return true
     if (a.targetRole === currentUserRole.value) return true
     return false
   })
+  // 模糊搜索
+  if (searchKeyword.value) {
+    const kw = searchKeyword.value
+    list = list.filter(a => fuzzyMatch(a.title, kw) || fuzzyMatch(a.content, kw))
+  }
+  // 仅显示重要
+  if (onlyImportant.value) {
+    const importantIds = new Set(importantAnnouncements.value.map(a => a.id))
+    list = list.filter(a => importantIds.has(a.id))
+  }
+  return list
 })
 
 const previewImage = (url) => {
   previewImageUrl.value = url
   showImagePreview.value = true
+}
+
+const isImportant = (ann) => {
+  const kw = (ann.title + '' + (ann.content || '')).toLowerCase()
+  return kw.includes('重要') || kw.includes('紧急') || kw.includes('系统')
 }
 
 const formatTime = (t) => {

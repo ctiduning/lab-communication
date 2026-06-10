@@ -696,20 +696,32 @@ const onAdminLevel1Change = () => {
   userForm.role = '';
 };
 
+const fuzzyMatch = (text, query) => {
+  if (!query) return true;
+  if (!text) return false;
+  const t = text.toLowerCase();
+  const q = query.toLowerCase().replace(/\s/g, '');
+  let qi = 0;
+  for (let i = 0; i < t.length && qi < q.length; i++) {
+    if (t[i] === q[qi]) qi++;
+  }
+  return qi === q.length;
+};
+
 const commSearchKeyword = ref('');
 
 const filteredUsers = computed(() => {
   if (!searchKeyword.value) return users.value;
-  const kw = searchKeyword.value.toLowerCase();
+  const kw = searchKeyword.value;
   return users.value.filter(u =>
-    u.name?.toLowerCase().includes(kw) ||
-    u.employeeId?.toLowerCase().includes(kw) ||
-    u.email?.toLowerCase().includes(kw) ||
-    u.departmentLevel1?.toLowerCase().includes(kw) ||
-    u.departmentLevel2?.toLowerCase().includes(kw) ||
-    u.departmentLevel3?.toLowerCase().includes(kw) ||
-    u.role?.toLowerCase().includes(kw) ||
-    u.phone?.toLowerCase().includes(kw)
+    fuzzyMatch(u.name, kw) ||
+    fuzzyMatch(u.employeeId, kw) ||
+    fuzzyMatch(u.email, kw) ||
+    fuzzyMatch(u.departmentLevel1, kw) ||
+    fuzzyMatch(u.departmentLevel2, kw) ||
+    fuzzyMatch(u.departmentLevel3, kw) ||
+    fuzzyMatch(u.role, kw) ||
+    fuzzyMatch(u.phone, kw)
   );
 });
 
@@ -724,13 +736,13 @@ const labUserCount = computed(() => users.value.filter(u => isLabUser(u)).length
 
 const filteredCommunications = computed(() => {
   if (!commSearchKeyword.value) return communications.value;
-  const kw = commSearchKeyword.value.toLowerCase();
+  const kw = commSearchKeyword.value;
   return communications.value.filter(c =>
-    c.content?.toLowerCase().includes(kw) ||
-    c.customerName?.toLowerCase().includes(kw) ||
-    c.senderName?.toLowerCase().includes(kw) ||
-    c.sampleCode?.toLowerCase().includes(kw) ||
-    c.recipientNames?.toLowerCase().includes(kw)
+    fuzzyMatch(c.content, kw) ||
+    fuzzyMatch(c.customerName, kw) ||
+    fuzzyMatch(c.senderName, kw) ||
+    fuzzyMatch(c.sampleCode, kw) ||
+    fuzzyMatch(c.recipientNames, kw)
   );
 });
 
@@ -1262,7 +1274,7 @@ const calculateStats = async () => {
       allUsers = userResp.data || [];
     } catch (e) {
       // 如果 userAPI.getAll() 不可用，直接从 supabase 查询
-      const { data: usersData } = await supabase.from('users').select('*');
+      const { data: usersData } = await supabase.from('profiles').select('*');
       allUsers = usersData || [];
     }
 

@@ -96,9 +96,18 @@
           {{ formatTime(scope.row.createdAt) }}
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="80" align="center">
+      <el-table-column label="操作" width="160" align="center">
         <template #default="scope">
           <el-button size="small" @click="viewDetail(scope.row)">查看</el-button>
+          <el-button 
+            v-if="canFollowUp(scope.row)" 
+            size="small" 
+            type="primary" 
+            @click="openFollowUp(scope.row)"
+            style="margin-left: 4px;"
+          >
+            追加回复
+          </el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -327,6 +336,27 @@
         <el-button type="warning" @click="confirmRecall()" :loading="recallLoading">确认撤回</el-button>
       </template>
     </el-dialog>
+
+    <!-- 追加回复弹窗 -->
+    <el-dialog title="追加回复" v-model="followUpVisible" width="500px" :close-on-click-modal="false">
+      <div>
+        <p style="margin-bottom: 12px; color: #606266;">
+          对 <strong>{{ followUpTarget?.customerName || followUpTarget?.sampleCode || '该沟通' }}</strong> 追加回复：
+        </p>
+        <el-input
+          v-model="followUpContent"
+          type="textarea"
+          :rows="4"
+          placeholder="输入追加内容..."
+          maxlength="500"
+          show-word-limit
+        />
+      </div>
+      <template #footer>
+        <el-button @click="followUpVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitFollowUp" :loading="followUpLoading">发送</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -352,6 +382,12 @@ const recallDialogVisible = ref(false)
 const recallReason = ref('')
 const recallLoading = ref(false)
 const currentRecallingMsg = ref(null)
+
+// 追加回复相关
+const followUpVisible = ref(false)
+const followUpContent = ref('')
+const followUpTarget = ref(null)
+const followUpLoading = ref(false)
 
 const typeMap = {
   paid_urgent: '付费加急',
@@ -659,6 +695,66 @@ const deleteRecalled = async (msg) => {
     if (error !== 'cancel') {
       ElMessage.error('删除失败：' + (error.message || '未知错误'))
     }
+  }
+}
+
+// 判断是否可追加回复：状态为 replied / partialCompleted / allCompleted
+const canFollowUp = (comm) => {
+  const status = computeReplyStatus(comm)
+  return ['replied', 'partialCompleted', 'allCompleted'].includes(status) && !comm.isRecalled
+}
+
+// 打开追加回复弹窗
+const openFollowUp = (comm) => {
+  followUpTarget.value = comm
+  followUpContent.value = ''
+  followUpVisible.value = true
+}
+
+// 提交追加回复
+const submitFollowUp = async () => {
+  const content = followUpContent.value.trim()
+  if (!content) {
+    ElMessage.warning('请输入回复内容')
+    return
+  }
+  if (!followUpTarget.value) return
+
+  followUpLoading.value = true
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('未登录')
+
+    // 插入回复
+    const { error } = await supabase
+      .from('replies')
+      .insert({
+        communication_id: followUpTarget.value.id,
+        sender_id: user.id,
+        content
+      })
+
+    if (error) throw error
+
+    // 通知所有收件人
+    const recipients = followUpTarget.value.recipientDetails || []
+    if (recipients.length > 0) {
+      const notifications = recipients.map(r => ({
+        user_id: r.recipient_id,
+        communication_id: followUpTarget.value.id,
+        type: 'reply',
+        content: `发起人追加回复：${content.length > 30 ? content.substring(0, 30) + '...' : content}`
+      }))
+      await supabase.from('notifications').insert(notifications)
+    }
+
+    ElMessage.success('追加回复已发送')
+    followUpVisible.value = false
+    loadCommunications()
+  } catch (e) {
+    ElMessage.error('发送失败：' + (e.message || '未知错误'))
+  } finally {
+    followUpLoading.value = false
   }
 }
 
