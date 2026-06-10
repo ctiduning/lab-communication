@@ -95,29 +95,7 @@
         </div>
       </el-form-item>
       
-      <!-- 三级部门选择 → 不再显示一级部门（由用户角色自动识别） -->
-      <el-form-item label="二级部门">
-        <el-select v-model="selectedLevel2" placeholder="请选择" style="width:100%;" @change="onLevel2Change" clearable :disabled="!selectedLevel1">
-          <el-option
-            v-for="opt in level2Options"
-            :key="opt.value"
-            :label="opt.label"
-            :value="opt.value"
-          />
-        </el-select>
-      </el-form-item>
-
-      <el-form-item label="三级部门" v-if="selectedLevel2 && selectedLevel1 === '实验室'">
-        <el-select v-model="selectedLevel3" placeholder="请选择" style="width:100%;" clearable :disabled="!selectedLevel2">
-          <el-option
-            v-for="opt in level3Options"
-            :key="opt.value"
-            :label="opt.label"
-            :value="opt.value"
-          />
-        </el-select>
-      </el-form-item>
-
+      <!-- 直接显示消息接收人选择（去掉部门筛选） -->
       <el-form-item label="消息接收人" prop="recipients">
         <el-select
           v-model="form.recipients"
