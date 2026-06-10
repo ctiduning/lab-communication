@@ -49,15 +49,8 @@
         </div>
       </el-form-item>
       
-      <!-- 三级部门选择（实验室端：一级→二级→三级） -->
-      <el-form-item label="一级部门" v-if="userRole === 'lab' || userRole === 'business'">
-        <el-select v-model="selectedLevel1" placeholder="请选择" style="width:100%;" @change="onLevel1Change" clearable>
-          <el-option label="业务" value="业务" />
-          <el-option label="实验室" value="实验室" />
-        </el-select>
-      </el-form-item>
-
-      <el-form-item label="二级部门" v-if="selectedLevel1">
+      <!-- 三级部门选择 → 不再显示一级部门（由用户角色自动识别） -->
+      <el-form-item label="二级部门">
         <el-select v-model="selectedLevel2" placeholder="请选择" style="width:100%;" @change="onLevel2Change" clearable :disabled="!selectedLevel1">
           <el-option
             v-for="opt in level2Options"
@@ -488,8 +481,12 @@ onMounted(() => {
   // 获取当前用户角色
   supabase.auth.getUser().then(({ data: { user } }) => {
     if (user) {
-      supabase.from('profiles').select('role').eq('id', user.id).single().then(({ data }) => {
-        if (data) userRole.value = data.role;
+      supabase.from('profiles').select('role, department_level1').eq('id', user.id).single().then(({ data }) => {
+        if (data) {
+          userRole.value = data.role;
+          // 自动识别一级部门（去掉一级部门下拉后，根据用户所属部门自动设置）
+          selectedLevel1.value = data.department_level1 || (data.role?.startsWith('business') ? '业务' : '实验室');
+        }
       });
     }
   });
