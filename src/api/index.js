@@ -352,7 +352,7 @@ export const communicationAPI = {
       .order('created_at', { ascending: false });
 
     if (recipientId) {
-      query = query.in('communication_recipients.recipient_id', [recipientId]);
+      query = query.eq('communication_recipients.recipient_id', recipientId);
     }
 
     const { data: communications, error } = await query;
