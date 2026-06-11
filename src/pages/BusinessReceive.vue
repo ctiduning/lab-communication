@@ -969,12 +969,14 @@ const loadReplyReactions = async (replies) => {
 };
 
 const viewDetail = async (message) => {
-  selectedMessage.value = JSON.parse(JSON.stringify(message));
+  // 重新获取完整的消息详情（包含所有接收人）
+  const response = await communicationAPI.getById(message.id);
+  selectedMessage.value = JSON.parse(JSON.stringify(response.data));
   replyContent.value = '';
   // 获取发送人详情
-  senderDetail.value = allUsers.value.find(u => u.id === message.senderId) || null;
+  senderDetail.value = allUsers.value.find(u => u.id === response.data.senderId) || null;
   // 获取我的接收人记录
-  myRecipient.value = (message.recipientDetails || []).find(r => r.recipient_id === currentUserId.value) || null;
+  myRecipient.value = (response.data.recipientDetails || []).find(r => r.recipient_id === currentUserId.value) || null;
   // 标记已读
   try {
     await communicationAPI.markAsRead(message.id);
