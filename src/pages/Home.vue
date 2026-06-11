@@ -59,6 +59,7 @@
               <el-menu-item index="sent">
                 <el-icon><Promotion /></el-icon>
                 <span>已发送消息</span>
+                <span v-if="sentNewReplyCount > 0" class="pending-msg-badge">{{ sentNewReplyCount }}条新回复</span>
               </el-menu-item>
               <el-menu-item index="organization">
                 <el-icon><OfficeBuilding /></el-icon>
@@ -80,6 +81,7 @@
               <el-menu-item index="sent">
                 <el-icon><Promotion /></el-icon>
                 <span>已发送消息</span>
+                <span v-if="sentNewReplyCount > 0" class="pending-msg-badge">{{ sentNewReplyCount }}条新回复</span>
               </el-menu-item>
               <el-menu-item index="organization">
                 <el-icon><OfficeBuilding /></el-icon>
@@ -137,6 +139,7 @@
               <el-menu-item index="sent">
                 <el-icon><Promotion /></el-icon>
                 <span>已发送消息</span>
+                <span v-if="sentNewReplyCount > 0" class="pending-msg-badge">{{ sentNewReplyCount }}条新回复</span>
               </el-menu-item>
               <el-menu-item index="organization">
                 <el-icon><OfficeBuilding /></el-icon>
@@ -158,6 +161,7 @@
               <el-menu-item index="sent">
                 <el-icon><Promotion /></el-icon>
                 <span>已发送消息</span>
+                <span v-if="sentNewReplyCount > 0" class="pending-msg-badge">{{ sentNewReplyCount }}条新回复</span>
               </el-menu-item>
               <el-menu-item index="organization">
                 <el-icon><OfficeBuilding /></el-icon>
@@ -218,6 +222,7 @@ const activeMenu = ref('initiate');
 const viewRole = ref('admin');
 const unreadAnnCount = ref(0);
 const pendingMsgCount = ref(0);
+const sentNewReplyCount = ref(0);
 let announcementChannel = null;
 let messageChannel = null;
 let activeTimer = null;
@@ -378,11 +383,23 @@ const loadPendingMsgCount = async () => {
   } catch (error) { console.error('加载待处理消息数失败:', error); }
 };
 
+const loadSentNewReplyCount = async () => {
+  try {
+    const { data } = await communicationAPI.getSentNewReplyCount();
+    sentNewReplyCount.value = data.count;
+    console.log('[新回复数量] API返回:', data.count);
+  } catch (error) { console.error('加载新回复数量失败:', error); }
+};
+
 const subscribeMessages = () => {
   messageChannel = supabase
     .channel('messages-pending-count')
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'communications' }, () => loadPendingMsgCount())
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'communications' }, () => {
+      loadPendingMsgCount();
+      loadSentNewReplyCount();
+    })
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'communication_recipients' }, () => loadPendingMsgCount())
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'communications' }, () => loadSentNewReplyCount())
     .subscribe();
 };
 
@@ -423,6 +440,7 @@ onMounted(async () => {
   await initMenu();
   loadUnreadCount();
   loadPendingMsgCount();
+  loadSentNewReplyCount();
   subscribeAnnouncements();
   subscribeMessages();
 

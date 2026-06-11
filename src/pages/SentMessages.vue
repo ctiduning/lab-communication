@@ -493,9 +493,23 @@ const filteredCommunications = computed(() => {
   return result
 })
 
-  const viewDetail = (comm) => {
+  const viewDetail = async (comm) => {
   selectedComm.value = comm
   detailVisible.value = true
+  
+  // 如果有新回复，清除标记
+  if (comm.hasNewReply) {
+    try {
+      await supabase
+        .from('communications')
+        .update({ has_new_reply: false })
+        .eq('id', comm.id)
+      // 更新本地状态
+      comm.hasNewReply = false
+    } catch (e) {
+      console.error('清除新回复标记失败:', e)
+    }
+  }
 }
 
 // 发起人标记整体完结

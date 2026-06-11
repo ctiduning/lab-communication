@@ -905,6 +905,26 @@ export const communicationAPI = {
     return { data: { count } }
   },
 
+  // 获取已发送消息的新回复数量（用于侧边栏显示）
+  async getSentNewReplyCount() {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { data: { count: 0 } }
+
+    const { count, error } = await supabase
+      .from('communications')
+      .select('id', { count: 'exact', head: true })
+      .eq('sender_id', user.id)
+      .eq('has_new_reply', true)
+      .eq('is_recalled', false)
+
+    if (error) {
+      console.error('getSentNewReplyCount:', error)
+      return { data: { count: 0 } }
+    }
+
+    return { data: { count: count || 0 } }
+  },
+
   // 导出所有沟通记录（管理员用）
   async exportAll() {
     const { data: communications, error } = await supabase
