@@ -484,30 +484,41 @@
         
         <h4 v-if="!selectedMessage?.isRecalled" style="margin-top: 20px;">回复记录</h4>
         <div v-if="!selectedMessage?.isRecalled && selectedMessage.replies && selectedMessage.replies.length > 0">
-          <div v-for="(reply, index) in selectedMessage.replies" :key="index" class="reply-item">
-            <div class="reply-content">
-              <p><strong>{{ getUserDisplayName(reply.senderId) }}：</strong>{{ reply.content }}</p>
-              <p class="reply-time">{{ formatTime(reply.createdAt) }}</p>
+          <!-- 回复全部的 Thread -->
+          <div v-if="buildThreads(selectedMessage).all.length > 0" class="thread-card" style="border: 1px solid #ebeef5; border-radius: 6px; margin-bottom: 12px;">
+            <div class="thread-header" style="background: #f0f9eb; padding: 8px 12px; border-radius: 6px 6px 0 0; font-weight: bold; font-size: 13px;">📢 回复全部接收人</div>
+            <div class="thread-body" style="padding: 8px 12px;">
+              <div v-for="(reply, idx) in buildThreads(selectedMessage).all" :key="idx" class="reply-item" style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
+                <div class="reply-content" style="flex:1;"><p><strong>{{ getUserDisplayName(reply.senderId) }}：</strong>{{ reply.content }}</p><p class="reply-time">{{ formatTime(reply.createdAt) }}</p></div>
+                <div class="reply-reactions" style="flex-shrink:0; display:flex; gap:4px;">
+                  <el-button :type="getMyReactionType('reply', reply.id) === 'like' ? 'primary' : 'default'" size="small" @click="handleReaction('reply', reply.id, 'like')">👍 {{ getLikeCount('reply', reply.id) }}</el-button>
+                  <el-button :type="getMyReactionType('reply', reply.id) === 'dislike' ? 'danger' : 'default'" size="small" @click="handleReaction('reply', reply.id, 'dislike')">👎 {{ getDislikeCount('reply', reply.id) }}</el-button>
+                </div>
+              </div>
             </div>
-            <div class="reply-reactions">
-              <el-button
-                :type="getMyReactionType('reply', reply.id) === 'like' ? 'primary' : 'default'"
-                size="small"
-                @click="handleReaction('reply', reply.id, 'like')"
-              >
-                👍 {{ getLikeCount('reply', reply.id) }}
-              </el-button>
-              <el-button
-                :type="getMyReactionType('reply', reply.id) === 'dislike' ? 'danger' : 'default'"
-                size="small"
-                @click="handleReaction('reply', reply.id, 'dislike')"
-              >
-                👎 {{ getDislikeCount('reply', reply.id) }}
-              </el-button>
+          </div>
+          <!-- 按接收人分组的 Thread -->
+          <div v-for="(thread, tIdx) in buildThreads(selectedMessage).threads" :key="tIdx" class="thread-card" style="border: 1px solid #ebeef5; border-radius: 6px; margin-bottom: 12px;">
+            <div class="thread-header" style="background:#ecf5ff; padding:8px 12px; border-radius:6px 6px 0 0; cursor:pointer; display:flex; justify-content:space-between; align-items:center;" @click="toggleCollapsed(thread.recipient.recipient_id)">
+              <span style="font-weight:bold; font-size:13px;">
+                💬 与 {{ thread.recipient.name || '未知' }} 的对话
+                <el-tag v-if="thread.recipient.has_replied" size="small" type="success" style="margin-left:6px;">已回复</el-tag>
+                <el-tag v-else size="small" type="danger" style="margin-left:6px;">未回复</el-tag>
+              </span>
+              <span>{{ threadCollapsed[thread.recipient.recipient_id] ? '▸' : '▾' }}</span>
+            </div>
+            <div v-show="!threadCollapsed[thread.recipient.recipient_id]" class="thread-body" style="padding:8px 12px;">
+              <div v-for="(reply, idx) in thread.replies" :key="idx" class="reply-item" style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:8px;">
+                <div class="reply-content" style="flex:1;"><p><strong>{{ getUserDisplayName(reply.senderId) }}：</strong>{{ reply.content }}</p><p class="reply-time">{{ formatTime(reply.createdAt) }}</p></div>
+                <div class="reply-reactions" style="flex-shrink:0; display:flex; gap:4px;">
+                  <el-button :type="getMyReactionType('reply', reply.id) === 'like' ? 'primary' : 'default'" size="small" @click="handleReaction('reply', reply.id, 'like')">👍 {{ getLikeCount('reply', reply.id) }}</el-button>
+                  <el-button :type="getMyReactionType('reply', reply.id) === 'dislike' ? 'danger' : 'default'" size="small" @click="handleReaction('reply', reply.id, 'dislike')">👎 {{ getDislikeCount('reply', reply.id) }}</el-button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
-        <div v-if="!selectedMessage?.isRecalled" class="no-reply">暂无回复</div>
+        <div v-if="!selectedMessage?.isRecalled && (!selectedMessage.replies || selectedMessage.replies.length === 0)" class="no-reply">暂无回复</div>
 
         <h4 v-if="!selectedMessage?.isRecalled" style="margin-top: 20px;">回复</h4>
         <el-input v-if="!selectedMessage?.isRecalled" type="textarea" v-model="replyContent" placeholder="请输入回复内容" :rows="3"></el-input>
@@ -571,6 +582,15 @@ const senderDetail = ref(null);
 const replyContent = ref('');
 const replyLoading = ref(false);
 const myRecipient = ref(null);
+const threadCollapsed = ref({});
+
+function toggleCollapsed(recipientId) {
+  threadCollapsed.value = { ...threadCollapsed.value, [recipientId]: !threadCollapsed.value[recipientId] };
+}
+
+const buildThreads = (comm) => {
+  return communicationAPI.buildThreads ? communicationAPI.buildThreads(comm) : { all: comm.replies || [], threads: [] };
+};
 
 const searchKeyword = ref('');
 const searchKeywordProcessed = ref('');

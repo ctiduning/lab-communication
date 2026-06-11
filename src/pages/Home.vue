@@ -207,7 +207,7 @@ import LabReceive from './LabReceive.vue';
 import Admin from './Admin.vue';
 import Profile from './Profile.vue';
 import Announcements from './Announcements.vue';
-import Communications from './Communications.vue';
+// Communications 已废弃
 import Organization from './Organization.vue';
 import SentMessages from './SentMessages.vue';
 

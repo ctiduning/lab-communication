@@ -321,11 +321,25 @@
     </el-dialog>
 
     <!-- 追加回复弹窗 -->
-    <el-dialog title="追加回复" v-model="followUpVisible" width="500px" :close-on-click-modal="false">
+    <el-dialog title="追加回复" v-model="followUpVisible" width="550px" :close-on-click-modal="false">
       <div>
-        <p style="margin-bottom: 12px; color: #606266;">
-          对 <strong>{{ followUpTarget?.customerName || followUpTarget?.sampleCode || '该沟通' }}</strong> 追加回复：
+        <p style="margin-bottom: 8px; color: #606266; font-weight: 600;">
+          回复给：
         </p>
+        <el-radio-group v-model="followUpTargetRecipient" style="margin-bottom: 12px;">
+          <el-radio :value="null">全部接收人</el-radio>
+          <el-radio 
+            v-for="r in (followUpTarget?.recipientDetails || [])" 
+            :key="r.recipient_id" 
+            :value="r.recipient_id"
+          >
+            仅回复 {{ r.name }}
+            <el-tag v-if="r.has_replied" size="small" type="success" style="margin-left:4px;">已回复</el-tag>
+            <el-tag v-else size="small" type="danger" style="margin-left:4px;">未回复</el-tag>
+          </el-radio>
+        </el-radio-group>
+
+        <p style="margin-bottom: 8px; color: #606266; font-weight: 600;">回复内容</p>
         <el-input
           v-model="followUpContent"
           type="textarea"
@@ -370,6 +384,7 @@ const currentRecallingMsg = ref(null)
 const followUpVisible = ref(false)
 const followUpContent = ref('')
 const followUpTarget = ref(null)
+const followUpTargetRecipient = ref(null)
 const followUpLoading = ref(false)
 
 const typeMap = {
@@ -670,6 +685,7 @@ const canFollowUp = (comm) => {
 const openFollowUp = (comm) => {
   followUpTarget.value = comm
   followUpContent.value = ''
+  followUpTargetRecipient.value = null
   followUpVisible.value = true
 }
 
@@ -693,7 +709,8 @@ const submitFollowUp = async () => {
       .insert({
         communication_id: followUpTarget.value.id,
         sender_id: user.id,
-        content
+        content,
+        target_recipient_id: followUpTargetRecipient.value
       })
 
     if (error) throw error

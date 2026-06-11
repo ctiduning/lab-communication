@@ -344,7 +344,8 @@ export const communicationAPI = {
           content,
           sender_id,
           sender:sender_id(name),
-          created_at
+          created_at,
+          target_recipient_id
         )
       `)
       .order('created_at', { ascending: false })
@@ -395,7 +396,8 @@ export const communicationAPI = {
         senderId: r.sender_id,
         senderName: r.sender?.name || '',
         content: r.content,
-        createdAt: r.created_at
+        createdAt: r.created_at,
+        targetRecipientId: r.target_recipient_id
       })) || []
     }))
 
@@ -469,7 +471,7 @@ export const communicationAPI = {
     return { data: communication }
   },
 
-  async createReply(communicationId, { content }, skipRepliedFlag = false) {
+  async createReply(communicationId, { content, targetRecipientId }, skipRepliedFlag = false) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error('未登录')
 
@@ -491,7 +493,8 @@ export const communicationAPI = {
       .insert({
         communication_id: communicationId,
         sender_id: user.id,
-        content
+        content,
+        target_recipient_id: targetRecipientId || null
       })
       .select('*, sender:sender_id(name)')
       .single()
@@ -1235,7 +1238,8 @@ export const communicationAPI = {
         senderId: r.sender_id,
         senderName: r.sender?.name || '',
         content: r.content,
-        createdAt: r.created_at
+        createdAt: r.created_at,
+        targetRecipientId: r.target_recipient_id
       })) || []
     }));
 
@@ -1276,6 +1280,31 @@ export const communicationAPI = {
     if (error) throw error;
     return { data: { message: '消息已更新' } };
   }
+}
+
+// 把 replies 按 target_recipient_id 分组，用于 Thread 视图
+communicationAPI.buildThreads = function(comm) {
+  const recipients = comm.recipientDetails || []
+  const replies = (comm.replies || []).sort(
+    (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
+  )
+  const allReplies = replies.filter(r => !r.targetRecipientId)
+  const threadMap = {}
+  replies.forEach(r => {
+    const targetId = r.targetRecipientId
+    if (targetId) {
+      if (!threadMap[targetId]) threadMap[targetId] = []
+      threadMap[targetId].push(r)
+    }
+  })
+  const threads = Object.entries(threadMap).map(([recipientId, threadReplies]) => {
+    const recipient = recipients.find(r => r.recipient_id === recipientId)
+    return {
+      recipient: recipient || { name: '未知', recipient_id: recipientId },
+      replies: threadReplies
+    }
+  })
+  return { all: allReplies, threads }
 }
 
 // ==========================================
