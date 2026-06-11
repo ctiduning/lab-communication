@@ -638,12 +638,11 @@ const subscribeMessages = () => {
       { event: 'UPDATE', schema: 'public', table: 'communications' },
       (payload) => {
         // communications 表有更新时重新加载（如状态变化）
-        const { data: { user: authUser } } = supabase.auth.getUser()
-        authUser.then(u => {
-          if (u && payload.new.sender_id === u.id) {
+        supabase.auth.getUser().then(({ data }) => {
+          if (data?.user && payload.new.sender_id === data.user.id) {
             loadCommunications()
           }
-        })
+        }).catch(() => {})
       }
     )
     .on(
