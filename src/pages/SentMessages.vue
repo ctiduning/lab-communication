@@ -735,6 +735,15 @@ const submitFollowUp = async () => {
 
     if (error) throw error
 
+    // 发件人追加回复：重置所有收件人的已完结状态，并标记新回复
+    await supabase
+      .from('communication_recipients')
+      .update({ 
+        is_completed: false,
+        has_new_reply: true
+      })
+      .eq('communication_id', followUpTarget.value.id)
+
     // 通知所有收件人
     const recipients = followUpTarget.value.recipientDetails || []
     if (recipients.length > 0) {

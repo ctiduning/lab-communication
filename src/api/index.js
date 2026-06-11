@@ -496,9 +496,8 @@ export const communicationAPI = {
     // ====== 第二步：检查是否是追加回复（发件人或已回复的收件人再次回复）======
     const isFollowUp = existingRecipient?.has_replied || false
 
-    if (existingRecipient?.has_replied && !skipRepliedFlag) {
-      throw new Error(`此消息已被${existingRecipient.replied_by || '他人'}回复`)
-    }
+    // 允许已回复用户追加回复，只阻止未回复用户（同组场景下第一个人回复后其他人不能回复）
+    // 注意：已回复用户可以随时追加回复，不需要 skipRepliedFlag
 
     // ====== 第三步：插入回复 ======
     const { data: reply, error } = await supabase
@@ -540,7 +539,7 @@ export const communicationAPI = {
       .eq('id', user.id)
       .single()
 
-    // ====== 第五步：获取该消息的信息 ======
+    // ====== 第四步：获取该消息的信息 ======
     const { data: comm } = await supabase
       .from('communications')
       .select('sender_id, department_card_ids')
@@ -550,9 +549,16 @@ export const communicationAPI = {
     // 确保 comm 存在
     if (!comm) throw new Error('沟通记录不存在')
 
+    // ====== 第五步：检测是否是追加回复 ======
+    // 追加回复场景：
+    // 1. 收件人已回复后再次回复
+    // 2. 发件人追加回复（发件人不在 communication_recipients 中）
+    const isSender = comm.sender_id === user.id
+    const isFollowUp = isSender || (existingRecipient?.has_replied || false)
+
     // ====== 第六步：如果是追加回复，重置对方状态 ======
     if (isFollowUp) {
-      // 发件人追加回复：重置所有收件人的已完结状态
+      // 重置所有收件人的已完结状态，并标记新回复
       await supabase
         .from('communication_recipients')
         .update({ 
@@ -560,6 +566,21 @@ export const communicationAPI = {
           has_new_reply: true
         })
         .eq('communication_id', communicationId)
+    }
+
+    // ====== 第七步：非发件人首次回复时，检查同组是否已有人回复 ======
+    if (!isSender && !isFollowUp) {
+      // 检查同组是否已有人回复（防止同组多人重复回复）
+      const { data: repliedRecipients } = await supabase
+        .from('communication_recipients')
+        .select('replied_by')
+        .eq('communication_id', communicationId)
+        .eq('has_replied', true)
+        .limit(1)
+      
+      if (repliedRecipients && repliedRecipients.length > 0) {
+        throw new Error(`此消息已被${repliedRecipients[0].replied_by || '他人'}回复`)
+      }
     }
 
     const isDeptCardHolder = comm.department_card_ids?.includes(user.id)

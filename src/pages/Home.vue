@@ -286,7 +286,9 @@ const logout = async () => {
   localStorage.removeItem('token');
   localStorage.removeItem('user');
   localStorage.removeItem('sb-qgoqhjwekairknkuqisi-auth-token');
-  router.push('/login');
+  sessionStorage.clear();
+  // 强制跳转到登录页
+  window.location.href = '/login';
 };
 
 const loadUser = async () => {
