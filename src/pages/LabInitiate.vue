@@ -570,6 +570,7 @@ onMounted(() => {
         form.type = editData.type || '';
         form.sampleCode = editData.sampleCode || '';
         form.content = editData.content || '';
+        form.attachments = editData.attachments || [];
         form.recipients = editData.recipientIds || [];
         // 将 holder ID 转换为部门名片 key（departmentLevel3 名称）
         if (editData.departmentCardIds && editData.departmentCardIds.length > 0) {

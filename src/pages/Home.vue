@@ -293,7 +293,7 @@ const logout = async () => {
   localStorage.removeItem('sb-qgoqhjwekairknkuqisi-auth-token');
   sessionStorage.clear();
   // 使用相对路径，让开发服务器处理路由
-  window.location.pathname = '/login';
+  router.push('/login');
 };
 
 const loadUser = async () => {

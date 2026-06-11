@@ -665,6 +665,16 @@ onMounted(() => {
         form.customerName = editData.customerName || '';
         form.sampleCode = editData.sampleCode || '';
         form.content = editData.content || '';
+        form.vip = editData.vip ?? '';
+        form.sampleMatrix = editData.sampleMatrix || '';
+        form.sampleCount = editData.sampleCount || '';
+        form.testItems = editData.testItems || '';
+        form.sampleDate = editData.sampleDate || '';
+        form.requestedCycle = editData.requestedCycle || '';
+        form.chargeStatus = editData.chargeStatus || '';
+        form.urgentFee = editData.urgentFee ?? '';
+        form.remark = editData.remark || '';
+        form.attachments = editData.attachments || [];
         form.recipients = editData.recipientIds || [];
         // 将 holder ID 转换为部门名片 key（departmentLevel3 名称）
         if (editData.departmentCardIds && editData.departmentCardIds.length > 0) {

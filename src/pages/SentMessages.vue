@@ -200,7 +200,11 @@
                 <template #default="scope">
                   <div v-if="getRecipientReplies(scope.row.recipient_id).length > 0">
                     <div v-for="(reply, idx) in getRecipientReplies(scope.row.recipient_id)" :key="idx" class="recipient-reply-line">
-                      <span :class="getReplyClass(reply.content)">{{ reply.content }}</span>
+                      <span :class="getReplyClass(reply)">
+                        <strong>{{ getUserDisplayName(reply.senderId) }}</strong>
+                        <span v-if="reply.targetRecipientId"> → {{ getUserDisplayName(reply.targetRecipientId) }}</span>
+                        ：{{ reply.content }}
+                      </span>
                       <span class="reply-time-mini">{{ formatTime(reply.createdAt) }}</span>
                     </div>
                   </div>
@@ -225,7 +229,11 @@
                 <template #default="scope">
                   <div v-if="getRecipientReplies(scope.row.recipient_id).length > 0">
                     <div v-for="(reply, idx) in getRecipientReplies(scope.row.recipient_id)" :key="idx" class="recipient-reply-line">
-                      <span :class="getReplyClass(reply.content)">{{ reply.content }}</span>
+                      <span :class="getReplyClass(reply)">
+                        <strong>{{ getUserDisplayName(reply.senderId) }}</strong>
+                        <span v-if="reply.targetRecipientId"> → {{ getUserDisplayName(reply.targetRecipientId) }}</span>
+                        ：{{ reply.content }}
+                      </span>
                       <span class="reply-time-mini">{{ formatTime(reply.createdAt) }}</span>
                     </div>
                   </div>
@@ -254,7 +262,11 @@
             <template #default="scope">
               <div v-if="getRecipientReplies(scope.row.recipient_id).length > 0">
                 <div v-for="(reply, idx) in getRecipientReplies(scope.row.recipient_id)" :key="idx" class="recipient-reply-line">
-                  <span :class="getReplyClass(reply.content)">{{ reply.content }}</span>
+                  <span :class="getReplyClass(reply)">
+                        <strong>{{ getUserDisplayName(reply.senderId) }}</strong>
+                        <span v-if="reply.targetRecipientId"> → {{ getUserDisplayName(reply.targetRecipientId) }}</span>
+                        ：{{ reply.content }}
+                      </span>
                   <span class="reply-time-mini">{{ formatTime(reply.createdAt) }}</span>
                 </div>
               </div>
@@ -528,8 +540,18 @@ const toggleGlobalCompleted = async (comm, isCompleted) => {
 // 获取某个接收人的所有回复（按时间倒序）
 const getRecipientReplies = (recipientId) => {
   if (!selectedComm.value || !selectedComm.value.replies) return []
-  const recipientReplies = selectedComm.value.replies.filter(r => r.senderId === recipientId)
+  const recipientReplies = selectedComm.value.replies.filter(r =>
+    r.senderId === recipientId || r.targetRecipientId === recipientId
+  )
   return recipientReplies.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+}
+
+const getUserDisplayName = (userId) => {
+  if (!selectedComm.value) return '未知'
+  const recipient = selectedComm.value.recipientDetails?.find(r => r.recipient_id === userId)
+  if (recipient) return recipient.name || '未知'
+  if (userId === selectedComm.value.senderId) return selectedComm.value.senderName || '发起人'
+  return '未知'
 }
 
 // 按 department_level3 分组部门名片持有人
@@ -577,10 +599,11 @@ const getLatestReply = (recipientId) => {
 }
 
 // 获取回复内容的样式类
-const getReplyClass = (content) => {
-  if (!content) return ''
-  if (content === '同意') return 'reply-agree'
-  if (content === '拒绝') return 'reply-reject'
+const getReplyClass = (reply) => {
+  if (!reply || !reply.content) return ''
+  if (reply.content === '同意') return 'reply-agree'
+  if (reply.content === '拒绝') return 'reply-reject'
+  if (reply.targetRecipientId) return 'reply-follow-up'
   return 'reply-normal'
 }
 
@@ -671,6 +694,16 @@ const editAndResend = (msg) => {
     content: msg.content || '',
     recipientIds: (msg.recipientDetails || []).map(r => r.recipient_id || r.id),
     departmentCardIds: msg.departmentCardIds || [],
+    vip: msg.vip ?? '',
+    sampleMatrix: msg.sampleMatrix || '',
+    sampleCount: msg.sampleCount || '',
+    testItems: msg.testItems || '',
+    sampleDate: msg.sampleDate || '',
+    requestedCycle: msg.requestedCycle || '',
+    chargeStatus: msg.chargeStatus || '',
+    urgentFee: msg.urgentFee ?? '',
+    remark: msg.remark || '',
+    attachments: msg.attachments || [],
     isRecalledEdit: true,
     recalledId: msg.id
   }
@@ -884,6 +917,13 @@ const filterList = () => {
 
 .reply-normal {
   color: #606266;
+}
+
+.reply-follow-up {
+  background-color: #fff0f0;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 4px;
 }
 
 .recipient-reply-line {
