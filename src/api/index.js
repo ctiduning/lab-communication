@@ -1,6 +1,33 @@
 import { supabase } from '../utils/supabase'
 
 // ==========================================
+// Auth 缓存：避免重复调用 supabase.auth.getUser()
+// ==========================================
+let cachedUserId = null
+let cachedUserPromise = null
+
+async function getCurrentUserId() {
+  if (cachedUserId) return cachedUserId
+  if (cachedUserPromise) return cachedUserPromise
+  cachedUserPromise = supabase.auth.getUser().then(({ data }) => {
+    cachedUserId = data?.user?.id || null
+    cachedUserPromise = null
+    return cachedUserId
+  }).catch(err => {
+    cachedUserPromise = null
+    throw err
+  })
+  return cachedUserPromise
+}
+
+// Auth 状态变化时清除缓存
+supabase.auth.onAuthStateChange((event) => {
+  if (event === 'SIGNED_OUT' || event === 'USER_DELETED') {
+    cachedUserId = null
+  }
+})
+
+// ==========================================
 // 文件上传相关
 // ==========================================
 export const uploadAPI = {
@@ -179,13 +206,13 @@ export const authAPI = {
 
   // 获取当前用户资料
   async getCurrentUser() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return null
+    const userId = await getCurrentUserId()
+    if (!userId) return null
 
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
-      .eq('id', user.id)
+      .eq('id', userId)
       .single()
 
     if (error) return null
@@ -299,14 +326,14 @@ export const userAPI = {
 
   // 更新用户最后活跃时间（用于判断在线状态）
   async updateLastActive() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { data: { message: '未登录' } };
+    const userId = await getCurrentUserId();
+    if (!userId) return { data: { message: '未登录' } };
     
     const now = new Date().toISOString();
     const { error } = await supabase
       .from('profiles')
       .update({ last_active_at: now })
-      .eq('id', user.id);
+      .eq('id', userId);
     
     if (error) {
       // 如果字段不存在，忽略错误
@@ -421,13 +448,13 @@ export const communicationAPI = {
     } = data
 
     // 获取当前登录用户ID
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('未登录')
+    const userId = await getCurrentUserId()
+    if (!userId) throw new Error('未登录')
 
     const { data: communication, error } = await supabase
       .from('communications')
       .insert({
-        sender_id: user.id,
+        sender_id: userId,
         type,
         vip,
         customer_name: customerName,
@@ -481,15 +508,15 @@ export const communicationAPI = {
   },
 
   async createReply(communicationId, { content, targetRecipientId }, skipRepliedFlag = false) {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('未登录')
+    const userId = await getCurrentUserId()
+    if (!userId) throw new Error('未登录')
 
     // ====== 第一步：检查是否已被回复（防止同组第二人重复回复）======
     const { data: existingRecipient } = await supabase
       .from('communication_recipients')
       .select('has_replied, replied_by')
       .eq('communication_id', communicationId)
-      .eq('recipient_id', user.id)
+      .eq('recipient_id', userId)
       .single()
 
     // ====== 第二步：允许已回复用户追加回复 ======
@@ -500,7 +527,7 @@ export const communicationAPI = {
       .from('replies')
       .insert({
         communication_id: communicationId,
-        sender_id: user.id,
+        sender_id: userId,
         content,
         target_recipient_id: targetRecipientId || null
       })
@@ -532,7 +559,7 @@ export const communicationAPI = {
     const { data: replierProfile } = await supabase
       .from('profiles')
       .select('name, role, department_level3')
-      .eq('id', user.id)
+      .eq('id', userId)
       .single()
 
     // ====== 第四步：获取该消息的信息 ======
@@ -549,7 +576,7 @@ export const communicationAPI = {
     // 追加回复场景：
     // 1. 收件人已回复后再次回复
     // 2. 发件人追加回复（发件人不在 communication_recipients 中）
-    const isSender = comm.sender_id === user.id
+    const isSender = comm.sender_id === userId
     const isFollowUp = isSender || (existingRecipient?.has_replied || false)
 
     // ====== 第六步：如果是追加回复，重置对方状态 ======
@@ -585,7 +612,7 @@ export const communicationAPI = {
       }
     }
 
-    const isDeptCardHolder = comm.department_card_ids?.includes(user.id)
+    const isDeptCardHolder = comm.department_card_ids?.includes(userId)
 
     if (isDeptCardHolder && replierProfile?.department_level3) {
       // ====== 部门名片持有人回复：按组同步 ======
@@ -596,7 +623,7 @@ export const communicationAPI = {
         .from('communication_recipients')
         .update({ has_replied: true, replied_by: replierProfile.name })
         .eq('communication_id', communicationId)
-        .eq('recipient_id', user.id)
+        .eq('recipient_id', userId)
 
       // 2. 查出该消息的所有收件人
       const { data: allRecipients } = await supabase
@@ -642,7 +669,7 @@ export const communicationAPI = {
         .from('communication_recipients')
         .update({ has_replied: true })
         .eq('communication_id', communicationId)
-        .eq('recipient_id', user.id)
+        .eq('recipient_id', userId)
 
       // 通知发起人
       await supabase.from('notifications').insert({
@@ -748,9 +775,13 @@ export const communicationAPI = {
       .from('replies')
       .select('*, sender:sender_id(name)')
       .eq('communication_id', communicationId)
-      .order('created_at', { ascending: true })
+      .order('created_at', { ascending: false })
+      .limit(50)
 
     if (error) throw error
+
+    // 按时间正序返回，保持前端显示顺序
+    data.reverse()
 
     const formatted = data.map(r => ({
       id: r.id,
@@ -765,14 +796,14 @@ export const communicationAPI = {
 
   // 标记接收人已读
   async markAsRead(communicationId) {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('未登录')
+    const userId = await getCurrentUserId()
+    if (!userId) throw new Error('未登录')
 
     const { error } = await supabase
       .from('communication_recipients')
       .update({ is_read: true })
       .eq('communication_id', communicationId)
-      .eq('recipient_id', user.id)
+      .eq('recipient_id', userId)
 
     if (error) throw error
     return { data: { message: '已标记已读' } }
@@ -834,71 +865,44 @@ export const communicationAPI = {
 
   // 获取待处理消息数量（需要回复且未完成）
   async getPendingCount() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { data: { count: 0 } }
+    const userId = await getCurrentUserId()
+    if (!userId) return { data: { count: 0 } }
 
-    // 先拿当前用户作为收件人的所有沟通ID
-    const { data: commIds, error: idError } = await supabase
+    // 单次查询：通过 inner join 直接统计所有条件
+    const { data, error } = await supabase
       .from('communication_recipients')
-      .select('communication_id')
-      .eq('recipient_id', user.id)
-
-    if (idError) {
-      console.error('getPendingCount 获取沟通ID失败:', idError)
-      return { data: { count: 0 } }
-    }
-
-    if (!commIds || commIds.length === 0) {
-      return { data: { count: 0 } }
-    }
-
-    const ids = [...new Set(commIds.map(r => r.communication_id))]
-
-    // 查这些沟通的详情（含 recipients 子表）
-    const { data: communications, error } = await supabase
-      .from('communications')
       .select(`
-        id,
-        is_completed,
-        is_recalled,
-        is_system_notification,
-        communication_recipients(
-          recipient_id,
+        communication_id,
+        communications!inner(
           is_completed,
-          has_replied
+          is_recalled,
+          is_system_notification
         )
       `)
-      .in('id', ids)
+      .eq('recipient_id', userId)
+      .eq('has_replied', false)
+      .eq('is_completed', false)
+      .eq('communications.is_completed', false)
+      .eq('communications.is_recalled', false)
+      .eq('communications.is_system_notification', false)
 
     if (error) {
-      console.error('getPendingCount 查询沟通失败:', error)
+      console.error('getPendingCount 查询失败:', error)
       return { data: { count: 0 } }
     }
 
-    const userId = user.id
-    const count = (communications || []).filter(c => {
-      const myRec = c.communication_recipients?.find(r => r.recipient_id === userId)
-      if (!myRec) return false
-      // 未回复 && 我个人未完结 && 沟通本身未完结 && 未撤回 && 非系统通知
-      return !myRec.has_replied
-        && !myRec.is_completed
-        && !c.is_completed
-        && !c.is_recalled
-        && !c.is_system_notification
-    }).length
-
-    return { data: { count } }
+    return { data: { count: (data || []).length } }
   },
 
   // 获取已发送消息的新回复数量（用于侧边栏显示）
   async getSentNewReplyCount() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { data: { count: 0 } }
+    const userId = await getCurrentUserId()
+    if (!userId) return { data: { count: 0 } }
 
     const { count, error } = await supabase
       .from('communications')
       .select('id', { count: 'exact', head: true })
-      .eq('sender_id', user.id)
+      .eq('sender_id', userId)
       .eq('has_new_reply', true)
       .eq('is_recalled', false)
 
@@ -1121,8 +1125,8 @@ export const communicationAPI = {
 
   // 撤回消息（5分钟内可撤回）
   async recallMessage(communicationId, reason = '') {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('未登录');
+    const userId = await getCurrentUserId();
+    if (!userId) throw new Error('未登录');
 
     // 检查消息是否存在且是本人发送
     const { data: comm, error: checkError } = await supabase
@@ -1133,7 +1137,7 @@ export const communicationAPI = {
 
     if (checkError) throw checkError;
     if (!comm) throw new Error('消息不存在');
-    if (comm.sender_id !== user.id) throw new Error('只能撤回自己发送的消息');
+    if (comm.sender_id !== userId) throw new Error('只能撤回自己发送的消息');
 
     // 检查是否超过5分钟
     const createdAt = new Date(comm.created_at);
@@ -1188,7 +1192,7 @@ export const communicationAPI = {
           .from('communications')
           .insert([{
             content: notificationContent,
-            sender_id: user.id,
+            sender_id: userId,
             is_system_notification: true
           }])
           .select('id')
@@ -1223,8 +1227,8 @@ export const communicationAPI = {
 
   // 获取已撤回的消息（发件人视角）
   async getRecalledMessages() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('未登录');
+    const userId = await getCurrentUserId();
+    if (!userId) throw new Error('未登录');
 
     const { data, error } = await supabase
       .from('communications')
@@ -1248,7 +1252,7 @@ export const communicationAPI = {
           created_at
         )
       `)
-      .eq('sender_id', user.id)
+      .eq('sender_id', userId)
       .eq('is_recalled', true)
       .order('recalled_at', { ascending: false });
 
@@ -1313,8 +1317,8 @@ export const communicationAPI = {
 
   // 编辑消息（2分钟内可编辑）
   async editMessage(communicationId, newContent) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('未登录');
+    const userId = await getCurrentUserId();
+    if (!userId) throw new Error('未登录');
 
     // 检查消息是否存在且是本人发送
     const { data: comm, error: checkError } = await supabase
@@ -1325,7 +1329,7 @@ export const communicationAPI = {
 
     if (checkError) throw checkError;
     if (!comm) throw new Error('消息不存在');
-    if (comm.sender_id !== user.id) throw new Error('只能编辑自己发送的消息');
+    if (comm.sender_id !== userId) throw new Error('只能编辑自己发送的消息');
 
     // 检查是否超过2分钟
     const createdAt = new Date(comm.created_at);
@@ -1378,8 +1382,8 @@ communicationAPI.buildThreads = function(comm) {
 export const announcementAPI = {
   // 创建公告（管理员）—— 只写入 announcements 表，不再推通知
   async create({ title, content, attachments, target_role }) {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('未登录')
+    const userId = await getCurrentUserId()
+    if (!userId) throw new Error('未登录')
 
     const { data, error } = await supabase
       .from('announcements')
@@ -1388,7 +1392,7 @@ export const announcementAPI = {
         content,
         target_role: target_role || 'all',
         target_regions: null,
-        sender_id: user.id,
+        sender_id: userId,
         attachments: attachments || []
       }])
       .select()
@@ -1399,15 +1403,19 @@ export const announcementAPI = {
   },
 
   // 获取所有公告 + 当前用户的已读状态
-  async list() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { data: [] }
+  async list(page = 1, pageSize = 50) {
+    const userId = await getCurrentUserId()
+    if (!userId) return { data: [] }
+
+    const from = (page - 1) * pageSize
+    const to = page * pageSize - 1
 
     // 查所有公告（不使用 sender join，因为 FK 可能不存在）
     const { data: announcements, error } = await supabase
       .from('announcements')
       .select('*')
       .order('created_at', { ascending: false })
+      .range(from, to)
 
     if (error) throw error
 
@@ -1432,7 +1440,7 @@ export const announcementAPI = {
       const { data: readData } = await supabase
         .from('announcement_reads')
         .select('announcement_id, read_at, is_flagged')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
       reads = readData || []
     } catch (e) {
       console.warn('读取公告已读状态失败，可能表不存在:', e.message)
@@ -1463,15 +1471,15 @@ export const announcementAPI = {
 
   // 获取未读公告数量（按角色 & 已读状态过滤）
   async getUnreadCount() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { data: { count: 0 } }
+    const userId = await getCurrentUserId()
+    if (!userId) return { data: { count: 0 } }
 
     try {
       // 获取当前用户的角色分类
       const { data: profile } = await supabase
         .from('profiles')
         .select('role, department_level1')
-        .eq('id', user.id)
+        .eq('id', userId)
         .single()
       const userRole = profile ? getRoleCategory(profile.role, profile.department_level1) : 'lab'
 
@@ -1492,7 +1500,7 @@ export const announcementAPI = {
         const { data: reads } = await supabase
           .from('announcement_reads')
           .select('announcement_id')
-          .eq('user_id', user.id)
+          .eq('user_id', userId)
         readIds = new Set((reads || []).map(r => r.announcement_id))
       } catch (e) {
         console.warn('读取已读记录失败，所有公告算未读:', e.message)
@@ -1508,15 +1516,15 @@ export const announcementAPI = {
 
   // 标记单条公告已读
   async markAsRead(announcementId) {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('未登录')
+    const userId = await getCurrentUserId()
+    if (!userId) throw new Error('未登录')
 
     // 用 upsert 避免重复插入
     const { data, error } = await supabase
       .from('announcement_reads')
       .upsert({
         announcement_id: announcementId,
-        user_id: user.id,
+        user_id: userId,
         read_at: new Date().toISOString()
       }, { onConflict: 'announcement_id,user_id' })
       .select()
@@ -1533,8 +1541,8 @@ export const announcementAPI = {
 
   // 全部标记已读
   async markAllAsRead() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    const userId = await getCurrentUserId()
+    if (!userId) return
 
     // 获取所有未读公告ID
     const { data: allAnn } = await supabase
@@ -1544,7 +1552,7 @@ export const announcementAPI = {
     const { data: reads } = await supabase
       .from('announcement_reads')
       .select('announcement_id')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
 
     const readIds = new Set((reads || []).map(r => r.announcement_id))
     const unreadAnnIds = (allAnn || []).filter(a => !readIds.has(a.id)).map(a => a.id)
@@ -1552,7 +1560,7 @@ export const announcementAPI = {
     if (unreadAnnIds.length > 0) {
       const records = unreadAnnIds.map(aid => ({
         announcement_id: aid,
-        user_id: user.id,
+        user_id: userId,
         read_at: new Date().toISOString()
       }))
       const { error } = await supabase.from('announcement_reads').insert(records)
@@ -1592,14 +1600,14 @@ export const announcementAPI = {
 
   // 切换红旗标记（跟接收消息一样，直接 update announcement_reads）
   async toggleAnnouncementFlag(announcementId, isFlagged) {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('未登录')
+    const userId = await getCurrentUserId()
+    if (!userId) throw new Error('未登录')
 
     const { error } = await supabase
       .from('announcement_reads')
       .update({ is_flagged: isFlagged })
       .eq('announcement_id', announcementId)
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
 
     if (error) throw error
     return { flagged: isFlagged }
@@ -1611,8 +1619,8 @@ export const announcementAPI = {
 // ==========================================
 export const notificationAPI = {
   async getAll() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { data: [] }
+    const userId = await getCurrentUserId()
+    if (!userId) return { data: [] }
 
     const { data, error } = await supabase
       .from('notifications')
@@ -1621,7 +1629,7 @@ export const notificationAPI = {
         communication:communication_id(*),
         announcement:announcement_id(*)
       `)
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .order('created_at', { ascending: false })
 
     if (error) throw error
@@ -1629,13 +1637,13 @@ export const notificationAPI = {
   },
 
   async getUnreadCount() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { data: { count: 0 } }
+    const userId = await getCurrentUserId()
+    if (!userId) return { data: { count: 0 } }
 
     const { count, error } = await supabase
       .from('notifications')
       .select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .eq('is_read', false)
 
     if (error) throw error
@@ -1643,27 +1651,27 @@ export const notificationAPI = {
   },
 
   async markAsRead(id) {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('未登录')
+    const userId = await getCurrentUserId()
+    if (!userId) throw new Error('未登录')
 
     const { data, error } = await supabase
       .from('notifications')
       .update({ is_read: true })
       .eq('id', id)
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
 
     if (error) throw error
     return { data }
   },
 
   async markAllAsRead() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { data: { message: '未登录' } }
+    const userId = await getCurrentUserId()
+    if (!userId) return { data: { message: '未登录' } }
 
     const { data, error } = await supabase
       .from('notifications')
       .update({ is_read: true })
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .eq('is_read', false)
 
     if (error) throw error
@@ -1726,14 +1734,14 @@ export const storageAPI = {
 export const reactionAPI = {
   // 对回复或公告点赞/点踩（toggle 逻辑：再点一次取消）
   async toggle(targetType, targetId, reactionType) {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('未登录')
+    const userId = await getCurrentUserId()
+    if (!userId) throw new Error('未登录')
 
     // 先查是否已存在
     const { data: existing } = await supabase
       .from('reactions')
       .select('id, reaction_type')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .eq('target_type', targetType)
       .eq('target_id', targetId)
       .single()
@@ -1753,7 +1761,7 @@ export const reactionAPI = {
     } else {
       // 新增
       await supabase.from('reactions').insert({
-        user_id: user.id,
+        user_id: userId,
         target_type: targetType,
         target_id: targetId,
         reaction_type: reactionType
@@ -1999,13 +2007,13 @@ export function getRoleTagClass(role) {
 export const adminLogAPI = {
   // 记录操作
   async log(action, targetUserId = null, targetUserName = '', detail = '') {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    const userId = await getCurrentUserId();
+    if (!userId) return;
     const { error } = await supabase
       .from('admin_logs')
       .insert({
-        admin_id: user.id,
-        admin_name: (await supabase.from('profiles').select('name').eq('id', user.id).single())?.data?.name || '',
+        admin_id: userId,
+        admin_name: (await supabase.from('profiles').select('name').eq('id', userId).single())?.data?.name || '',
         action,
         target_user_id: targetUserId,
         target_user_name: targetUserName,
@@ -2063,14 +2071,14 @@ export const backupAPI = {
 export const messageReadsAPI = {
   // 标记消息已读
   async markAsRead(communicationId) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { data: { message: '未登录' } };
+    const userId = await getCurrentUserId();
+    if (!userId) return { data: { message: '未登录' } };
     
     const { error } = await supabase
       .from('message_reads')
       .upsert({
         communication_id: communicationId,
-        user_id: user.id,
+        user_id: userId,
         read_at: new Date().toISOString()
       }, { onConflict: 'communication_id, user_id' });
     

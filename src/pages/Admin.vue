@@ -254,13 +254,22 @@
               </template>
             </el-table-column>
           </el-table>
+          <div class="pagination-wrapper" style="margin-top: 16px; display: flex; justify-content: center;">
+            <el-pagination
+              v-model:current-page="commPage"
+              :page-size="commPageSize"
+              :total="commTotal"
+              layout="prev, pager, next, total"
+              @current-change="loadCommunications"
+            />
+          </div>
         </div>
       </el-tab-pane>
 
       <el-tab-pane label="通知管理" name="notifications">
         <div class="tab-content">
           <div class="tab-header">
-            <span class="record-count">共 {{ allNotifications.length }} 条通知</span>
+            <span class="record-count">共 {{ notifTotal }} 条通知</span>
           </div>
           <el-table :data="allNotifications" border stripe max-height="600">
             <el-table-column label="时间" width="160">
@@ -288,6 +297,15 @@
               </template>
             </el-table-column>
           </el-table>
+          <div class="pagination-wrapper" style="margin-top: 16px; display: flex; justify-content: center;">
+            <el-pagination
+              v-model:current-page="notifPage"
+              :page-size="notifPageSize"
+              :total="notifTotal"
+              layout="prev, pager, next, total"
+              @current-change="loadNotifications"
+            />
+          </div>
         </div>
       </el-tab-pane>
 
@@ -651,6 +669,12 @@ const activeTab = ref('users');
 const users = ref([]);
 const communications = ref([]);
 const allNotifications = ref([]);
+const commPage = ref(1);
+const commPageSize = ref(20);
+const commTotal = ref(0);
+const notifPage = ref(1);
+const notifPageSize = ref(20);
+const notifTotal = ref(0);
 const searchKeyword = ref('');
 const showCreateModal = ref(false);
 const saving = ref(false);
@@ -1220,8 +1244,18 @@ const loadUsers = async () => {
   }
 };
 
-const loadCommunications = async () => {
+const loadCommunications = async (page = commPage.value) => {
   try {
+    // 先查总数
+    const { count, error: countError } = await supabase
+      .from('communications')
+      .select('*', { count: 'exact', head: true });
+    if (countError) throw countError;
+    commTotal.value = count || 0;
+
+    const from = (page - 1) * commPageSize.value;
+    const to = page * commPageSize.value - 1;
+
     const { data, error } = await supabase
       .from('communications')
       .select(`
@@ -1230,7 +1264,8 @@ const loadCommunications = async () => {
         communication_recipients(recipient_id, recipient:recipient_id(name)),
         replies(count)
       `)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .range(from, to);
 
     if (error) throw error;
     communications.value = (data || []).map(c => ({
@@ -1246,19 +1281,32 @@ const loadCommunications = async () => {
       status: c.status,
       createdAt: c.created_at
     }));
+    commPage.value = page;
   } catch (error) {
     console.error('加载沟通记录失败:', error);
   }
 };
 
-const loadNotifications = async () => {
+const loadNotifications = async (page = notifPage.value) => {
   try {
+    // 先查总数
+    const { count, error: countError } = await supabase
+      .from('notifications')
+      .select('*', { count: 'exact', head: true });
+    if (countError) throw countError;
+    notifTotal.value = count || 0;
+
+    const from = (page - 1) * notifPageSize.value;
+    const to = page * notifPageSize.value - 1;
+
     const { data, error } = await supabase
       .from('notifications')
       .select('*')
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .range(from, to);
     if (error) throw error;
     allNotifications.value = data || [];
+    notifPage.value = page;
   } catch (error) {
     console.error('加载通知失败:', error);
   }
