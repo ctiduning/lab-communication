@@ -330,7 +330,7 @@ export const communicationAPI = {
       .select(`
         *,
         sender:sender_id(id, name, employee_id, phone, email, region, department, priority, role, department_level1),
-        communication_recipients(
+        communication_recipients${recipientId ? '!inner' : ''}(
           recipient_id,
           is_read,
           is_flagged,
