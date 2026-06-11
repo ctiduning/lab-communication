@@ -147,7 +147,7 @@ export const authAPI = {
     // 获取完整 profile
     const { data: fullProfile } = await supabase
       .from('profiles')
-      .select('*')
+      .select('id, name, username, email, role, employee_id, phone, department, department_level3, region, priority, is_disabled, must_change_password')
       .eq('id', data.user.id)
       .single()
 
@@ -211,7 +211,7 @@ export const authAPI = {
 
     const { data, error } = await supabase
       .from('profiles')
-      .select('*')
+      .select('id, name, username, email, role, employee_id, phone, department, department_level3, region, priority, is_disabled, must_change_password')
       .eq('id', userId)
       .single()
 
@@ -227,7 +227,7 @@ export const userAPI = {
   async getAll() {
     const { data, error } = await supabase
       .from('profiles')
-      .select('*')
+      .select('id, name, username, role, employee_id, phone, email, department_level1, department_level2, department_level3, priority, is_disabled, last_active_at, last_sign_in_at, created_at')
 
     if (error) throw error
     return { data: data.map(formatProfile) }
@@ -236,7 +236,7 @@ export const userAPI = {
   async getByRole(role) {
     const { data, error } = await supabase
       .from('profiles')
-      .select('*')
+      .select('id, name, username, role, employee_id, phone, email, department_level1, department_level2, department_level3, priority, is_disabled, last_active_at, last_sign_in_at, created_at')
       .eq('role', role)
 
     if (error) throw error
@@ -246,7 +246,7 @@ export const userAPI = {
   async getById(id) {
     const { data, error } = await supabase
       .from('profiles')
-      .select('*')
+      .select('id, name, username, role, employee_id, phone, email, department_level1, department_level2, department_level3, priority, is_disabled, region, department, last_active_at, last_sign_in_at, created_at')
       .eq('id', id)
       .single()
 
@@ -351,7 +351,9 @@ export const userAPI = {
 // 沟通记录相关
 // ==========================================
 export const communicationAPI = {
-  async getAll(recipientId = null) {
+  async getAll(recipientId = null, page = 1, pageSize = 50) {
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
     let query = supabase
       .from('communications')
       .select(`
@@ -375,14 +377,15 @@ export const communicationAPI = {
           created_at,
           target_recipient_id
         )
-      `)
-      .order('created_at', { ascending: false });
+      `, { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .range(from, to);
 
     if (recipientId) {
       query = query.eq('communication_recipients.recipient_id', recipientId);
     }
 
-    const { data: communications, error } = await query;
+    const { data: communications, count, error } = await query;
 
     if (error) throw error
 
@@ -437,7 +440,7 @@ export const communicationAPI = {
       })) || []
     }))
 
-    return { data: formatted }
+    return { data: formatted, total: count || 0, page, pageSize, totalPages: Math.ceil((count || 0) / pageSize) }
   },
 
   async create(data) {
@@ -1413,7 +1416,7 @@ export const announcementAPI = {
     // 查所有公告（不使用 sender join，因为 FK 可能不存在）
     const { data: announcements, error } = await supabase
       .from('announcements')
-      .select('*')
+      .select('id, title, content, created_at, sender_id, target_role, target_regions, attachments')
       .order('created_at', { ascending: false })
       .range(from, to)
 
@@ -2026,7 +2029,7 @@ export const adminLogAPI = {
   async getAll(limit = 200) {
     const { data, error } = await supabase
       .from('admin_logs')
-      .select('*')
+      .select('id, action, admin_id, admin_name, target_type, target_id, detail, created_at')
       .order('created_at', { ascending: false })
       .limit(limit);
     if (error) throw error;
