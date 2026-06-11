@@ -493,10 +493,7 @@ export const communicationAPI = {
       .eq('recipient_id', user.id)
       .single()
 
-    // ====== 第二步：检查是否是追加回复（发件人或已回复的收件人再次回复）======
-    const isFollowUp = existingRecipient?.has_replied || false
-
-    // 允许已回复用户追加回复，只阻止未回复用户（同组场景下第一个人回复后其他人不能回复）
+    // ====== 第二步：允许已回复用户追加回复 ======
     // 注意：已回复用户可以随时追加回复，不需要 skipRepliedFlag
 
     // ====== 第三步：插入回复 ======
