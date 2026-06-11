@@ -736,14 +736,12 @@ const loadUsers = async () => {
 const loadMessages = async () => {
   loading.value = true;
   try {
-    const response = await communicationAPI.getAll();
     const { data: { user: authUser } } = await supabase.auth.getUser();
     if (authUser) {
-      const mine = response.data.filter(c => 
-        c.recipients && c.recipients.includes(authUser.id)
-      );
+      // 直接在数据库层面过滤当前用户的消息
+      const response = await communicationAPI.getAll(authUser.id);
       // 为每个沟通添加我的状态
-      messages.value = mine.map(c => {
+      messages.value = response.data.map(c => {
         const recipients = c.recipientDetails || [];
         const myRec = recipients.find(r => r.recipient_id === authUser.id);
         return {
@@ -1034,6 +1032,28 @@ const sendQuickReply = async (content) => {
   await doSendReply(content, skipReplied);
 };
 
+// 从表格行发送快捷回复
+const sendQuickReplyFromRow = async (row, content) => {
+  const skipReplied = content === '等我确认后回复';
+  replyLoading.value = true;
+  try {
+    await communicationAPI.createReply(row.id, { content }, skipReplied);
+    ElMessage.success('回复成功');
+    // 更新本地状态
+    const idx = messages.value.findIndex(m => m.id === row.id);
+    if (idx >= 0) {
+      messages.value[idx].hasReplied = !skipReplied;
+      if (content === '同意') {
+        messages.value[idx].myCompleted = true;
+      }
+    }
+  } catch (error) {
+    ElMessage.error('回复失败：' + (error.message || '未知错误'));
+  } finally {
+    replyLoading.value = false;
+  }
+};
+
 // 实际发送回复
 const doSendReply = async (content, skipReplied = false) => {
   replyLoading.value = true;
@@ -1068,19 +1088,58 @@ const subscribeMessages = () => {
     .on(
       'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'communications' },
-      () => { loadMessages(); }
-    )
-    .on(
-      'postgres_changes',
-      { event: 'UPDATE', schema: 'public', table: 'communications' },
-      () => { loadMessages(); }
+      (payload) => handleNewMessage(payload.new)
     )
     .on(
       'postgres_changes',
       { event: 'UPDATE', schema: 'public', table: 'communication_recipients' },
-      () => { loadMessages(); }
+      (payload) => handleRecipientUpdate(payload.new)
     )
     .subscribe();
+};
+
+const handleNewMessage = async (newComm) => {
+  const { data: { user: authUser } } = await supabase.auth.getUser();
+  if (!authUser) return;
+  
+  // 实时订阅返回的是原始数据，检查 communication_recipients 或 recipient_ids
+  const recipientIds = newComm.recipient_ids || 
+    (newComm.communication_recipients ? newComm.communication_recipients.map(r => r.recipient_id) : []);
+  if (!recipientIds.includes(authUser.id)) return;
+  
+  const response = await communicationAPI.getById(newComm.id);
+  if (response.data) {
+    const recipients = response.data.recipientDetails || [];
+    const myRec = recipients.find(r => r.recipient_id === authUser.id);
+    const formatted = {
+      ...response.data,
+      myRead: myRec?.is_read || false,
+      hasReplied: myRec?.has_replied || false,
+      myCompleted: myRec?.is_completed || false,
+      isCompleted: response.data.isCompleted || false,
+      hasFlagged: myRec?.is_flagged || false,
+      replyCount: response.data.replies?.length || 0,
+      allRecipientsCompleted: recipients.every(r => r.is_completed)
+    };
+    messages.value.unshift(formatted);
+    ElMessage.info('收到新消息');
+  }
+};
+
+const handleRecipientUpdate = async (updatedRecipient) => {
+  const { data: { user: authUser } } = await supabase.auth.getUser();
+  if (!authUser || updatedRecipient.recipient_id !== authUser.id) return;
+  
+  const idx = messages.value.findIndex(m => m.id === updatedRecipient.communication_id);
+  if (idx >= 0) {
+    messages.value[idx] = {
+      ...messages.value[idx],
+      myRead: updatedRecipient.is_read,
+      hasReplied: updatedRecipient.has_replied,
+      myCompleted: updatedRecipient.is_completed,
+      hasFlagged: updatedRecipient.is_flagged
+    };
+  }
 };
 
 onMounted(() => {

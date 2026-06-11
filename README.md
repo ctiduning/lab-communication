@@ -78,14 +78,45 @@ ALTER TABLE announcement_reads ADD COLUMN IF NOT EXISTS is_flagged BOOLEAN DEFAU
 ALTER TABLE replies ADD COLUMN IF NOT EXISTS target_recipient_id UUID REFERENCES auth.users(id) ON DELETE SET NULL;
 ```
 
-## 五、Git 标签
+## 五、分支策略（开发/正式分离）
+
+```
+main   分支 → 开发版，随时修改测试
+stable 分支 → 正式版，只合并经过验证的代码
+gh-pages   → 正式部署，永远从 stable 构建
+```
+
+### 操作流程
+```bash
+# 日常开发：在 main 上改
+git checkout main
+# ...修改、测试...
+
+# 确认没问题后，合入 stable
+git checkout stable
+git merge main
+git checkout main
+
+# 部署正式版
+git checkout stable
+git subtree push --prefix dist origin gh-pages
+git checkout main
+```
+
+### 紧急回退
+```bash
+# 如果 stable 改坏了，一秒回到 v2 正式版
+git checkout stable
+git reset --hard v2
+git push --force origin stable
+```
+
+### Git 标签
 
 | 标签 | 提交 | 说明 |
 |------|------|------|
 | `v1` | 5472561 | 初始稳定版 |
-| `v2` | 01be945 | 当前版本（所有改进已合并） |
-
-回退命令：`git reset --hard v1` 或 `git reset --hard v2`
+| `v2` | 4623d51 | 当前正式版（stable 分支基线） |
 
 ## 六、改进历史（v1 → v2 变更）
 
@@ -126,7 +157,42 @@ ALTER TABLE replies ADD COLUMN IF NOT EXISTS target_recipient_id UUID REFERENCES
 | 红旗筛选 | 公告/接收消息列表顶部复选框 |
 | 草稿暂存 | 发起沟通页面自动保存 |
 
-## 八、备份内容清单
+## 八、日常操作指南（给不懂技术的人看）
+
+### 场景一：要改程序
+
+**直接联系我，说"QDCTI 项目要改一下"。** 我来改。
+
+改完后你去浏览器按 **Ctrl+F5** 刷新试试效果。如果改坏了，线上的正式版不受影响，你继续用就行。
+
+### 场景二：想先自己看看效果，再决定要不要上线
+
+想自己先跑起来看看效果：
+
+```bash
+# 1. 右键 frontend 文件夹 → 选择"在终端中打开"
+# 2. 输入下面这行，按回车
+npm run dev
+# 3. 浏览器打开 http://localhost:5173
+```
+
+看到页面了就是成功了。确认没问题了告诉我"可以上线了"，我来部署。
+
+### 场景三：线上出问题了要回退
+
+**联系我就行。** 什么都不用做，我 1 分钟就能把线上版本退回之前的正式版。
+
+### 你只需要记住
+
+| 情况 | 你做什么 | 我做什么 |
+|------|---------|---------|
+| 要修改 | 联系我说需求 | 改代码、给你测试 |
+| 要上线 | 告诉我"确认可以" | 合入稳定版、部署上线 |
+| 出问题 | 联系我说"回退" | 1 分钟退回正式版 |
+
+---
+
+## 九、备份内容清单
 
 ```
 QDCTI项目备份/

@@ -710,14 +710,11 @@ const loadUsers = async () => {
 const loadMessages = async () => {
   loading.value = true;
   try {
-    const response = await communicationAPI.getAll();
     const { data: { user: authUser } } = await supabase.auth.getUser();
     if (authUser) {
-      const mine = response.data.filter(c => 
-        c.recipients && c.recipients.includes(authUser.id)
-      );
+      const response = await communicationAPI.getAll(authUser.id);
       // 为每个沟通添加我的状态
-      messages.value = mine.map(c => {
+      messages.value = response.data.map(c => {
         const recipients = c.recipientDetails || [];
         const myRec = recipients.find(r => r.recipient_id === authUser.id);
         return {

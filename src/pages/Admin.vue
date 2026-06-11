@@ -1089,7 +1089,11 @@ const handleExcelImport = async (file) => {
       for (const u of usersToCreate) {
         try {
           const defaultPwd = 'Ct1@2026';
-          const email = u.email || `${u.employeeId}@cti-cert.com`;
+          if (!u.email) {
+            failList.push(`${u.name}(${u.employeeId}): 缺少邮箱，请在 Excel 中补充"邮箱"列`);
+            continue;
+          }
+          const email = u.email;
           const mappedRole = roleMap[u.role] || u.role;
           try {
             await authAPI.register({
@@ -1123,6 +1127,7 @@ const handleExcelImport = async (file) => {
                   .update({
                     name: u.name,
                     role: mappedRole,
+                    email: email,
                     department_level1: u.departmentLevel1,
                     department_level2: u.departmentLevel2,
                     department_level3: u.departmentLevel3,
@@ -1131,6 +1136,15 @@ const handleExcelImport = async (file) => {
                   })
                   .eq('id', existingId);
                 updateCount++;
+                // 同步 auth.users 邮箱，失败不阻塞
+                try {
+                  await supabase.rpc('admin_update_user_email', {
+                    target_user_id: existingId,
+                    new_email: email
+                  });
+                } catch (e) {
+                  console.warn('auth.users 邮箱同步失败，请手动检查', e);
+                }
               } else {
                 throw registerErr;
               }

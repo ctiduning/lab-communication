@@ -77,6 +77,7 @@ BEGIN
     -- 情况 A：重新激活
     user_meta := jsonb_build_object(
       'sub', existing_disabled_id,
+      'email', p_email,
       'username', p_username, 'name', p_name, 'role', p_role,
       'employee_id', p_employee_id, 'phone', p_phone,
       'department_level1', p_department_level1,
@@ -95,6 +96,7 @@ BEGIN
     WHERE id = existing_disabled_id;
 
     UPDATE auth.users SET
+      email = p_email,
       encrypted_password = extensions.crypt(p_password, extensions.gen_salt('bf', 10)),
       updated_at = now(),
       email_confirmed_at = COALESCE(email_confirmed_at, now()),
@@ -112,6 +114,7 @@ BEGIN
 
   user_meta := jsonb_build_object(
     'sub', new_user_id,
+    'email', p_email,
     'username', p_username, 'name', p_name, 'role', p_role,
     'employee_id', p_employee_id, 'phone', p_phone,
     'department_level1', p_department_level1,
@@ -147,6 +150,29 @@ BEGIN
   WHERE id = new_user_id;
 
   RETURN new_user_id;
+END;
+$$;
+
+-- ============================================
+-- admin_update_user_email
+-- 用于同步已存在用户的 auth.users.email
+-- ============================================
+CREATE OR REPLACE FUNCTION admin_update_user_email(
+  target_user_id UUID,
+  new_email TEXT
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+BEGIN
+  UPDATE auth.users SET
+    email = new_email,
+    raw_user_meta_data = raw_user_meta_data ||
+      jsonb_build_object('email', new_email, 'email_verified', true),
+    updated_at = now()
+  WHERE id = target_user_id;
 END;
 $$;
 

@@ -324,8 +324,8 @@ export const userAPI = {
 // 沟通记录相关
 // ==========================================
 export const communicationAPI = {
-  async getAll() {
-    const { data: communications, error } = await supabase
+  async getAll(recipientId = null) {
+    let query = supabase
       .from('communications')
       .select(`
         *,
@@ -348,7 +348,13 @@ export const communicationAPI = {
           target_recipient_id
         )
       `)
-      .order('created_at', { ascending: false })
+      .order('created_at', { ascending: false });
+
+    if (recipientId) {
+      query = query.in('communication_recipients.recipient_id', [recipientId]);
+    }
+
+    const { data: communications, error } = await query;
 
     if (error) throw error
 
