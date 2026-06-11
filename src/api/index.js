@@ -337,6 +337,7 @@ export const communicationAPI = {
           is_completed,
           has_replied,
           replied_by,
+          has_new_reply,
           recipient:recipient_id(id, name, department, department_level3, role)
         ),
         replies(
@@ -389,13 +390,16 @@ export const communicationAPI = {
         is_flagged: r.is_flagged,
         is_completed: r.is_completed,
         has_replied: r.has_replied,
-        replied_by: r.replied_by
+        replied_by: r.replied_by,
+        has_new_reply: r.has_new_reply || false
       })) || [],
       isCompleted: c.is_completed || false,  // 沟通记录是否已完结（全局）
       isRecalled: c.is_recalled || false,
       recallReason: c.recall_reason || '',
       recalledAt: c.recalled_at || null,
       replyCount: c.replies?.length || 0,
+      hasNewReply: c.communication_recipients?.some(r => r.has_new_reply) || false,
+      newReplyCount: c.communication_recipients?.filter(r => r.has_new_reply).length || 0,
       attachments: c.attachments || [],
       replies: c.replies?.map(r => ({
         id: r.id,
@@ -489,11 +493,14 @@ export const communicationAPI = {
       .eq('recipient_id', user.id)
       .single()
 
-    if (existingRecipient?.has_replied) {
+    // ====== 第二步：检查是否是追加回复（发件人或已回复的收件人再次回复）======
+    const isFollowUp = existingRecipient?.has_replied || false
+
+    if (existingRecipient?.has_replied && !skipRepliedFlag) {
       throw new Error(`此消息已被${existingRecipient.replied_by || '他人'}回复`)
     }
 
-    // ====== 第二步：插入回复 ======
+    // ====== 第三步：插入回复 ======
     const { data: reply, error } = await supabase
       .from('replies')
       .insert({
@@ -526,14 +533,14 @@ export const communicationAPI = {
       return { data: reply }
     }
 
-    // ====== 第三步：获取回复者信息 ======
+    // ====== 第四步：获取回复者信息 ======
     const { data: replierProfile } = await supabase
       .from('profiles')
       .select('name, role, department_level3')
       .eq('id', user.id)
       .single()
 
-    // ====== 第四步：获取该消息的 department_card_ids ======
+    // ====== 第五步：获取该消息的信息 ======
     const { data: comm } = await supabase
       .from('communications')
       .select('sender_id, department_card_ids')
@@ -542,6 +549,18 @@ export const communicationAPI = {
 
     // 确保 comm 存在
     if (!comm) throw new Error('沟通记录不存在')
+
+    // ====== 第六步：如果是追加回复，重置对方状态 ======
+    if (isFollowUp) {
+      // 发件人追加回复：重置所有收件人的已完结状态
+      await supabase
+        .from('communication_recipients')
+        .update({ 
+          is_completed: false,
+          has_new_reply: true
+        })
+        .eq('communication_id', communicationId)
+    }
 
     const isDeptCardHolder = comm.department_card_ids?.includes(user.id)
 
@@ -635,6 +654,9 @@ export const communicationAPI = {
           is_read,
           is_flagged,
           is_completed,
+          has_replied,
+          replied_by,
+          has_new_reply,
           recipient:recipient_id(id, name, department, region)
         ),
         replies(
@@ -679,9 +701,14 @@ export const communicationAPI = {
           is_read: r.is_read,
           is_flagged: r.is_flagged,
           is_completed: r.is_completed,
-          has_replied: r.has_replied
+          has_replied: r.has_replied,
+          replied_by: r.replied_by,
+          has_new_reply: r.has_new_reply || false
         })) || [],
         isCompleted: communication.is_completed || false,  // 沟通记录是否已完结（全局）
+        replyCount: communication.replies?.length || 0,
+        hasNewReply: communication.communication_recipients?.some(r => r.has_new_reply) || false,
+        newReplyCount: communication.communication_recipients?.filter(r => r.has_new_reply).length || 0,
         replies: communication.replies?.map(r => ({
           id: r.id,
           senderId: r.sender_id,
@@ -1232,7 +1259,8 @@ export const communicationAPI = {
         is_flagged: r.is_flagged,
         is_completed: r.is_completed,
         has_replied: r.has_replied,
-        replied_by: r.replied_by
+        replied_by: r.replied_by,
+        has_new_reply: r.has_new_reply || false
       })) || [],
       isRecalled: c.is_recalled || false,
       recallReason: c.recall_reason || '',

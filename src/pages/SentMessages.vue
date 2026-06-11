@@ -36,13 +36,25 @@
       />
     </div>
 
-    <el-table :data="filteredCommunications" border stripe v-loading="loading" empty-text="暂无发送记录" v-if="activeFilter !== 'recalled'" @row-click="viewDetail">
+    <el-table :data="filteredCommunications" border stripe v-loading="loading" empty-text="暂无发送记录" v-if="activeFilter !== 'recalled'" @row-click="viewDetail" :row-class-name="getRowClassName">
       <el-table-column label="状态" width="110" align="center">
         <template #default="scope">
           <el-tag v-if="scope.row.isRecalled" size="small" type="warning">已撤回</el-tag>
           <el-tag v-else-if="scope.row.isCompleted" size="small" type="success">已完结</el-tag>
           <el-tag v-else-if="computeReplyStatus(scope.row) === 'replied'" size="small" type="success">已回复</el-tag>
           <el-tag v-else size="small" type="danger">未回复</el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="新回复" width="80" align="center">
+        <template #default="scope">
+          <el-badge 
+            v-if="scope.row.hasNewReply" 
+            :value="scope.row.newReplyCount || 1" 
+            type="warning" 
+          />
+          <span v-else-if="scope.row.replyCount > 0" class="reply-count">
+            {{ scope.row.replyCount }}条回复
+          </span>
         </template>
       </el-table-column>
       <el-table-column label="沟通类型" width="110">
@@ -413,6 +425,14 @@ const computeReplyStatus = (comm) => {
   if (total === 0) return 'replied'
   const repliedCount = recipients.filter(r => r.has_replied).length
   return repliedCount > 0 ? 'replied' : 'unreplied'
+}
+
+// 获取行样式类名
+const getRowClassName = ({ row }) => {
+  if (row.hasNewReply) {
+    return 'has-new-reply'
+  }
+  return ''
 }
 
 // 各状态计数
@@ -810,6 +830,23 @@ const filterList = () => {
   padding: 20px;
   background: #f9f9f9;
   border-radius: 8px;
+}
+
+/* 新回复高亮样式 */
+.has-new-reply {
+  background-color: #fffef0 !important;
+}
+
+.has-new-reply td {
+  background-color: #fffef0 !important;
+}
+
+.reply-count {
+  font-size: 12px;
+  color: #666;
+  padding: 2px 6px;
+  background: #f5f5f5;
+  border-radius: 4px;
 }
 
 .reply-agree {
