@@ -193,23 +193,21 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, provide, nextTick } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, computed, onMounted, onUnmounted, provide, nextTick, defineAsyncComponent, watch } from 'vue';
 import { ChatDotSquare, Bell, Setting, User, OfficeBuilding, Promotion, ArrowDown, Menu } from '@element-plus/icons-vue';
 import { supabase } from '../utils/supabase';
 
-const router = useRouter();
 import { authAPI, announcementAPI, communicationAPI, userAPI, getRoleCategory } from '../api';
-import BusinessInitiate from './BusinessInitiate.vue';
-import BusinessReceive from './BusinessReceive.vue';
-import LabInitiate from './LabInitiate.vue';
-import LabReceive from './LabReceive.vue';
-import Admin from './Admin.vue';
-import Profile from './Profile.vue';
-import Announcements from './Announcements.vue';
-// Communications 已废弃
-import Organization from './Organization.vue';
-import SentMessages from './SentMessages.vue';
+
+const BusinessInitiate = defineAsyncComponent(() => import('./BusinessInitiate.vue'));
+const BusinessReceive = defineAsyncComponent(() => import('./BusinessReceive.vue'));
+const LabInitiate = defineAsyncComponent(() => import('./LabInitiate.vue'));
+const LabReceive = defineAsyncComponent(() => import('./LabReceive.vue'));
+const AdminPanel = defineAsyncComponent(() => import('./Admin.vue'));
+const ProfileView = defineAsyncComponent(() => import('./Profile.vue'));
+const AnnouncementsView = defineAsyncComponent(() => import('./Announcements.vue'));
+const OrgView = defineAsyncComponent(() => import('./Organization.vue'));
+const SentView = defineAsyncComponent(() => import('./SentMessages.vue'));
 
 const user = ref({
   name: '',
@@ -255,28 +253,28 @@ const viewRoleLabel = computed(() => {
 });
 
 const currentComponent = computed(() => {
-  if (activeMenu.value === 'announcements') return Announcements;
-  if (activeMenu.value === 'profile') return Profile;
+  if (activeMenu.value === 'announcements') return AnnouncementsView;
+  if (activeMenu.value === 'profile') return ProfileView;
 
   const cat = roleCategory.value;
 
   if (cat === 'business') {
     if (activeMenu.value === 'initiate') return BusinessInitiate;
     if (activeMenu.value === 'receive') return BusinessReceive;
-    if (activeMenu.value === 'sent') return SentMessages;
+    if (activeMenu.value === 'sent') return SentView;
   }
 
   if (cat === 'lab') {
     if (activeMenu.value === 'lab-initiate') return LabInitiate;
     if (activeMenu.value === 'lab-receive') return LabReceive;
-    if (activeMenu.value === 'sent') return SentMessages;
+    if (activeMenu.value === 'sent') return SentView;
   }
 
   if (cat === 'admin') {
-    if (activeMenu.value === 'admin') return Admin;
+    if (activeMenu.value === 'admin') return AdminPanel;
   }
 
-  if (activeMenu.value === 'organization') return Organization;
+  if (activeMenu.value === 'organization') return OrgView;
 
   return BusinessInitiate;
 });

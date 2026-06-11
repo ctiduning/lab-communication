@@ -636,7 +636,8 @@ export const communicationAPI = {
           content,
           sender_id,
           sender:sender_id(name),
-          created_at
+          created_at,
+          target_recipient_id
         )
       `)
       .eq('id', id)
