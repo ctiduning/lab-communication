@@ -379,7 +379,6 @@ export const communicationAPI = {
       content: c.content,
       status: c.status,
       isFlagged: c.is_flagged || false,
-      isCompleted: c.is_completed || false,
       createdAt: c.created_at,
       departmentCardIds: c.department_card_ids || [],
       recipients: c.communication_recipients?.map(r => r.recipient_id) || [],
@@ -717,7 +716,6 @@ export const communicationAPI = {
         remark: communication.remark,
         content: communication.content,
         isFlagged: communication.is_flagged || false,
-        isCompleted: communication.is_completed || false,
         createdAt: communication.created_at,
         recipientDetails: communication.communication_recipients?.map(r => ({
           ...r.recipient,
@@ -785,19 +783,6 @@ export const communicationAPI = {
     const { data, error } = await supabase
       .from('communications')
       .update({ is_flagged: isFlagged })
-      .eq('id', communicationId)
-      .select()
-      .single()
-
-    if (error) throw error
-    return { data }
-  },
-
-  // 切换完结状态（基于 communications 表，全局完结，任意一人标记完结所有人都能看到）
-  async toggleCommCompleted(communicationId, isCompleted) {
-    const { data, error } = await supabase
-      .from('communications')
-      .update({ is_completed: isCompleted })
       .eq('id', communicationId)
       .select()
       .single()

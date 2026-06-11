@@ -84,7 +84,6 @@
                   v-model="searchKeyword" 
                   placeholder="搜索姓名、工号、部门..." 
                   clearable 
-                  @clear="loadUsers"
                   class="search-input"
                 >
                   <template #prefix>
@@ -751,7 +750,7 @@ const getRoleTag = (user) => {
   if (user.department_level1 === '实验室') return 'success';
   if (user.department_level1 === '业务') return 'warning';
   // 降级：按角色判断
-  const role = user.role || user;
+  const role = user.role || '';
   if (role === '管理员' || role === 'admin') return 'danger';
   if (role === '业务' || role === '业务助理' || role === 'business' || role === 'business_assistant') return 'warning';
   return 'success'; // 实验室端角色统一用 success
@@ -1228,7 +1227,7 @@ const loadCommunications = async () => {
       .select(`
         *,
         sender:sender_id(name, employee_id),
-        communication_recipients(recipient_id, profiles(name)),
+        communication_recipients(recipient_id, recipient:recipient_id(name)),
         replies(count)
       `)
       .order('created_at', { ascending: false });
