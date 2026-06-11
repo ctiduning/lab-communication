@@ -398,7 +398,7 @@ export const communicationAPI = {
       recallReason: c.recall_reason || '',
       recalledAt: c.recalled_at || null,
       replyCount: c.replies?.length || 0,
-      hasNewReply: c.communication_recipients?.some(r => r.has_new_reply) || false,
+      hasNewReply: c.has_new_reply || c.communication_recipients?.some(r => r.has_new_reply) || false,
       newReplyCount: c.communication_recipients?.filter(r => r.has_new_reply).length || 0,
       attachments: c.attachments || [],
       replies: c.replies?.map(r => ({
@@ -563,6 +563,12 @@ export const communicationAPI = {
           has_new_reply: true
         })
         .eq('communication_id', communicationId)
+      
+      // 更新 communications 表，让发件人也能看到新回复提醒
+      await supabase
+        .from('communications')
+        .update({ has_new_reply: true })
+        .eq('id', communicationId)
     }
 
     // ====== 第七步：非发件人首次回复时，检查同组是否已有人回复 ======
@@ -725,14 +731,15 @@ export const communicationAPI = {
         })) || [],
         isCompleted: communication.is_completed || false,  // 沟通记录是否已完结（全局）
         replyCount: communication.replies?.length || 0,
-        hasNewReply: communication.communication_recipients?.some(r => r.has_new_reply) || false,
+        hasNewReply: communication.has_new_reply || communication.communication_recipients?.some(r => r.has_new_reply) || false,
         newReplyCount: communication.communication_recipients?.filter(r => r.has_new_reply).length || 0,
         replies: communication.replies?.map(r => ({
           id: r.id,
           senderId: r.sender_id,
           senderName: r.sender?.name || '',
           content: r.content,
-          createdAt: r.created_at
+          createdAt: r.created_at,
+          targetRecipientId: r.target_recipient_id
         })) || []
       }
     }

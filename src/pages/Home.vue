@@ -287,8 +287,8 @@ const logout = async () => {
   localStorage.removeItem('user');
   localStorage.removeItem('sb-qgoqhjwekairknkuqisi-auth-token');
   sessionStorage.clear();
-  // 强制跳转到登录页
-  window.location.href = '/login';
+  // 使用相对路径，让开发服务器处理路由
+  window.location.pathname = '/login';
 };
 
 const loadUser = async () => {
