@@ -102,6 +102,11 @@
         <div v-if="pendingMessages.length === 0 && !loading" class="empty-state">
           暂无待处理消息
         </div>
+        <div v-if="hasMore && !loading" class="load-more-wrapper" style="text-align: center; margin: 16px 0;">
+          <el-button type="primary" plain :loading="loadingMore" @click="loadMore">
+            {{ loadingMore ? '加载中...' : '加载更多' }}
+          </el-button>
+        </div>
       </el-tab-pane>
 
       <!-- 已处理标签页 -->
@@ -200,6 +205,11 @@
         <div v-if="processedMessages.length === 0 && !loading" class="empty-state">
           暂无已处理消息
         </div>
+        <div v-if="hasMore && !loading" class="load-more-wrapper" style="text-align: center; margin: 16px 0;">
+          <el-button type="primary" plain :loading="loadingMore" @click="loadMore">
+            {{ loadingMore ? '加载中...' : '加载更多' }}
+          </el-button>
+        </div>
       </el-tab-pane>
 
       <!-- 已完结标签页 -->
@@ -274,6 +284,11 @@
 
         <div v-if="completedMessages.length === 0 && !loading" class="empty-state">
           暂无已完结消息
+        </div>
+        <div v-if="hasMore && !loading" class="load-more-wrapper" style="text-align: center; margin: 16px 0;">
+          <el-button type="primary" plain :loading="loadingMore" @click="loadMore">
+            {{ loadingMore ? '加载中...' : '加载更多' }}
+          </el-button>
         </div>
       </el-tab-pane>
 
@@ -624,6 +639,13 @@ const searchKeywordCompleted = ref('');
 const searchKeywordRecalled = ref('');
 const showFlaggedOnly = ref(false);
 
+// 分页状态
+const currentPage = ref(1);
+const pageSize = 50;
+const totalMessages = ref(0);
+const loadingMore = ref(false);
+const hasMore = computed(() => currentPage.value * pageSize < totalMessages.value);
+
 // 点赞/点踩数据 { 'reply-uuid': { likeCount, dislikeCount, myReaction } }
 const reactionStats = ref({});
 let messageChannel = null;
@@ -733,34 +755,51 @@ const loadUsers = async () => {
   }
 };
 
-const loadMessages = async () => {
-  loading.value = true;
+const loadMessages = async (page = 1, append = false) => {
+  loading.value = !append;
+  loadingMore.value = append;
   try {
     const { data: { user: authUser } } = await supabase.auth.getUser();
     if (authUser) {
-      // 直接在数据库层面过滤当前用户的消息
-      const response = await communicationAPI.getAll(authUser.id);
-      // 为每个沟通添加我的状态
-      messages.value = response.data.map(c => {
+      const response = await communicationAPI.getAll(authUser.id, page, pageSize);
+      totalMessages.value = response.total || 0;
+      currentPage.value = page;
+      
+      const newMessages = (response.data || []).map(c => {
         const recipients = c.recipientDetails || [];
         const myRec = recipients.find(r => r.recipient_id === authUser.id);
         return {
           ...c,
           myRead: myRec?.is_read || false,
-          hasReplied: myRec?.has_replied || false,  // 我已回复
-          myCompleted: myRec?.is_completed || false,  // 我个人已完结
-          isCompleted: c.isCompleted || false,  // 沟通记录已完结（全局或全部人完结）
+          hasReplied: myRec?.has_replied || false,
+          myCompleted: myRec?.is_completed || false,
+          isCompleted: c.isCompleted || false,
           hasFlagged: myRec?.is_flagged || false,
           replyCount: c.replies?.length || 0,
-          allRecipientsCompleted: recipients.every(r => r.is_completed)  // 所有人都已完结
+          allRecipientsCompleted: recipients.every(r => r.is_completed)
         };
       });
+
+      if (append) {
+        // 追加模式：去重合并
+        const existingIds = new Set(messages.value.map(m => m.id));
+        const uniqueNew = newMessages.filter(m => !existingIds.has(m.id));
+        messages.value = [...messages.value, ...uniqueNew];
+      } else {
+        messages.value = newMessages;
+      }
     }
   } catch (error) {
     ElMessage.error('加载消息失败');
   } finally {
     loading.value = false;
+    loadingMore.value = false;
   }
+};
+
+const loadMore = () => {
+  if (loadingMore.value || !hasMore.value) return;
+  loadMessages(currentPage.value + 1, true);
 };
 
 // 全部消息：所有未撤回且非系统通知的消息
