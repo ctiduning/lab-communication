@@ -397,6 +397,7 @@ const detailVisible = ref(false)
 const selectedComm = ref(null)
 const searchKeyword = ref('')  // 搜索关键词
 const refreshTimer = ref(null)  // 自动刷新定时器
+const messageChannel = ref(null)  // Realtime 频道
 
 // 撤回相关
 const recallDialogVisible = ref(false)
@@ -623,20 +624,48 @@ const loadCommunications = async () => {
   }
 }
 
+// 实时订阅消息变化（替代轮询）
+const subscribeMessages = () => {
+  // 先清理旧订阅
+  if (messageChannel.value) {
+    supabase.removeChannel(messageChannel.value)
+    messageChannel.value = null
+  }
+  messageChannel.value = supabase
+    .channel('sent-messages-realtime')
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'communications' },
+      (payload) => {
+        // communications 表有更新时重新加载（如状态变化）
+        supabase.auth.getUser().then(({ data }) => {
+          if (data?.user && payload.new.sender_id === data.user.id) {
+            loadCommunications()
+          }
+        }).catch(() => {})
+      }
+    )
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'communication_recipients' },
+      (payload) => {
+        // 收件人有回复时重新加载
+        loadCommunications()
+      }
+    )
+    .subscribe()
+}
+
 onMounted(() => {
   loadCommunications()
-  
-  // 设置自动刷新（每30秒）
-  refreshTimer.value = setInterval(() => {
-    loadCommunications()
-  }, 30000)
+  subscribeMessages()
 })
 
 onUnmounted(() => {
-  // 清理定时器
-  if (refreshTimer.value) {
-    clearInterval(refreshTimer.value)
-    refreshTimer.value = null
+  // 清理 Realtime 订阅
+  if (messageChannel.value) {
+    supabase.removeChannel(messageChannel.value)
+    messageChannel.value = null
   }
 })
 

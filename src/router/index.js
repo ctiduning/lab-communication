@@ -62,7 +62,16 @@ const router = createRouter({
 });
 
 router.beforeEach(async (to, from, next) => {
-  // 用 supabase 校验 session 是否有效（token 可能已过期）
+  // 先检查 localStorage 是否有 token（避免每次导航都调用服务端验证）
+  const hasToken = !!localStorage.getItem('sb-qgoqhjwekairknkuqisi-auth-token')
+  if (!hasToken && to.path !== '/login' && to.meta.requiresAuth) {
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
+    next('/login')
+    return
+  }
+
+  // 再用服务端验证确认 session 是否有效
   const { data: { session } } = await supabase.auth.getSession()
   const isAuthenticated = !!session
 

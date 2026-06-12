@@ -1058,10 +1058,45 @@ const doSendReply = async (content, skipReplied = false) => {
   }
 };
 
+// 实时订阅消息变化
+const subscribeMessages = () => {
+  if (messageChannel) {
+    supabase.removeChannel(messageChannel);
+    messageChannel = null;
+  }
+  messageChannel = supabase
+    .channel('lab-receive-messages')
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'communications' },
+      () => {
+        // 有新消息时重新加载
+        loadMessages();
+      }
+    )
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'communication_recipients' },
+      () => {
+        // 收件人状态变化时重新加载
+        loadMessages();
+      }
+    )
+    .subscribe();
+};
+
 onMounted(() => {
   loadCurrentUser();
   loadUsers();
   loadMessages();
+  subscribeMessages();
+});
+
+onUnmounted(() => {
+  if (messageChannel) {
+    supabase.removeChannel(messageChannel);
+    messageChannel = null;
+  }
 });
 </script>
 
