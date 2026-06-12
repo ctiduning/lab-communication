@@ -134,7 +134,7 @@ export const authAPI = {
     // 检查账号是否被禁用
     const { data: profileData } = await supabase
       .from('profiles')
-      .select('is_disabled, must_change_password')
+      .select('is_disabled')
       .eq('id', data.user.id)
       .single()
 
@@ -147,7 +147,7 @@ export const authAPI = {
     // 获取完整 profile
     const { data: fullProfile } = await supabase
       .from('profiles')
-      .select('id, name, username, email, role, employee_id, phone, department, department_level3, region, priority, is_disabled, must_change_password')
+      .select('id, name, username, email, role, employee_id, phone, department, department_level3, region, priority, is_disabled')
       .eq('id', data.user.id)
       .single()
 
@@ -211,7 +211,7 @@ export const authAPI = {
 
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, name, username, email, role, employee_id, phone, department, department_level3, region, priority, is_disabled, must_change_password')
+      .select('id, name, username, email, role, employee_id, phone, department, department_level3, region, priority, is_disabled')
       .eq('id', userId)
       .single()
 
@@ -227,7 +227,7 @@ export const userAPI = {
   async getAll() {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, name, username, role, employee_id, phone, email, department_level1, department_level2, department_level3, priority, is_disabled, last_active_at, last_sign_in_at, created_at')
+      .select('id, name, username, role, employee_id, phone, email, department_level1, department_level2, department_level3, priority, is_disabled, created_at')
 
     if (error) throw error
     return { data: data.map(formatProfile) }
@@ -236,7 +236,7 @@ export const userAPI = {
   async getByRole(role) {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, name, username, role, employee_id, phone, email, department_level1, department_level2, department_level3, priority, is_disabled, last_active_at, last_sign_in_at, created_at')
+      .select('id, name, username, role, employee_id, phone, email, department_level1, department_level2, department_level3, priority, is_disabled, created_at')
       .eq('role', role)
 
     if (error) throw error
@@ -246,7 +246,7 @@ export const userAPI = {
   async getById(id) {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, name, username, role, employee_id, phone, email, department_level1, department_level2, department_level3, priority, is_disabled, region, department, last_active_at, last_sign_in_at, created_at')
+      .select('id, name, username, role, employee_id, phone, email, department_level1, department_level2, department_level3, priority, is_disabled, region, department, created_at')
       .eq('id', id)
       .single()
 
