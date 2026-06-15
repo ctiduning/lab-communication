@@ -520,7 +520,7 @@ export const communicationAPI = {
       .select('has_replied, replied_by')
       .eq('communication_id', communicationId)
       .eq('recipient_id', userId)
-      .single()
+      .maybeSingle()
 
     // ====== 第二步：允许已回复用户追加回复 ======
     // 注意：已回复用户可以随时追加回复，不需要 skipRepliedFlag
@@ -1384,7 +1384,7 @@ communicationAPI.buildThreads = function(comm) {
 // ==========================================
 export const announcementAPI = {
   // 创建公告（管理员）—— 只写入 announcements 表，不再推通知
-  async create({ title, content, attachments, target_role }) {
+  async create({ title, content, attachments, target_role, target_regions }) {
     const userId = await getCurrentUserId()
     if (!userId) throw new Error('未登录')
 
@@ -1394,7 +1394,7 @@ export const announcementAPI = {
         title,
         content,
         target_role: target_role || 'all',
-        target_regions: null,
+        target_regions: target_regions || null,
         sender_id: userId,
         attachments: attachments || []
       }])
@@ -1481,10 +1481,12 @@ export const announcementAPI = {
       // 获取当前用户的角色分类
       const { data: profile } = await supabase
         .from('profiles')
-        .select('role, department_level1')
+        .select('role, department_level1, department_level3')
         .eq('id', userId)
         .single()
       const userRole = profile ? getRoleCategory(profile.role, profile.department_level1) : 'lab'
+      const isBusiness = profile?.department_level1 === '业务'
+      const isQingdao = profile?.department_level3 === '青岛'
 
       // 查公告（含 target_role，过滤出对当前用户可见的）
       const { data: allAnn, error: annError } = await supabase
@@ -1493,9 +1495,13 @@ export const announcementAPI = {
       if (annError) throw annError
 
       // 过滤：只保留对当前角色可见的公告
-      const visible = (allAnn || []).filter(a =>
-        a.target_role === 'all' || a.target_role === userRole
-      )
+      const visible = (allAnn || []).filter(a => {
+        if (a.target_role === 'all') return true
+        if (a.target_role === userRole) return true
+        if (a.target_role === 'qingdao_business') return isBusiness && isQingdao
+        if (a.target_role === 'non_qingdao_business') return isBusiness && !isQingdao
+        return false
+      })
 
       // 查已读的公告ID
       let readIds = new Set()

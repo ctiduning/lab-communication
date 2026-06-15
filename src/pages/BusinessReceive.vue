@@ -503,13 +503,21 @@
                 <el-table-column label="回复记录" min-width="220">
                   <template #default="scope">
                     <div v-if="getRecipientReplies(scope.row.recipient_id).length > 0">
-                      <div v-for="(reply, idx) in getRecipientReplies(scope.row.recipient_id)" :key="idx" class="recipient-reply-line">
-                        <span :class="getReplyClass(reply)">
-                          <strong>{{ getReceiverDisplayName(reply.senderId) }}</strong>
-                          <span v-if="reply.targetRecipientId"> → {{ getReceiverDisplayName(reply.targetRecipientId) }}</span>
-                          ：{{ reply.content }}
-                        </span>
-                        <span class="reply-time-mini">{{ formatTime(reply.createdAt) }}</span>
+                      <div v-for="(reply, idx) in getRecipientReplies(scope.row.recipient_id)" :key="idx">
+                        <div class="recipient-reply-line">
+                          <span :class="getReplyClass(reply)">
+                            <strong>{{ getReceiverDisplayName(reply.senderId) }}</strong>
+                            <span v-if="reply.targetRecipientId"> → {{ getReceiverDisplayName(reply.targetRecipientId) }}</span>
+                            ：{{ reply.content }}
+                          </span>
+                          <span class="reply-time-mini">{{ formatTime(reply.createdAt) }}</span>
+                          <el-button size="small" circle @click.stop="activeReplyId = reply.id; inlineReplyContent = ''" style="flex-shrink:0;padding:0 4px;min-width:auto;height:auto;font-size:13px;border:none;">💬</el-button>
+                        </div>
+                        <div v-if="activeReplyId === reply.id" style="display:flex;gap:4px;margin:4px 0 4px 0;align-items:center;">
+                          <el-input v-model="inlineReplyContent" size="small" placeholder="回复..." style="flex:1;" @keyup.enter="submitInlineReply(reply)" />
+                          <el-button size="small" type="primary" @click="submitInlineReply(reply)" :loading="inlineReplyLoading">发送</el-button>
+                          <el-button size="small" @click="cancelInlineReply">取消</el-button>
+                        </div>
                       </div>
                     </div>
                     <span v-else style="color:#999;">-</span>
@@ -576,14 +584,22 @@
               📢 回复全部接收人
             </div>
             <div class="thread-body" style="padding: 8px 12px;">
-              <div v-for="(reply, idx) in buildThreads(selectedMessage).all" :key="idx" class="reply-item" style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
-                <div class="reply-content" style="flex:1;">
-                  <p><strong>{{ getUserDisplayName(reply.senderId) }}：</strong>{{ reply.content }}</p>
-                  <p class="reply-time">{{ formatTime(reply.createdAt) }}</p>
+              <div v-for="(reply, idx) in buildThreads(selectedMessage).all" :key="idx">
+                <div class="reply-item" style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
+                  <div class="reply-content" style="flex:1;">
+                    <p><strong>{{ getUserDisplayName(reply.senderId) }}：</strong>{{ reply.content }}</p>
+                    <p class="reply-time">{{ formatTime(reply.createdAt) }}</p>
+                  </div>
+                  <div class="reply-reactions" style="flex-shrink:0; display:flex; gap:4px;">
+                    <el-button :type="getMyReactionType('reply', reply.id) === 'like' ? 'primary' : 'default'" size="small" @click="handleReaction('reply', reply.id, 'like')">👍 {{ getLikeCount('reply', reply.id) }}</el-button>
+                    <el-button :type="getMyReactionType('reply', reply.id) === 'dislike' ? 'danger' : 'default'" size="small" @click="handleReaction('reply', reply.id, 'dislike')">👎 {{ getDislikeCount('reply', reply.id) }}</el-button>
+                    <el-button size="small" circle @click.stop="activeReplyId = reply.id; inlineReplyContent = ''" style="padding:0 4px;min-width:auto;height:auto;font-size:13px;border:none;">💬</el-button>
+                  </div>
                 </div>
-                <div class="reply-reactions" style="flex-shrink:0; display:flex; gap:4px;">
-                  <el-button :type="getMyReactionType('reply', reply.id) === 'like' ? 'primary' : 'default'" size="small" @click="handleReaction('reply', reply.id, 'like')">👍 {{ getLikeCount('reply', reply.id) }}</el-button>
-                  <el-button :type="getMyReactionType('reply', reply.id) === 'dislike' ? 'danger' : 'default'" size="small" @click="handleReaction('reply', reply.id, 'dislike')">👎 {{ getDislikeCount('reply', reply.id) }}</el-button>
+                <div v-if="activeReplyId === reply.id" style="display:flex;gap:4px;margin:4px 0 8px 0;align-items:center;">
+                  <el-input v-model="inlineReplyContent" size="small" placeholder="回复..." style="flex:1;" @keyup.enter="submitInlineReply(reply)" />
+                  <el-button size="small" type="primary" @click="submitInlineReply(reply)" :loading="inlineReplyLoading">发送</el-button>
+                  <el-button size="small" @click="cancelInlineReply">取消</el-button>
                 </div>
               </div>
             </div>
@@ -602,14 +618,22 @@
               <span>{{ threadCollapsed[thread.recipient.recipient_id] ? '▸' : '▾' }}</span>
             </div>
             <div v-show="!threadCollapsed[thread.recipient.recipient_id]" class="thread-body" style="padding: 8px 12px;">
-              <div v-for="(reply, idx) in thread.replies" :key="idx" class="reply-item" style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:8px;">
-                <div class="reply-content" style="flex:1;">
-                  <p><strong>{{ getUserDisplayName(reply.senderId) }}：</strong>{{ reply.content }}</p>
-                  <p class="reply-time">{{ formatTime(reply.createdAt) }}</p>
+              <div v-for="(reply, idx) in thread.replies" :key="idx">
+                <div class="reply-item" style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:8px;">
+                  <div class="reply-content" style="flex:1;">
+                    <p><strong>{{ getUserDisplayName(reply.senderId) }}：</strong>{{ reply.content }}</p>
+                    <p class="reply-time">{{ formatTime(reply.createdAt) }}</p>
+                  </div>
+                  <div class="reply-reactions" style="flex-shrink:0; display:flex; gap:4px;">
+                    <el-button :type="getMyReactionType('reply', reply.id) === 'like' ? 'primary' : 'default'" size="small" @click="handleReaction('reply', reply.id, 'like')">👍 {{ getLikeCount('reply', reply.id) }}</el-button>
+                    <el-button :type="getMyReactionType('reply', reply.id) === 'dislike' ? 'danger' : 'default'" size="small" @click="handleReaction('reply', reply.id, 'dislike')">👎 {{ getDislikeCount('reply', reply.id) }}</el-button>
+                    <el-button size="small" circle @click.stop="activeReplyId = reply.id; inlineReplyContent = ''" style="padding:0 4px;min-width:auto;height:auto;font-size:13px;border:none;">💬</el-button>
+                  </div>
                 </div>
-                <div class="reply-reactions" style="flex-shrink:0; display:flex; gap:4px;">
-                  <el-button :type="getMyReactionType('reply', reply.id) === 'like' ? 'primary' : 'default'" size="small" @click="handleReaction('reply', reply.id, 'like')">👍 {{ getLikeCount('reply', reply.id) }}</el-button>
-                  <el-button :type="getMyReactionType('reply', reply.id) === 'dislike' ? 'danger' : 'default'" size="small" @click="handleReaction('reply', reply.id, 'dislike')">👎 {{ getDislikeCount('reply', reply.id) }}</el-button>
+                <div v-if="activeReplyId === reply.id" style="display:flex;gap:4px;margin:4px 0 8px 0;align-items:center;">
+                  <el-input v-model="inlineReplyContent" size="small" placeholder="回复..." style="flex:1;" @keyup.enter="submitInlineReply(reply)" />
+                  <el-button size="small" type="primary" @click="submitInlineReply(reply)" :loading="inlineReplyLoading">发送</el-button>
+                  <el-button size="small" @click="cancelInlineReply">取消</el-button>
                 </div>
               </div>
             </div>
@@ -679,6 +703,10 @@ const replyContent = ref('');
 const replyLoading = ref(false);
 const myRecipient = ref(null);
 const threadCollapsed = ref({});
+// inline 回复（回复记录中追加回复）
+const activeReplyId = ref(null);
+const inlineReplyContent = ref('');
+const inlineReplyLoading = ref(false);
 
 function toggleCollapsed(recipientId) {
   threadCollapsed.value = { ...threadCollapsed.value, [recipientId]: !threadCollapsed.value[recipientId] };
@@ -1158,6 +1186,37 @@ const toggleFlagFromDetail = async () => {
   } catch (e) {
     ElMessage.error('操作失败');
   }
+};
+
+// 提交 inline 回复（回复记录中的追加回复）
+const submitInlineReply = async (reply) => {
+  const content = inlineReplyContent.value.trim();
+  if (!content) {
+    ElMessage.warning('请输入回复内容');
+    return;
+  }
+  inlineReplyLoading.value = true;
+  try {
+    await communicationAPI.createReply(selectedMessage.value.id, {
+      content,
+      targetRecipientId: reply.senderId
+    }, true);
+    ElMessage.success('回复成功');
+    inlineReplyContent.value = '';
+    activeReplyId.value = null;
+    // 重新加载详情
+    const { data } = await communicationAPI.getById(selectedMessage.value.id);
+    selectedMessage.value = data;
+  } catch (error) {
+    ElMessage.error('回复失败：' + (error.message || '未知错误'));
+  } finally {
+    inlineReplyLoading.value = false;
+  }
+};
+
+const cancelInlineReply = () => {
+  activeReplyId.value = null;
+  inlineReplyContent.value = '';
 };
 
 

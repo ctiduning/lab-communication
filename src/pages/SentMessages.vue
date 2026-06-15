@@ -102,7 +102,7 @@
           {{ formatTime(scope.row.createdAt) }}
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="160" align="center">
+      <el-table-column label="操作" width="260" align="center">
         <template #default="scope">
           <el-button size="small" @click.stop="viewDetail(scope.row)">查看</el-button>
           <el-button 
@@ -113,6 +113,14 @@
             style="margin-left: 4px;"
           >
             追加回复
+          </el-button>
+          <el-button 
+            size="small" 
+            :type="scope.row.hasFlagged ? 'warning' : 'default'"
+            @click.stop="toggleFlag(scope.row)"
+            style="margin-left: 4px;"
+          >
+            {{ scope.row.hasFlagged ? '取消红旗' : '红旗' }}
           </el-button>
         </template>
       </el-table-column>
@@ -159,10 +167,18 @@
           {{ (scope.row.recipientDetails || []).map(r => r.name || '').join('、') || '-' }}
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="200" align="center" fixed="right">
+      <el-table-column label="操作" width="290" align="center" fixed="right">
         <template #default="scope">
           <el-button size="small" type="primary" @click.stop="editAndResend(scope.row)">编辑重发</el-button>
           <el-button size="small" type="danger" @click.stop="deleteRecalled(scope.row)">删除</el-button>
+          <el-button 
+            size="small" 
+            :type="scope.row.hasFlagged ? 'warning' : 'default'"
+            @click.stop="toggleFlag(scope.row)"
+            style="margin-left: 4px;"
+          >
+            {{ scope.row.hasFlagged ? '取消红旗' : '红旗' }}
+          </el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -199,13 +215,21 @@
               <el-table-column label="回复记录" min-width="250">
                 <template #default="scope">
                   <div v-if="getRecipientReplies(scope.row.recipient_id).length > 0">
-                    <div v-for="(reply, idx) in getRecipientReplies(scope.row.recipient_id)" :key="idx" class="recipient-reply-line">
-                      <span :class="getReplyClass(reply)">
-                        <strong>{{ getUserDisplayName(reply.senderId) }}</strong>
-                        <span v-if="reply.targetRecipientId"> → {{ getUserDisplayName(reply.targetRecipientId) }}</span>
-                        ：{{ reply.content }}
-                      </span>
-                      <span class="reply-time-mini">{{ formatTime(reply.createdAt) }}</span>
+                    <div v-for="(reply, idx) in getRecipientReplies(scope.row.recipient_id)" :key="idx">
+                      <div class="recipient-reply-line">
+                        <span :class="getReplyClass(reply)">
+                          <strong>{{ getUserDisplayName(reply.senderId) }}</strong>
+                          <span v-if="reply.targetRecipientId"> → {{ getUserDisplayName(reply.targetRecipientId) }}</span>
+                          ：{{ reply.content }}
+                        </span>
+                        <span class="reply-time-mini">{{ formatTime(reply.createdAt) }}</span>
+                        <el-button size="small" circle @click.stop="activeReplyId = reply.id; inlineReplyContent = ''" style="flex-shrink:0;padding:0 4px;min-width:auto;height:auto;font-size:13px;border:none;">💬</el-button>
+                      </div>
+                      <div v-if="activeReplyId === reply.id" style="display:flex;gap:4px;margin:4px 0;align-items:center;">
+                        <el-input v-model="inlineReplyContent" size="small" placeholder="回复..." style="flex:1;" @keyup.enter="submitInlineReply(reply)" />
+                        <el-button size="small" type="primary" @click="submitInlineReply(reply)" :loading="inlineReplyLoading">发送</el-button>
+                        <el-button size="small" @click="cancelInlineReply">取消</el-button>
+                      </div>
                     </div>
                   </div>
                   <span v-else style="color:#999;">-</span>
@@ -228,13 +252,21 @@
               <el-table-column label="回复记录" min-width="250">
                 <template #default="scope">
                   <div v-if="getRecipientReplies(scope.row.recipient_id).length > 0">
-                    <div v-for="(reply, idx) in getRecipientReplies(scope.row.recipient_id)" :key="idx" class="recipient-reply-line">
-                      <span :class="getReplyClass(reply)">
-                        <strong>{{ getUserDisplayName(reply.senderId) }}</strong>
-                        <span v-if="reply.targetRecipientId"> → {{ getUserDisplayName(reply.targetRecipientId) }}</span>
-                        ：{{ reply.content }}
-                      </span>
-                      <span class="reply-time-mini">{{ formatTime(reply.createdAt) }}</span>
+                    <div v-for="(reply, idx) in getRecipientReplies(scope.row.recipient_id)" :key="idx">
+                      <div class="recipient-reply-line">
+                        <span :class="getReplyClass(reply)">
+                          <strong>{{ getUserDisplayName(reply.senderId) }}</strong>
+                          <span v-if="reply.targetRecipientId"> → {{ getUserDisplayName(reply.targetRecipientId) }}</span>
+                          ：{{ reply.content }}
+                        </span>
+                        <span class="reply-time-mini">{{ formatTime(reply.createdAt) }}</span>
+                        <el-button size="small" circle @click.stop="activeReplyId = reply.id; inlineReplyContent = ''" style="flex-shrink:0;padding:0 4px;min-width:auto;height:auto;font-size:13px;border:none;">💬</el-button>
+                      </div>
+                      <div v-if="activeReplyId === reply.id" style="display:flex;gap:4px;margin:4px 0;align-items:center;">
+                        <el-input v-model="inlineReplyContent" size="small" placeholder="回复..." style="flex:1;" @keyup.enter="submitInlineReply(reply)" />
+                        <el-button size="small" type="primary" @click="submitInlineReply(reply)" :loading="inlineReplyLoading">发送</el-button>
+                        <el-button size="small" @click="cancelInlineReply">取消</el-button>
+                      </div>
                     </div>
                   </div>
                   <span v-else style="color:#999;">-</span>
@@ -261,13 +293,21 @@
           <el-table-column label="回复记录" min-width="280">
             <template #default="scope">
               <div v-if="getRecipientReplies(scope.row.recipient_id).length > 0">
-                <div v-for="(reply, idx) in getRecipientReplies(scope.row.recipient_id)" :key="idx" class="recipient-reply-line">
-                  <span :class="getReplyClass(reply)">
-                        <strong>{{ getUserDisplayName(reply.senderId) }}</strong>
-                        <span v-if="reply.targetRecipientId"> → {{ getUserDisplayName(reply.targetRecipientId) }}</span>
-                        ：{{ reply.content }}
-                      </span>
-                  <span class="reply-time-mini">{{ formatTime(reply.createdAt) }}</span>
+                <div v-for="(reply, idx) in getRecipientReplies(scope.row.recipient_id)" :key="idx">
+                  <div class="recipient-reply-line">
+                    <span :class="getReplyClass(reply)">
+                      <strong>{{ getUserDisplayName(reply.senderId) }}</strong>
+                      <span v-if="reply.targetRecipientId"> → {{ getUserDisplayName(reply.targetRecipientId) }}</span>
+                      ：{{ reply.content }}
+                    </span>
+                    <span class="reply-time-mini">{{ formatTime(reply.createdAt) }}</span>
+                    <el-button size="small" circle @click.stop="activeReplyId = reply.id; inlineReplyContent = ''" style="flex-shrink:0;padding:0 4px;min-width:auto;height:auto;font-size:13px;border:none;">💬</el-button>
+                  </div>
+                  <div v-if="activeReplyId === reply.id" style="display:flex;gap:4px;margin:4px 0;align-items:center;">
+                    <el-input v-model="inlineReplyContent" size="small" placeholder="回复..." style="flex:1;" @keyup.enter="submitInlineReply(reply)" />
+                    <el-button size="small" type="primary" @click="submitInlineReply(reply)" :loading="inlineReplyLoading">发送</el-button>
+                    <el-button size="small" @click="cancelInlineReply">取消</el-button>
+                  </div>
                 </div>
               </div>
               <span v-else style="color:#999;">-</span>
@@ -318,6 +358,13 @@
         </div>
       </div>
       <template #footer>
+        <el-button 
+          v-if="selectedComm"
+          :type="selectedComm.hasFlagged ? 'warning' : 'default'"
+          @click="toggleFlagFromDetail"
+        >
+          {{ selectedComm.hasFlagged ? '取消红旗' : '标记红旗' }}
+        </el-button>
         <el-button @click="detailVisible = false">关闭</el-button>
       </template>
     </el-dialog>
@@ -411,6 +458,11 @@ const followUpContent = ref('')
 const followUpTarget = ref(null)
 const followUpTargetRecipient = ref(null)
 const followUpLoading = ref(false)
+
+// inline 回复（回复记录中追加回复）
+const activeReplyId = ref(null)
+const inlineReplyContent = ref('')
+const inlineReplyLoading = ref(false)
 
 const typeMap = {
   paid_urgent: '付费加急',
@@ -506,10 +558,11 @@ const filteredCommunications = computed(() => {
   return result
 })
 
+  // 查看详情
   const viewDetail = async (comm) => {
   selectedComm.value = comm
   detailVisible.value = true
-  
+
   // 如果有新回复，清除标记
   if (comm.hasNewReply) {
     try {
@@ -535,6 +588,62 @@ const toggleGlobalCompleted = async (comm, isCompleted) => {
   } catch (e) {
     ElMessage.error('操作失败');
   }
+}
+
+// 切换红旗标记（通讯级别）
+const toggleFlag = async (msg) => {
+  try {
+    const newVal = !msg.hasFlagged
+    await communicationAPI.toggleCommFlag(msg.id, newVal)
+    msg.hasFlagged = newVal
+    ElMessage.success(newVal ? '已标记红旗' : '已取消红旗')
+  } catch (e) {
+    ElMessage.error('操作失败')
+  }
+}
+
+// 详情弹窗中切换红旗
+const toggleFlagFromDetail = async () => {
+  if (!selectedComm.value) return
+  try {
+    const newVal = !selectedComm.value.hasFlagged
+    await communicationAPI.toggleCommFlag(selectedComm.value.id, newVal)
+    selectedComm.value.hasFlagged = newVal
+    ElMessage.success(newVal ? '已标记红旗' : '已取消红旗')
+  } catch (e) {
+    ElMessage.error('操作失败')
+  }
+}
+
+// 提交 inline 回复（回复记录中的追加回复）
+const submitInlineReply = async (reply) => {
+  const content = inlineReplyContent.value.trim()
+  if (!content) {
+    ElMessage.warning('请输入回复内容')
+    return
+  }
+  inlineReplyLoading.value = true
+  try {
+    await communicationAPI.createReply(selectedComm.value.id, {
+      content,
+      targetRecipientId: reply.senderId
+    }, true)
+    ElMessage.success('回复成功')
+    inlineReplyContent.value = ''
+    activeReplyId.value = null
+    // 重新加载详情
+    const { data } = await communicationAPI.getById(selectedComm.value.id)
+    selectedComm.value = data
+  } catch (error) {
+    ElMessage.error('回复失败：' + (error.message || '未知错误'))
+  } finally {
+    inlineReplyLoading.value = false
+  }
+}
+
+const cancelInlineReply = () => {
+  activeReplyId.value = null
+  inlineReplyContent.value = ''
 }
 
 // 获取某个接收人的最新回复
@@ -611,10 +720,16 @@ const getReplyClass = (reply) => {
 const loadCommunications = async () => {
   loading.value = true
   try {
-    const response = await communicationAPI.getAll()
     const { data: { user: authUser } } = await supabase.auth.getUser()
     if (authUser) {
-      const mine = response.data.filter(c => c.senderId === authUser.id)
+      const response = await communicationAPI.getAll()
+      const mine = response.data.filter(c => c.senderId === authUser.id).map(c => {
+        // 计算 hasFlagged：发送人视角，取 communications 表级 is_flagged
+        return {
+          ...c,
+          hasFlagged: !!c.is_flagged
+        }
+      })
       communications.value = mine
     }
   } catch (error) {

@@ -50,6 +50,8 @@
                 <el-radio value="all">全部用户</el-radio>
                 <el-radio value="business">仅业务端</el-radio>
                 <el-radio value="lab">仅实验室端</el-radio>
+                <el-radio value="qingdao_business">青岛业务</el-radio>
+                <el-radio value="non_qingdao_business">非青岛业务</el-radio>
               </el-radio-group>
             </el-form-item>
             <el-form-item label="附件图片">
@@ -422,6 +424,14 @@ const filteredAnnouncements = computed(() => {
   let list = announcements.value.filter(a => {
     if (a.targetRole === 'all') return true
     if (a.targetRole === currentUserRole.value) return true
+    // 青岛业务
+    if (a.targetRole === 'qingdao_business') {
+      return currentUser.value?.department_level1 === '业务' && currentUser.value?.department_level3 === '青岛'
+    }
+    // 非青岛业务
+    if (a.targetRole === 'non_qingdao_business') {
+      return currentUser.value?.department_level1 === '业务' && currentUser.value?.department_level3 !== '青岛'
+    }
     return false
   })
   if (searchKeyword.value) {
@@ -626,11 +636,19 @@ const handleSend = async () => {
   }
   sending.value = true
   try {
+    // 青岛/非青岛业务需传入 target_regions
+    let targetRegions = null
+    if (form.targetRole === 'qingdao_business') {
+      targetRegions = 'qingdao'
+    } else if (form.targetRole === 'non_qingdao_business') {
+      targetRegions = 'non_qingdao'
+    }
     await announcementAPI.create({
       title: form.title,
       content: form.content,
       attachments: form.attachments,
-      target_role: form.targetRole
+      target_role: form.targetRole,
+      target_regions: targetRegions
     })
     ElMessage.success('发布成功')
     resetForm()

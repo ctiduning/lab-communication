@@ -288,25 +288,25 @@ const logout = async () => {
   try {
     await authAPI.logout();
   } catch (e) {}
-  sessionStorage.removeItem('cachedUser');
   localStorage.removeItem('token');
   localStorage.removeItem('user');
   localStorage.removeItem('sb-qgoqhjwekairknkuqisi-auth-token');
+  sessionStorage.removeItem('cachedUser');
   sessionStorage.clear();
   // 使用相对路径，让开发服务器处理路由
   router.push('/login');
 };
 
 const loadUser = async () => {
-  // 1. 先从缓存读取，立即渲染
+  // 先从缓存读取，立即渲染
   const cached = sessionStorage.getItem('cachedUser');
   if (cached) {
     try {
       user.value = JSON.parse(cached);
-      refreshUnreadCount(); // 后台静默刷新未读数
-    } catch (e) { console.warn('缓存解析失败', e); }
+    } catch (e) { /* ignore */ }
   }
 
+  // 后台拉最新数据
   const { data: { user: authUser } } = await supabase.auth.getUser();
   if (!authUser) { router.push('/login'); return; }
 
@@ -326,8 +326,6 @@ const loadUser = async () => {
       department: profile.department || '',
       priority: profile.priority === 1 ? 'leader' : 'member'
     };
-    // 写入缓存
-    sessionStorage.setItem('cachedUser', JSON.stringify(user.value));
   } else {
     user.value = {
       id: authUser.id,
@@ -342,6 +340,9 @@ const loadUser = async () => {
       priority: meta.priority === 1 ? 'leader' : 'member'
     };
   }
+
+  // 写入缓存
+  sessionStorage.setItem('cachedUser', JSON.stringify(user.value));
   localStorage.setItem('user', JSON.stringify(user.value));
 };
 
@@ -401,13 +402,6 @@ const loadSentNewReplyCount = async () => {
     sentNewReplyCount.value = data.count;
     console.log('[新回复数量] API返回:', data.count);
   } catch (error) { console.error('加载新回复数量失败:', error); }
-};
-
-// 刷新所有未读数（缓存加载后后台静默刷新）
-const refreshUnreadCount = () => {
-  loadUnreadCount();
-  loadPendingMsgCount();
-  loadSentNewReplyCount();
 };
 
 const subscribeMessages = () => {

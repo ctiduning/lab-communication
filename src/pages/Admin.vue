@@ -1276,7 +1276,7 @@ const loadCommunications = async (page = commPage.value) => {
       sampleCode: c.sample_code,
       senderName: c.sender?.name || '-',
       senderEmployeeId: c.sender?.employee_id || '-',
-      recipientNames: (c.communication_recipients || []).map(r => r.profiles?.name || '-').join(', '),
+      recipientNames: (c.communication_recipients || []).map(r => r.recipient?.name || '-').join(', '),
       replyCount: c.replies?.[0]?.count || 0,
       status: c.status,
       createdAt: c.created_at
