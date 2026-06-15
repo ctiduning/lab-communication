@@ -483,8 +483,99 @@
         </div>
         <div v-else class="no-attachment">暂无附件</div>
 
-        <h4 style="margin-top: 20px;">所有接收人状态</h4>
-        <el-table :data="selectedMessage.recipientDetails || []" border size="small">
+        <h4 style="margin-top: 20px;">接收人状态</h4>
+        <div v-if="!selectedMessage?.isRecalled && selectedMessage.departmentCardIds && selectedMessage.departmentCardIds.length > 0">
+          <!-- 部门名片分组 -->
+          <div v-for="(group, gIdx) in getDeptCardGroups(selectedMessage)" :key="gIdx" style="margin-bottom: 12px; border: 1px solid #ebeef5; border-radius: 4px; padding: 0;">
+            <div style="background: #f0f5ff; padding: 8px 12px; border-radius: 4px 4px 0 0; font-weight: bold; font-size: 13px; display: flex; align-items: center; gap: 8px;">
+              <span>{{ group.deptName }}</span>
+              <el-tag v-if="group.hasReplied" size="small" type="success">已处理（{{ group.repliedByName }}）</el-tag>
+              <el-tag v-else size="small" type="danger">待处理</el-tag>
+            </div>
+            <div style="padding: 8px;">
+              <el-table :data="group.recipients" border size="small" style="width: 100%;">
+                <el-table-column prop="name" label="姓名" width="80"></el-table-column>
+                <el-table-column label="角色" width="100">
+                  <template #default="scope">
+                    {{ getRoleDisplayName(scope.row.role) }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="回复记录" min-width="220">
+                  <template #default="scope">
+                    <div v-if="getRecipientReplies(scope.row.recipient_id).length > 0">
+                      <div v-for="(reply, idx) in getRecipientReplies(scope.row.recipient_id)" :key="idx" class="recipient-reply-line">
+                        <span :class="getReplyClass(reply)">
+                          <strong>{{ getReceiverDisplayName(reply.senderId) }}</strong>
+                          <span v-if="reply.targetRecipientId"> → {{ getReceiverDisplayName(reply.targetRecipientId) }}</span>
+                          ：{{ reply.content }}
+                        </span>
+                        <span class="reply-time-mini">{{ formatTime(reply.createdAt) }}</span>
+                      </div>
+                    </div>
+                    <span v-else style="color:#999;">-</span>
+                  </template>
+                </el-table-column>
+                <el-table-column label="已读" width="56" align="center">
+                  <template #default="scope">
+                    <span v-if="scope.row.is_read" style="color:#67c23a;">✓</span>
+                    <span v-else style="color:#f56c6c;">✗</span>
+                  </template>
+                </el-table-column>
+                <el-table-column label="红旗" width="50" align="center">
+                  <template #default="scope">
+                    <span v-if="scope.row.is_flagged" style="color:#f56c6c;font-size:14px;">🚩</span>
+                    <span v-else>-</span>
+                  </template>
+                </el-table-column>
+                <el-table-column label="状态" width="72" align="center">
+                  <template #default="scope">
+                    <el-tag v-if="scope.row.is_completed" size="small" type="success">完结</el-tag>
+                    <el-tag v-else-if="scope.row.has_replied" size="small" type="success">已回复</el-tag>
+                    <el-tag v-else size="small" type="danger">未回复</el-tag>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </div>
+          </div>
+          <!-- 非部门名片的普通收件人 -->
+          <div v-if="getNonDeptCardRecipients(selectedMessage).length > 0">
+            <h5 style="margin: 12px 0 8px; font-size: 13px; color: #666;">其他收件人</h5>
+            <el-table :data="getNonDeptCardRecipients(selectedMessage)" border size="small" style="width: 100%;">
+              <el-table-column prop="name" label="姓名" width="80"></el-table-column>
+              <el-table-column prop="department" label="部门" width="110"></el-table-column>
+              <el-table-column label="回复记录" min-width="220">
+                <template #default="scope">
+                  <div v-if="getRecipientReplies(scope.row.recipient_id).length > 0">
+                    <div v-for="(reply, idx) in getRecipientReplies(scope.row.recipient_id)" :key="idx" class="recipient-reply-line">
+                      <span :class="getReplyClass(reply)">
+                        <strong>{{ getReceiverDisplayName(reply.senderId) }}</strong>
+                        <span v-if="reply.targetRecipientId"> → {{ getReceiverDisplayName(reply.targetRecipientId) }}</span>
+                        ：{{ reply.content }}
+                      </span>
+                      <span class="reply-time-mini">{{ formatTime(reply.createdAt) }}</span>
+                    </div>
+                  </div>
+                  <span v-else style="color:#999;">-</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="已读" width="56" align="center">
+                <template #default="scope">
+                  <span v-if="scope.row.is_read" style="color:#67c23a;">✓</span>
+                  <span v-else style="color:#f56c6c;">✗</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="状态" width="72" align="center">
+                <template #default="scope">
+                  <el-tag v-if="scope.row.is_completed" size="small" type="success">完结</el-tag>
+                  <el-tag v-else-if="scope.row.has_replied" size="small" type="success">已回复</el-tag>
+                  <el-tag v-else size="small" type="danger">未回复</el-tag>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+        </div>
+        <!-- 没有部门名片的收件人，用传统表格 -->
+        <el-table v-else :data="selectedMessage.recipientDetails || []" border size="small" style="width: 100%;">
           <el-table-column prop="name" label="接收人" width="100"></el-table-column>
           <el-table-column prop="department" label="部门" width="120"></el-table-column>
           <el-table-column label="已读" width="70" align="center">
@@ -607,7 +698,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { ElMessage } from 'element-plus';
 import { Search, CircleCheck, CircleClose, Document } from '@element-plus/icons-vue';
-import { communicationAPI, userAPI, reactionAPI } from '../api';
+import { communicationAPI, userAPI, reactionAPI, getRoleDisplayName } from '../api';
 import { supabase } from '../utils/supabase';
 
 const activeTab = ref('pending');
@@ -631,6 +722,63 @@ function toggleCollapsed(recipientId) {
 
 const buildThreads = (comm) => {
   return communicationAPI.buildThreads ? communicationAPI.buildThreads(comm) : { all: comm.replies || [], threads: [] };
+};
+
+// ===== 接收人部门分组（与已发送详情样式一致） =====
+
+// 获取某个接收人的所有回复
+const getRecipientReplies = (recipientId) => {
+  if (!selectedMessage.value || !selectedMessage.value.replies) return [];
+  return selectedMessage.value.replies.filter(r =>
+    r.senderId === recipientId || r.targetRecipientId === recipientId
+  ).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+};
+
+// 按 department_level3 分组部门名片持有人
+const getDeptCardGroups = (comm) => {
+  const deptCardIds = comm.departmentCardIds || [];
+  if (deptCardIds.length === 0) return [];
+  const recipients = comm.recipientDetails || [];
+  const deptCardRecipients = recipients.filter(r => deptCardIds.includes(r.recipient_id));
+  const groups = {};
+  deptCardRecipients.forEach(r => {
+    const dept = r.department_level3 || r.department || '未知部门';
+    if (!groups[dept]) {
+      groups[dept] = { deptName: dept, recipients: [], hasReplied: false, repliedByName: r.replied_by || '' };
+    }
+    groups[dept].recipients.push(r);
+    if (r.has_replied) {
+      groups[dept].hasReplied = true;
+      if (r.replied_by) groups[dept].repliedByName = r.replied_by;
+    }
+  });
+  return Object.values(groups);
+};
+
+// 获取非部门名片的普通收件人
+const getNonDeptCardRecipients = (comm) => {
+  const deptCardIds = comm.departmentCardIds || [];
+  if (deptCardIds.length === 0) return [];
+  return (comm.recipientDetails || []).filter(r => !deptCardIds.includes(r.recipient_id));
+};
+
+// 获取回复内容的样式类
+const getReplyClass = (reply) => {
+  if (!reply || !reply.content) return '';
+  if (reply.content === '同意') return 'reply-agree';
+  if (reply.content === '拒绝') return 'reply-reject';
+  if (reply.targetRecipientId) return 'reply-follow-up';
+  return 'reply-normal';
+};
+
+// 在接收人状态卡片中显示名字（优先从 recipientDetails 查找，回退到 allUsers）
+const getReceiverDisplayName = (userId) => {
+  if (!selectedMessage.value) return '未知';
+  const recipient = selectedMessage.value.recipientDetails?.find(r => r.recipient_id === userId);
+  if (recipient) return recipient.name || '未知';
+  if (userId === selectedMessage.value.senderId) return selectedMessage.value.senderName || '发起人';
+  const user = allUsers.value.find(u => u.id === userId);
+  return user ? (user.name || user.username) : '未知';
 };
 
 const searchKeyword = ref('');
@@ -1358,4 +1506,30 @@ onUnmounted(() => {
   font-size: 12px !important;
   min-height: 24px !important;
 }
+
+/* 接收人状态卡片中的回复记录样式 */
+.recipient-reply-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 2px 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.recipient-reply-line + .recipient-reply-line {
+  border-top: 1px dashed #eee;
+  margin-top: 2px;
+  padding-top: 4px;
+}
+.reply-time-mini {
+  white-space: nowrap;
+  color: #999;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+.reply-agree { color: #67c23a; }
+.reply-reject { color: #f56c6c; }
+.reply-follow-up { color: #2b579a; font-style: italic; }
+.reply-normal { color: #333; }
 </style>
