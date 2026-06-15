@@ -489,7 +489,7 @@
           <div v-for="(group, gIdx) in getAllDeptGroups(selectedMessage)" :key="gIdx" style="margin-bottom: 12px; border: 1px solid #ebeef5; border-radius: 4px; padding: 0;">
             <div style="background: #f0f5ff; padding: 8px 12px; border-radius: 4px 4px 0 0; font-weight: bold; font-size: 13px; display: flex; align-items: center; gap: 8px;">
               <span>{{ group.deptName }}</span>
-              <el-tag v-if="group.hasReplied" size="small" type="success">已处理（{{ group.repliedByName }}）</el-tag>
+              <el-tag v-if="group.hasReplied" size="small" type="success">已处理{{ group.repliedByName ? '（' + group.repliedByName + '）' : '' }}</el-tag>
               <el-tag v-else size="small" type="danger">待处理</el-tag>
             </div>
             <div style="padding: 8px;">
@@ -700,6 +700,7 @@ const getRecipientReplies = (recipientId) => {
 
 // 所有接收人按部门分组（不依赖 departmentCardIds，新旧消息均适用）
 const getAllDeptGroups = (comm) => {
+  if (!comm) return [];
   const recipients = comm.recipientDetails || [];
   const groups = {};
   recipients.forEach(r => {
