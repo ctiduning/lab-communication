@@ -48,7 +48,9 @@
     <el-table :data="filteredCommunications" border stripe v-loading="loading" empty-text="暂无发送记录" v-if="activeFilter !== 'recalled'" @row-click="viewDetail" :row-class-name="getRowClassName">
       <el-table-column label="状态" width="110" align="center">
         <template #default="scope">
-          <el-tag v-if="scope.row.isRecalled" size="small" type="warning">已撤回</el-tag>
+          <el-tag v-if="scope.row.isRecalled" size="small" type="warning">
+            {{ getRecallStatusText(scope.row) }}
+          </el-tag>
           <el-tag v-else-if="scope.row.isCompleted" size="small" type="success">已完结</el-tag>
           <el-tag v-else-if="computeReplyStatus(scope.row) === 'replied'" size="small" type="success">已回复</el-tag>
           <el-tag v-else size="small" type="danger">未回复</el-tag>
@@ -637,8 +639,20 @@ const computeReplyStatus = (comm) => {
   return repliedCount > 0 ? 'replied' : 'unreplied'
 }
 
+// 获取撤回消息状态文本
+const getRecallStatusText = (comm) => {
+  const recipients = comm.recipientDetails || []
+  const repliedCount = recipients.filter(r => r.has_replied).length
+  const total = recipients.length
+  if (repliedCount === 0) return '已撤回'
+  return `已撤回（${repliedCount}/${total} 已回复）`
+}
+
 // 获取行样式类名
 const getRowClassName = ({ row }) => {
+  if (row.isRecalled) {
+    return 'recalled-row'
+  }
   if (row.hasNewReply) {
     return 'has-new-reply'
   }
@@ -650,15 +664,12 @@ const unrepliedCount = computed(() => communications.value.filter(c => computeRe
 const repliedCount = computed(() => communications.value.filter(c => computeReplyStatus(c) === 'replied' && !c.isCompleted).length)
 const completedCount = computed(() => communications.value.filter(c => c.isCompleted).length)
 const recalledCount = computed(() => recalledMessages.value.length)
-const flaggedCount = computed(() => communications.value.filter(c => c.hasFlagged && !c.isRecalled).length)
+const flaggedCount = computed(() => communications.value.filter(c => c.hasFlagged).length)
 
-// 判断消息是否在5分钟撤回窗口内
+// 判断消息是否可以撤回（不限时间，只要未撤回即可）
 const canRecall = (comm) => {
   if (!comm || !comm.createdAt) return false
-  const now = new Date()
-  const createdAt = new Date(comm.createdAt)
-  const diffMinutes = (now - createdAt) / (1000 * 60)
-  return diffMinutes <= 5 && !comm.isRecalled
+  return !comm.isRecalled
 }
 
 // 筛选（支持模糊搜索 + 状态过滤）
@@ -668,8 +679,8 @@ const filteredCommunications = computed(() => {
     return recalledMessages.value
   }
   
-  // 过滤掉已撤回的消息（它们应该在"已撤回"标签页中）
-  let result = communications.value.filter(c => !c.isRecalled)
+  // 所有消息（包括已撤回）进入主表格过滤系统
+  let result = communications.value
   
   // 状态过滤（简化版：未回复/已回复/已完结/已撤回）
   if (activeFilter.value !== 'all') {
@@ -680,7 +691,7 @@ const filteredCommunications = computed(() => {
     } else if (activeFilter.value === 'flagged') {
       result = result.filter(c => c.hasFlagged)
     } else if (activeFilter.value === 'unreplied') {
-      result = result.filter(c => computeReplyStatus(c) === 'unreplied' && !c.isCompleted)
+      result = result.filter(c => !c.isRecalled && computeReplyStatus(c) === 'unreplied' && !c.isCompleted)
     } else if (activeFilter.value === 'replied') {
       result = result.filter(c => computeReplyStatus(c) === 'replied' && !c.isCompleted)
     }
@@ -1278,6 +1289,14 @@ const filterList = () => {
   padding: 20px;
   background: #f9f9f9;
   border-radius: 8px;
+}
+
+/* 已撤回行样式 */
+.recalled-row {
+  background-color: #fff0f0 !important;
+}
+.recalled-row:hover {
+  background-color: #ffe0e0 !important;
 }
 
 /* 新回复高亮样式 */

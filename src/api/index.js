@@ -1176,12 +1176,6 @@ export const communicationAPI = {
     if (!comm) throw new Error('消息不存在');
     if (comm.sender_id !== userId) throw new Error('只能撤回自己发送的消息');
 
-    // 检查是否超过5分钟
-    const createdAt = new Date(comm.created_at);
-    const now = new Date();
-    const diffMinutes = (now - createdAt) / (1000 * 60);
-    if (diffMinutes > 5) throw new Error('超过5分钟，无法撤回');
-
     // 标记为已撤回
     const { error } = await supabase
       .from('communications')

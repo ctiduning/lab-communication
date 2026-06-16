@@ -25,6 +25,7 @@
           <el-table-column label="状态" width="100" align="center" fixed="left">
             <template #default="scope">
               <el-tag v-if="scope.row.myCompleted || scope.row.isCompleted" size="small" type="info">已完结</el-tag>
+              <el-tag v-else-if="scope.row.isRecalled && !scope.row.hasReplied" size="small" type="warning">已撤回</el-tag>
               <el-tag v-else-if="scope.row.hasReplied" size="small" type="success">已回复</el-tag>
               <el-tag v-else size="small" type="warning">待处理</el-tag>
             </template>
@@ -123,6 +124,7 @@
           <el-table-column label="状态" width="100" align="center" fixed="left">
             <template #default="scope">
               <el-tag v-if="scope.row.myCompleted || scope.row.isCompleted" size="small" type="info">已完结</el-tag>
+              <el-tag v-else-if="scope.row.isRecalled && !scope.row.hasReplied" size="small" type="warning">已撤回</el-tag>
               <el-tag v-else-if="scope.row.hasReplied" size="small" type="success">已回复</el-tag>
               <el-tag v-else size="small" type="warning">待处理</el-tag>
             </template>
@@ -303,9 +305,16 @@
               {{ formatTime(scope.row.recalledAt) }}
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="80" align="center">
+          <el-table-column label="操作" width="150" align="center">
             <template #default="scope">
               <el-button size="small" @click.stop="viewDetail(scope.row)">查看</el-button>
+              <el-button 
+                size="small" 
+                :type="scope.row.hasFlagged ? 'warning' : 'default'"
+                @click.stop="toggleFlag(scope.row)"
+              >
+                {{ scope.row.hasFlagged ? '取消红旗' : '红旗' }}
+              </el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -335,6 +344,7 @@
           <el-table-column label="状态" width="100" align="center" fixed="left">
             <template #default="scope">
               <el-tag v-if="scope.row.myCompleted || scope.row.isCompleted" size="small" type="info">已完结</el-tag>
+              <el-tag v-else-if="scope.row.isRecalled && !scope.row.hasReplied" size="small" type="warning">已撤回</el-tag>
               <el-tag v-else-if="scope.row.hasReplied" size="small" type="success">已回复</el-tag>
               <el-tag v-else size="small" type="warning">待处理</el-tag>
             </template>
@@ -736,9 +746,9 @@ const loadMessages = async () => {
   }
 };
 
-// 全部消息：所有未撤回且非系统通知的消息
+// 全部消息：所有非系统通知的消息（包含已撤回）
 const allMessages = computed(() => {
-  let result = messages.value.filter(m => !m.isRecalled && !m.isSystemNotification);
+  let result = messages.value.filter(m => !m.isSystemNotification);
 
   if (showFlaggedOnly.value) {
     result = result.filter(r => r.hasFlagged);
@@ -787,10 +797,10 @@ const pendingMessages = computed(() => {
   return result;
 });
 
-// 已处理消息：已回复 且 我个人未完结 且 全局未完结 且 未撤回 且 非系统通知
+// 已处理消息：已回复 且 我个人未完结 且 全局未完结 且 非系统通知（包含已撤回）
 const processedMessages = computed(() => {
   let result = messages.value.filter(m => 
-    m.hasReplied && !m.myCompleted && !m.isCompleted && !m.isRecalled && !m.isSystemNotification
+    m.hasReplied && !m.myCompleted && !m.isCompleted && !m.isSystemNotification
   );
 
   // 模糊搜索
@@ -812,10 +822,10 @@ const processedMessages = computed(() => {
   return result;
 });
 
-// 已完结消息：我个人已完结 或 全局已完结 且 未撤回 且 非系统通知
+// 已完结消息：我个人已完结 或 全局已完结 且 非系统通知（包含已撤回）
 const completedMessages = computed(() => {
   let result = messages.value.filter(m => 
-    (m.myCompleted || m.isCompleted) && !m.isRecalled && !m.isSystemNotification
+    (m.myCompleted || m.isCompleted) && !m.isSystemNotification
   );
 
   // 模糊搜索
@@ -861,8 +871,9 @@ const recalledMessages = computed(() => {
   return result;
 });
 
-// 表格行样式：待处理消息显示淡蓝色底色
+// 表格行样式：待处理消息显示淡蓝色底色，已撤回显示浅红底色
 const tableRowClassName = ({ row }) => {
+  if (row.isRecalled) return 'recalled-row'
   if (!row.hasReplied && !row.myCompleted && !row.isCompleted) {
     return 'pending-row';
   }
@@ -1244,5 +1255,14 @@ onUnmounted(() => {
   color: #999;
   font-size: 14px;
   padding: 8px 0;
+}
+
+/* 已撤回 - 浅红底色 */
+::deep(.recalled-row) {
+  background-color: #fff0f0 !important;
+}
+
+::deep(.recalled-row:hover) {
+  background-color: #ffe0e0 !important;
 }
 </style>

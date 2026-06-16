@@ -25,6 +25,7 @@
           <el-table-column label="状态" width="100" align="center" fixed="left">
             <template #default="scope">
               <el-tag v-if="scope.row.myCompleted || scope.row.isCompleted" size="small" type="info">已完结</el-tag>
+              <el-tag v-else-if="scope.row.isRecalled && !scope.row.hasReplied" size="small" type="warning">已撤回</el-tag>
               <el-tag v-else-if="scope.row.hasReplied" size="small" type="success">已回复</el-tag>
               <el-tag v-else size="small" type="warning">待处理</el-tag>
             </template>
@@ -128,6 +129,7 @@
           <el-table-column label="状态" width="100" align="center" fixed="left">
             <template #default="scope">
               <el-tag v-if="scope.row.myCompleted || scope.row.isCompleted" size="small" type="info">已完结</el-tag>
+              <el-tag v-else-if="scope.row.isRecalled && !scope.row.hasReplied" size="small" type="warning">已撤回</el-tag>
               <el-tag v-else-if="scope.row.hasReplied" size="small" type="success">已回复</el-tag>
               <el-tag v-else size="small" type="warning">待处理</el-tag>
             </template>
@@ -334,9 +336,16 @@
               {{ formatTime(scope.row.recalledAt) }}
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="80" align="center">
+          <el-table-column label="操作" width="150" align="center">
             <template #default="scope">
               <el-button size="small" @click.stop="viewDetail(scope.row)">查看</el-button>
+              <el-button 
+                size="small" 
+                :type="scope.row.hasFlagged ? 'warning' : 'default'"
+                @click.stop="toggleFlag(scope.row)"
+              >
+                {{ scope.row.hasFlagged ? '取消红旗' : '红旗' }}
+              </el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -366,6 +375,7 @@
           <el-table-column label="状态" width="100" align="center" fixed="left">
             <template #default="scope">
               <el-tag v-if="scope.row.myCompleted || scope.row.isCompleted" size="small" type="info">已完结</el-tag>
+              <el-tag v-else-if="scope.row.isRecalled && !scope.row.hasReplied" size="small" type="warning">已撤回</el-tag>
               <el-tag v-else-if="scope.row.hasReplied" size="small" type="success">已回复</el-tag>
               <el-tag v-else size="small" type="warning">待处理</el-tag>
             </template>
@@ -454,6 +464,7 @@
           <el-table-column label="状态" width="100" align="center" fixed="left">
             <template #default="scope">
               <el-tag v-if="scope.row.myCompleted || scope.row.isCompleted" size="small" type="info">已完结</el-tag>
+              <el-tag v-else-if="scope.row.isRecalled && !scope.row.hasReplied" size="small" type="warning">已撤回</el-tag>
               <el-tag v-else-if="scope.row.hasReplied" size="small" type="success">已回复</el-tag>
               <el-tag v-else size="small" type="warning">待处理</el-tag>
             </template>
@@ -1140,7 +1151,7 @@ const loadMore = () => {
 
 // 全部消息：所有未撤回且非系统通知的消息
 const allMessages = computed(() => {
-  let result = messages.value.filter(m => !m.isRecalled && !m.isSystemNotification);
+  let result = messages.value.filter(m => !m.isSystemNotification);
 
   // 红旗过滤
   if (showFlaggedOnly.value) {
@@ -1194,7 +1205,7 @@ const pendingMessages = computed(() => {
 // 已处理消息：已回复 且 我个人未完结 且 全局未完结 且 未撤回 且 非系统通知
 const processedMessages = computed(() => {
   let result = messages.value.filter(m => 
-    m.hasReplied && !m.myCompleted && !m.isCompleted && !m.isRecalled && !m.isSystemNotification
+    m.hasReplied && !m.myCompleted && !m.isCompleted && !m.isSystemNotification
   );
 
   // 模糊搜索
@@ -1219,7 +1230,7 @@ const processedMessages = computed(() => {
 // 已完结消息：我个人已完结 或 全局已完结 且 未撤回 且 非系统通知
 const completedMessages = computed(() => {
   let result = messages.value.filter(m => 
-    (m.myCompleted || m.isCompleted) && !m.isRecalled && !m.isSystemNotification
+    (m.myCompleted || m.isCompleted) && !m.isSystemNotification
   );
 
   // 模糊搜索
@@ -1267,7 +1278,7 @@ const recalledMessages = computed(() => {
 
 // 红旗消息：所有标记红旗的消息
 const flaggedMessages = computed(() => {
-  let result = messages.value.filter(m => !m.isRecalled && !m.isSystemNotification && m.hasFlagged);
+  let result = messages.value.filter(m => !m.isSystemNotification && m.hasFlagged);
 
   // 模糊搜索
   const kw = searchKeywordFlagged.value.trim().toLowerCase();
@@ -1290,10 +1301,9 @@ const flaggedMessages = computed(() => {
 
 // 表格行样式：待处理消息显示淡蓝色底色
 const tableRowClassName = ({ row }) => {
-  if (!row.hasReplied && !row.isCompleted) {
-    return 'pending-row';
-  }
-  return '';
+  if (row.isRecalled) return 'recalled-row'
+  if (!row.hasReplied && !row.isCompleted) return 'pending-row'
+  return ''
 };
 
 // 点赞/点踩相关函数
@@ -1751,6 +1761,15 @@ onUnmounted(() => {
 
 :deep(.pending-row:hover) {
   background-color: #d9ecff !important;
+}
+
+/* 已撤回行 - 淡红色底色 */
+:deep(.recalled-row) {
+  background-color: #fff0f0 !important;
+}
+
+:deep(.recalled-row:hover) {
+  background-color: #ffe0e0 !important;
 }
 
 /* 详情弹窗底部按钮 */
