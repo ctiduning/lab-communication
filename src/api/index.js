@@ -1744,16 +1744,19 @@ export const announcementAPI = {
 
   // ========== 公告红旗标记（简单update模式） ==========
 
-  // 切换红旗标记（跟接收消息一样，直接 update announcement_reads）
+  // 切换红旗标记（使用 upsert，确保没有记录时也能插入）
   async toggleAnnouncementFlag(announcementId, isFlagged) {
     const userId = await getCurrentUserId()
     if (!userId) throw new Error('未登录')
 
     const { error } = await supabase
       .from('announcement_reads')
-      .update({ is_flagged: isFlagged })
-      .eq('announcement_id', announcementId)
-      .eq('user_id', userId)
+      .upsert({
+        announcement_id: announcementId,
+        user_id: userId,
+        is_flagged: isFlagged,
+        read_at: new Date().toISOString()
+      }, { onConflict: 'announcement_id,user_id' })
 
     if (error) throw error
     return { flagged: isFlagged }

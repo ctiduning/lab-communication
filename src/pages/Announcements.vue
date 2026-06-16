@@ -81,19 +81,19 @@
     </el-collapse-transition>
 
     <!-- 搜索栏 + 标签切换 -->
-    <div class="search-bar" style="margin-bottom:16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+    <div class="search-bar">
       <el-input
         v-model="searchKeyword"
         placeholder="搜索标题或内容..."
         clearable
-        style="width:300px;"
+        class="search-input"
         :prefix-icon="Search"
       />
       <el-checkbox v-model="onlyFlagged">仅显示🚩标记</el-checkbox>
-      <span style="font-size:13px;color:#909399;">
+      <span class="result-count">
         共 {{ filteredAnnouncements.length }} 条
       </span>
-      <el-radio-group v-if="isAdmin" v-model="announcementTab" size="small" style="margin-left:auto;">
+      <el-radio-group v-if="isAdmin" v-model="announcementTab" size="small" class="tab-switch">
         <el-radio-button value="active">已发布</el-radio-button>
         <el-radio-button value="recalled">已撤回</el-radio-button>
       </el-radio-group>
@@ -112,13 +112,13 @@
       empty-text="暂无通知公告"
       @selection-change="handleSelectionChange"
     >
-      <el-table-column v-if="isAdmin" type="selection" width="45" />
-      <el-table-column type="index" label="序号" width="60" align="center" :resizable="false">
+      <el-table-column v-if="isAdmin" type="selection" width="60" />
+      <el-table-column type="index" label="序号" width="80" align="center" :resizable="false">
         <template #header>
           <span style="white-space: nowrap;">序号</span>
         </template>
       </el-table-column>
-      <el-table-column label="标题" min-width="280">
+      <el-table-column label="标题" min-width="600">
         <template #default="scope">
           <span v-if="scope.row.isFlagged" style="color:red;margin-right:4px;">🚩</span>
           <span :class="{ 'is-unread-text': !scope.row.isRead }">{{ scope.row.title }}</span>
@@ -127,53 +127,66 @@
           <el-tag v-if="scope.row.republishedAt" size="small" type="success" style="margin-left:4px;">已重发</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="通知内容" min-width="400" max-width="500" show-overflow-tooltip>
+      <el-table-column label="通知内容" min-width="800" max-width="1100" show-overflow-tooltip>
         <template #default="scope">
           <span class="content-preview" :class="{ 'is-unread-text': !scope.row.isRead }">
             {{ truncateContent(scope.row.content, 300) }}
           </span>
         </template>
       </el-table-column>
-      <el-table-column label="发布人" width="100" align="center">
+      <el-table-column label="发布人" width="200" align="center" sortable>
         <template #default="scope">
           <span>{{ scope.row.senderName }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="发布时间" width="170" align="center">
+      <el-table-column label="发布时间" width="280" align="center" sortable>
         <template #default="scope">
           <span>{{ formatTime(scope.row.createdAt) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="已读状态" width="80" align="center">
+      <el-table-column label="已读状态" width="140" align="center">
         <template #default="scope">
           <el-tag v-if="scope.row.isRead" type="info" size="small">已读</el-tag>
           <el-tag v-else type="danger" size="small" effect="dark">未读</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="130" align="center" fixed="right">
+      <el-table-column label="操作" min-width="360" align="center">
         <template #default="scope">
-          <el-button
-            size="small"
-            :type="scope.row.isFlagged ? 'warning' : 'default'"
-            @click.stop="toggleFlag(scope.row)"
-          >
-            {{ scope.row.isFlagged ? '🚩 已标记' : '🚩 标记' }}
-          </el-button>
-          <el-button
-            v-if="isAdmin && scope.row.status === 'active'"
-            size="small"
-            type="warning"
-            @click.stop="handleRecall(scope.row)"
-            style="margin-left:4px;"
-          >
-            撤回
-          </el-button>
-        </template>
-      </el-table-column>
-      <el-table-column v-if="isAdmin" label="管理" width="180" align="center" fixed="right">
-        <template #default="scope">
-          <el-button size="small" type="primary" link @click.stop="handleEdit(scope.row)">{{ scope.row.status === 'recalled' ? '修改重发' : '编辑' }}</el-button>
-          <el-button size="small" type="danger" link @click.stop="handleDelete(scope.row)">删除</el-button>
+          <div class="action-btns">
+            <el-button
+              size="small"
+              :type="scope.row.isFlagged ? 'warning' : 'default'"
+              @click.stop="toggleFlag(scope.row)"
+              class="action-btn"
+            >
+              {{ scope.row.isFlagged ? '🚩 已标记' : '🚩 标记' }}
+            </el-button>
+            <el-button
+              v-if="isAdmin && scope.row.status === 'active'"
+              size="small"
+              type="warning"
+              @click.stop="handleRecall(scope.row)"
+              class="action-btn"
+            >
+              撤回
+            </el-button>
+            <el-button
+              v-if="isAdmin"
+              size="small"
+              type="primary"
+              link
+              @click.stop="handleEdit(scope.row)"
+              class="action-btn"
+            >{{ scope.row.status === 'recalled' ? '修改重发' : '编辑' }}</el-button>
+            <el-button
+              v-if="isAdmin"
+              size="small"
+              type="danger"
+              link
+              @click.stop="handleDelete(scope.row)"
+              class="action-btn"
+            >删除</el-button>
+          </div>
         </template>
       </el-table-column>
     </el-table>
@@ -406,7 +419,9 @@ const handleBatchDelete = async () => {
     }
     loadAnnouncements()
   } catch (error) {
-    // 用户取消
+    if (error !== 'cancel' && error !== 'close') {
+      console.error('批量删除出错:', error)
+    }
   }
 }
 
@@ -448,6 +463,9 @@ const filteredAnnouncements = computed(() => {
     if (isAdmin.value && announcementTab.value === 'recalled') {
       return a.status === 'recalled'
     }
+
+    // 管理员在active标签页可以看到所有公告
+    if (isAdmin.value && announcementTab.value === 'active') return true
 
     if (a.targetRole === 'all') return true
     if (a.targetRole === currentUserRole.value) return true
@@ -525,7 +543,7 @@ const loadAnnouncements = async () => {
   try {
     const { data } = await announcementAPI.list()
     announcements.value = data || []
-    unreadCount.value = filteredAnnouncements.value.filter(a => !a.isRead).length
+    unreadCount.value = announcements.value.filter(a => !a.isRead).length
     await loadAnnouncementReactions()
   } catch (error) {
     console.error('加载公告失败:', error)
@@ -748,7 +766,7 @@ const handleDelete = async (ann) => {
     ElMessage.success('删除成功')
     loadAnnouncements()
   } catch (error) {
-    if (error !== 'cancel') {
+    if (error !== 'cancel' && error !== 'close') {
       ElMessage.error('删除失败：' + (error.message || '未知错误'))
     }
   }
@@ -808,7 +826,7 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.notice-board { padding: 24px; max-width: 1200px; margin: 0 auto; }
+.notice-board { padding: 32px 36px; max-width: 1800px; margin: 0 auto; }
 .board-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
 .board-header h2 { margin: 0; font-size: 22px; color: #333; }
 .header-actions { display: flex; align-items: center; gap: 12px; }
@@ -833,4 +851,14 @@ onUnmounted(() => {
 .upload-thumb .el-button { position: absolute; top: 2px; right: 2px; min-width: 20px; min-height: 20px; width: 20px; height: 20px; padding: 0; font-size: 12px; }
 :deep(.el-table .cell) { padding-left: 14px; padding-right: 14px; line-height: 1.6; }
 :deep(.el-dialog__body) { padding: 24px 28px; }
+
+/* 搜索栏布局 */
+.search-bar { margin-bottom: 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.search-input { width: 400px; }
+.result-count { font-size: 13px; color: #909399; white-space: nowrap; }
+.tab-switch { margin-left: auto; }
+
+/* 操作列按钮 */
+.action-btns { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
+.action-btns .action-btn { margin: 0; padding: 5px 10px; font-size: 12px; white-space: nowrap; }
 </style>
