@@ -97,46 +97,46 @@ const script = extractScript(sourceFile)
 // 1. 列宽验证
 // ============================================================
 describe('列宽统一扩大到约1.5倍', () => {
-  it('标题列 min-width 应为 600（原400，1.5倍）', () => {
+  it('标题列 min-width 应为 280（合理宽度，支持横向滚动）', () => {
     const val = findColumnAttr('标题', 'min-width')
-    expect(val).toBe('600')
+    expect(val).toBe('280')
   })
 
-  it('通知内容列 min-width 应为 800', () => {
+  it('通知内容列 min-width 应为 400', () => {
     const val = findColumnAttr('通知内容', 'min-width')
-    expect(val).toBe('800')
+    expect(val).toBe('400')
   })
 
-  it('通知内容列 max-width 应为 1100', () => {
+  it('通知内容列无显式 max-width（使用 show-overflow-tooltip）', () => {
     const val = findColumnAttr('通知内容', 'max-width')
-    expect(val).toBe('1100')
+    expect(val).toBeNull()
   })
 
-  it('操作列 min-width 应为 360（原240，1.5倍）', () => {
-    const val = findColumnAttr('操作', 'min-width')
-    expect(val).toBe('360')
+  it('操作列 width 应为 300，fixed="right"', () => {
+    const val = findColumnAttr('操作', 'width')
+    expect(val).toBe('300')
   })
 
-  it('发布人列 width 应为 200', () => {
-    expect(findColumnAttr('发布人', 'width')).toBe('200')
+  it('发布人列 width 应为 140', () => {
+    expect(findColumnAttr('发布人', 'width')).toBe('140')
   })
 
-  it('发布时间列 width 应为 280', () => {
-    expect(findColumnAttr('发布时间', 'width')).toBe('280')
+  it('发布时间列 width 应为 190', () => {
+    expect(findColumnAttr('发布时间', 'width')).toBe('190')
   })
 
-  it('已读状态列 width 应为 140', () => {
-    expect(findColumnAttr('已读状态', 'width')).toBe('140')
+  it('已读状态列 width 应为 100', () => {
+    expect(findColumnAttr('已读状态', 'width')).toBe('100')
   })
 
-  it('序号列 width 应为 80', () => {
-    expect(findColumnAttr('序号', 'width')).toBe('80')
+  it('序号列 width 应为 60', () => {
+    expect(findColumnAttr('序号', 'width')).toBe('60')
   })
 
-  it('管理员选择列 width 应为 60', () => {
+  it('管理员选择列 width 应为 55', () => {
     const m = sourceFile.match(/type="selection"\s+width="(\d+)"/)
     expect(m).not.toBeNull()
-    expect(m[1]).toBe('60')
+    expect(m[1]).toBe('55')
   })
 })
 

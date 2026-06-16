@@ -105,6 +105,7 @@
       :data="filteredAnnouncements"
       stripe
       style="width: 100%; font-size: 14px;"
+      class="announcement-table"
       @row-click="handleClickNotice"
       :row-class-name="tableRowClassName"
       :row-style="{ minHeight: '48px' }"
@@ -112,13 +113,13 @@
       empty-text="暂无通知公告"
       @selection-change="handleSelectionChange"
     >
-      <el-table-column v-if="isAdmin" type="selection" width="60" />
-      <el-table-column type="index" label="序号" width="80" align="center" :resizable="false">
+      <el-table-column v-if="isAdmin" type="selection" width="55" />
+      <el-table-column type="index" label="序号" width="60" align="center" :resizable="false">
         <template #header>
           <span style="white-space: nowrap;">序号</span>
         </template>
       </el-table-column>
-      <el-table-column label="标题" min-width="600">
+      <el-table-column label="标题" min-width="280" :resizable="true">
         <template #default="scope">
           <span v-if="scope.row.isFlagged" style="color:red;margin-right:4px;">🚩</span>
           <span :class="{ 'is-unread-text': !scope.row.isRead }">{{ scope.row.title }}</span>
@@ -127,30 +128,30 @@
           <el-tag v-if="scope.row.republishedAt" size="small" type="success" style="margin-left:4px;">已重发</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="通知内容" min-width="800" max-width="1100" show-overflow-tooltip>
+      <el-table-column label="通知内容" min-width="400" show-overflow-tooltip>
         <template #default="scope">
           <span class="content-preview" :class="{ 'is-unread-text': !scope.row.isRead }">
             {{ truncateContent(scope.row.content, 300) }}
           </span>
         </template>
       </el-table-column>
-      <el-table-column label="发布人" width="200" align="center" sortable>
+      <el-table-column label="发布人" width="140" align="center" sortable>
         <template #default="scope">
           <span>{{ scope.row.senderName }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="发布时间" width="280" align="center" sortable>
+      <el-table-column label="发布时间" width="190" align="center" sortable>
         <template #default="scope">
           <span>{{ formatTime(scope.row.createdAt) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="已读状态" width="140" align="center">
+      <el-table-column label="已读状态" width="100" align="center">
         <template #default="scope">
           <el-tag v-if="scope.row.isRead" type="info" size="small">已读</el-tag>
           <el-tag v-else type="danger" size="small" effect="dark">未读</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" min-width="360" align="center">
+      <el-table-column label="操作" width="300" fixed="right" align="center">
         <template #default="scope">
           <div class="action-btns">
             <el-button
@@ -861,4 +862,8 @@ onUnmounted(() => {
 /* 操作列按钮 */
 .action-btns { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
 .action-btns .action-btn { margin: 0; padding: 5px 10px; font-size: 12px; white-space: nowrap; }
+
+/* 表格横向滚动 + 固定列阴影 */
+:deep(.announcement-table .el-table__body-wrapper) { overflow-x: auto; }
+.announcement-table { width: 100%; }
 </style>
