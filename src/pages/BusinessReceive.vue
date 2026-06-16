@@ -435,6 +435,108 @@
           {{ showFlaggedOnly ? '暂无带红旗的消息' : '暂无消息' }}
         </div>
       </el-tab-pane>
+
+      <!-- 红旗标签页 -->
+      <el-tab-pane label="红旗" name="flagged">
+        <div class="table-toolbar">
+          <div class="toolbar-left">
+            <el-input
+              v-model="searchKeywordFlagged"
+              placeholder="搜索全部内容（含回复）..."
+              clearable
+              style="width: 300px;"
+              :prefix-icon="Search"
+            />
+          </div>
+        </div>
+
+        <el-table :data="flaggedMessages" border stripe v-loading="loading" :row-class-name="tableRowClassName" @row-click="viewDetail">
+          <el-table-column label="状态" width="100" align="center" fixed="left">
+            <template #default="scope">
+              <el-tag v-if="scope.row.myCompleted || scope.row.isCompleted" size="small" type="info">已完结</el-tag>
+              <el-tag v-else-if="scope.row.hasReplied" size="small" type="success">已回复</el-tag>
+              <el-tag v-else size="small" type="warning">待处理</el-tag>
+            </template>
+          </el-table-column>
+
+          <el-table-column label="" width="40" align="center">
+            <template #default="scope">
+              <span v-if="scope.row.hasFlagged" style="color: #f56c6c; font-size: 16px;">🚩</span>
+            </template>
+          </el-table-column>
+
+          <el-table-column label="沟通类型" width="110">
+            <template #default="scope">
+              <el-tag size="small" :type="getTypeTag(scope.row.type)">
+                {{ getTypeName(scope.row.type) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+
+          <el-table-column label="沟通内容" min-width="200" show-overflow-tooltip>
+            <template #default="scope">
+              {{ scope.row.content || '-' }}
+            </template>
+          </el-table-column>
+
+          <el-table-column label="发送人" width="100">
+            <template #default="scope">
+              {{ getSenderName(scope.row.senderId) }}
+            </template>
+          </el-table-column>
+
+          <el-table-column label="发送时间" width="160">
+            <template #default="scope">
+              {{ formatTime(scope.row.createdAt) }}
+            </template>
+          </el-table-column>
+
+          <el-table-column label="操作" width="280" align="center" fixed="right">
+            <template #default="scope">
+              <div class="row-op-btns">
+                <el-button size="small" @click.stop="viewDetail(scope.row)">查看</el-button>
+                <el-button 
+                  v-if="!scope.row.myCompleted && !scope.row.isCompleted && !scope.row.isRecalled"
+                  size="small" 
+                  class="quick-btn agree-btn"
+                  @click.stop="sendQuickReplyFromRow(scope.row, '同意')"
+                  :loading="scope.row._replyLoading"
+                >同意</el-button>
+                <el-button
+                  v-if="!scope.row.myCompleted && !scope.row.isCompleted && !scope.row.isRecalled"
+                  size="small"
+                  class="quick-btn reject-btn"
+                  @click.stop="sendQuickReplyFromRow(scope.row, '拒绝')"
+                  :loading="scope.row._replyLoading"
+                >拒绝</el-button>
+                <el-button
+                  v-if="!scope.row.myCompleted && !scope.row.isCompleted && !scope.row.isRecalled"
+                  size="small"
+                  class="quick-btn pending-btn"
+                  @click.stop="sendQuickReplyFromRow(scope.row, '等我确认后回复')"
+                  :loading="scope.row._replyLoading"
+                >等我确认</el-button>
+                <el-button 
+                  size="small" 
+                  :type="scope.row.hasFlagged ? 'warning' : 'default'"
+                  @click.stop="toggleFlag(scope.row)"
+                >
+                  {{ scope.row.hasFlagged ? '取消红旗' : '红旗' }}
+                </el-button>
+              </div>
+            </template>
+          </el-table-column>
+        </el-table>
+
+        <div v-if="flaggedMessages.length === 0 && !loading" class="empty-tip">
+          暂无带红旗的消息
+        </div>
+        <div v-if="hasMore && !loading" class="load-more-wrapper" style="text-align: center; margin: 16px 0;">
+          <el-button type="primary" plain :loading="loadingMore" @click="loadMore">
+            {{ loadingMore ? '加载中...' : '加载更多' }}
+          </el-button>
+        </div>
+      </el-tab-pane>
     </el-tabs>
 
     <!-- 详情弹窗 -->
@@ -497,7 +599,9 @@
                 <el-table-column prop="name" label="姓名" width="80"></el-table-column>
                 <el-table-column label="角色" width="100">
                   <template #default="scope">
-                    {{ getRoleDisplayName(scope.row.role) }}
+                    <el-tag size="small" :color="getRoleTagColor(getEffectiveRole(scope.row))" style="color:#fff;border:none;">
+                      {{ getRoleDisplayName(getEffectiveRole(scope.row)) }}
+                    </el-tag>
                   </template>
                 </el-table-column>
                 <el-table-column label="回复记录" min-width="220">
@@ -750,7 +854,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { ElMessage } from 'element-plus';
 import { Search, CircleCheck, CircleClose, Document } from '@element-plus/icons-vue';
-import { communicationAPI, userAPI, reactionAPI, getRoleDisplayName } from '../api';
+import { communicationAPI, userAPI, reactionAPI, getRoleDisplayName, ROLE_OPTIONS } from '../api';
 import { supabase } from '../utils/supabase';
 
 const activeTab = ref('pending');
@@ -838,10 +942,37 @@ const getReceiverDisplayName = (userId) => {
   return user ? (user.name || user.username) : '未知';
 };
 
+// 获取有效角色：如果 row.role 为 null，从 allUsers 中查找
+const getEffectiveRole = (row) => {
+  if (row.role) return row.role;
+  const user = allUsers.value.find(u => u.id === row.recipient_id);
+  return user?.role || null;
+};
+
+// 角色标签颜色映射
+const roleTagColors = {
+  business: '#9b59b6',
+  business_assistant: '#d4a574',
+  inspection_leader: '#67c23a',
+  inspection_leader_assistant: '#ff69b4'
+};
+const colorCycle = ['#409eff', '#e6a23c', '#f56c6c', '#00BCD4', '#FF9800', '#795548', '#607D8B', '#E91E63'];
+let roleColorIndex = {};
+
+const getRoleTagColor = (role) => {
+  if (!role) return '#909399';
+  if (roleTagColors[role]) return roleTagColors[role];
+  if (roleColorIndex[role] === undefined) {
+    roleColorIndex[role] = Object.keys(roleColorIndex).length % colorCycle.length;
+  }
+  return colorCycle[roleColorIndex[role]];
+};
+
 const searchKeyword = ref('');
 const searchKeywordProcessed = ref('');
 const searchKeywordCompleted = ref('');
 const searchKeywordRecalled = ref('');
+const searchKeywordFlagged = ref('');
 const showFlaggedOnly = ref(false);
 
 // 分页状态
@@ -1134,6 +1265,29 @@ const recalledMessages = computed(() => {
   return result;
 });
 
+// 红旗消息：所有标记红旗的消息
+const flaggedMessages = computed(() => {
+  let result = messages.value.filter(m => !m.isRecalled && !m.isSystemNotification && m.hasFlagged);
+
+  // 模糊搜索
+  const kw = searchKeywordFlagged.value.trim().toLowerCase();
+  if (kw) {
+    result = result.filter(r => {
+      const replyTexts = (r.replies || []).map(rp => rp.content || '').join(' ');
+      const fields = [
+        r.customerName, r.sampleCode, r.sampleMatrix,
+        r.testItems, r.content, r.remark,
+        getTypeName(r.type), getSenderName(r.senderId),
+        r.requestedCycle, r.chargeStatus,
+        r.urgentFee, replyTexts
+      ].map(f => (f || '').toLowerCase());
+      return fields.some(f => f.includes(kw));
+    });
+  }
+
+  return result.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+});
+
 // 表格行样式：待处理消息显示淡蓝色底色
 const tableRowClassName = ({ row }) => {
   if (!row.hasReplied && !row.isCompleted) {
@@ -1308,7 +1462,7 @@ const loadForwardUsers = async () => {
     const { data: { user: authUser } } = await supabase.auth.getUser();
     const { data } = await supabase
       .from('profiles')
-      .select('id, name, department')
+      .select('id, name, department, role')
       .neq('id', authUser?.id || '')
       .order('name');
     if (data) allUsers.value = data;

@@ -13,6 +13,7 @@
         <el-radio-button label="replied">已回复 ({{ repliedCount }})</el-radio-button>
         <el-radio-button label="completed">已完结 ({{ completedCount }})</el-radio-button>
         <el-radio-button label="recalled">已撤回 ({{ recalledCount }})</el-radio-button>
+        <el-radio-button label="flagged">🚩 红旗 ({{ flaggedCount }})</el-radio-button>
       </el-radio-group>
       <el-button 
         size="small" 
@@ -53,6 +54,12 @@
           <el-tag v-else size="small" type="danger">未回复</el-tag>
         </template>
       </el-table-column>
+      <el-table-column label="🚩" width="50" align="center">
+        <template #default="scope">
+          <span v-if="scope.row.hasFlagged" style="color: #f56c6c; font-size: 16px;">🚩</span>
+          <span v-else style="color: #ccc;">-</span>
+        </template>
+      </el-table-column>
       <el-table-column label="新回复" width="80" align="center">
         <template #default="scope">
           <el-badge 
@@ -68,15 +75,6 @@
       <el-table-column label="沟通类型" width="110">
         <template #default="scope">
           {{ getTypeName(scope.row.type) }}
-        </template>
-      </el-table-column>
-      <el-table-column label="标签" width="160">
-        <template #default="scope">
-          <span v-if="scope.row.tags && scope.row.tags.length > 0" style="display:flex;flex-wrap:wrap;gap:3px;">
-            <el-tag v-for="tag in scope.row.tags" :key="tag" size="small" :color="getTagColor(tag)" style="color:#fff;border:none;">
-              {{ tag }}
-            </el-tag>
-          </span>
         </template>
       </el-table-column>
       <el-table-column label="客户/样品" min-width="140">
@@ -469,24 +467,39 @@
               multiple
               filterable
               reserve-keyword
-              placeholder="搜索选择接收人..."
-              style="width: 100%;"
+              :filter-method="filterForwardRecipient"
+              placeholder="输入姓名/拼音/部门/角色搜索..."
+              style="width: 100%; min-width: 600px;"
               :teleported="false"
+              :popper-append-to-body="false"
+              :max-collapse-tags="0"
+              class="forward-recipient-select"
             >
-              <el-option
-                v-for="u in allUsers"
-                :key="u.id"
-                :label="u.name"
-                :value="u.id"
-              >
-                <div style="display:flex;align-items:center;gap:8px;">
-                  <span style="font-weight:500;">{{ u.name }}</span>
-                  <span style="color:#999;font-size:12px;">{{ u.department || '-' }}</span>
-                </div>
-              </el-option>
+              <el-option-group v-for="group in filteredForwardGroups" :key="group.label" :label="group.label">
+                <el-option
+                  v-for="u in group.users"
+                  :key="u.id"
+                  :label="u.name"
+                  :value="u.id"
+                >
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <span style="font-weight:500;">{{ u.name }}</span>
+                    <span style="color:#999;font-size:12px;">{{ u.department || '-' }} · {{ u._roleName || '-' }}</span>
+                  </div>
+                </el-option>
+              </el-option-group>
             </el-select>
             <div style="color: #999; font-size: 12px; margin-top: 4px;">
-              已选择 {{ forwardRecipients.length }} 人
+              已选择 {{ forwardRecipients.length }} 人（支持拼音首字母/全拼/部门/角色搜索）
+            </div>
+            <!-- 已选人员名片展示 -->
+            <div v-if="forwardRecipients.length > 0" class="forward-recipient-cards">
+              <div v-for="uid in forwardRecipients" :key="uid" class="fwd-recipient-card">
+                <span class="fwd-card-name">{{ getForwardUserName(uid) }}</span>
+                <span class="fwd-card-dept">{{ getForwardUserDept(uid) }}</span>
+                <span class="fwd-card-role">{{ getForwardUserRoleName(uid) }}</span>
+                <span class="fwd-card-remove" @click="removeForwardRecipient(uid)">×</span>
+              </div>
             </div>
           </el-form-item>
         </el-form>
@@ -538,8 +551,9 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, Refresh } from '@element-plus/icons-vue'
-import { communicationAPI, getRoleDisplayName } from '../api'
+import { communicationAPI, getRoleDisplayName, ROLE_OPTIONS } from '../api'
 import { supabase } from '../utils/supabase'
+import { buildSearchKeys, filterGroups } from '../utils/pinyinSearch'
 
 const communications = ref([])
 const recalledMessages = ref([])
@@ -578,6 +592,8 @@ const forwardRecipients = ref([])
 const forwardNote = ref('')
 const forwardLoading = ref(false)
 const allUsers = ref([])
+const forwardSearchQuery = ref('')
+const forwardRecipientGroups = ref([])
 
 // 快捷回复预设
 const quickReplies = ['收到，已安排', '样品已收到，正在检测', '报告已出具，请查收', '预计 X 个工作日出报告', '数据确认中，稍后回复']
@@ -634,6 +650,7 @@ const unrepliedCount = computed(() => communications.value.filter(c => computeRe
 const repliedCount = computed(() => communications.value.filter(c => computeReplyStatus(c) === 'replied' && !c.isCompleted).length)
 const completedCount = computed(() => communications.value.filter(c => c.isCompleted).length)
 const recalledCount = computed(() => recalledMessages.value.length)
+const flaggedCount = computed(() => communications.value.filter(c => c.hasFlagged && !c.isRecalled).length)
 
 // 判断消息是否在5分钟撤回窗口内
 const canRecall = (comm) => {
@@ -660,6 +677,8 @@ const filteredCommunications = computed(() => {
       result = result.filter(c => c.isCompleted)
     } else if (activeFilter.value === 'recalled') {
       // 已撤回在单独的表格中处理
+    } else if (activeFilter.value === 'flagged') {
+      result = result.filter(c => c.hasFlagged)
     } else if (activeFilter.value === 'unreplied') {
       result = result.filter(c => computeReplyStatus(c) === 'unreplied' && !c.isCompleted)
     } else if (activeFilter.value === 'replied') {
@@ -977,13 +996,63 @@ const loadForwardUsers = async () => {
     const { data: { user: authUser } } = await supabase.auth.getUser()
     const { data } = await supabase
       .from('profiles')
-      .select('id, name, department')
+      .select('id, name, department, role, department_level3')
       .neq('id', authUser?.id || '')
       .order('name')
     allUsers.value = data || []
+
+    // 按角色分组并构建搜索键
+    const roleNameMap = {}
+    const roleOrder = []
+    ROLE_OPTIONS.filter(r => r.value !== 'admin').forEach(r => {
+      roleNameMap[r.value] = r.label
+      roleOrder.push(r.value)
+    })
+    const groups = {}
+    data.forEach(u => {
+      const label = roleNameMap[u.role] || u.role || '其他'
+      const userWithKeys = buildSearchKeys(u, roleNameMap)
+      userWithKeys._roleName = label
+      if (!groups[label]) groups[label] = { label, users: [] }
+      groups[label].users.push(userWithKeys)
+    })
+    const seen = new Map()
+    roleOrder.forEach(r => {
+      const label = roleNameMap[r]
+      if (label && groups[label] && !seen.has(label)) {
+        seen.set(label, groups[label])
+      }
+    })
+    forwardRecipientGroups.value = Array.from(seen.values())
   } catch (e) {
     console.error('加载用户列表失败:', e)
   }
+}
+
+// 转发选人器搜索
+const filterForwardRecipient = (query) => {
+  forwardSearchQuery.value = query
+}
+
+const filteredForwardGroups = computed(() => {
+  return filterGroups(forwardSearchQuery.value, forwardRecipientGroups.value)
+})
+
+// 转发选人器辅助方法
+const findForwardUserById = (uid) => {
+  for (const group of forwardRecipientGroups.value) {
+    const user = group.users.find(u => u.id === uid)
+    if (user) return user
+  }
+  return null
+}
+
+const getForwardUserName = (uid) => findForwardUserById(uid)?.name || uid
+const getForwardUserDept = (uid) => findForwardUserById(uid)?.department || '-'
+const getForwardUserRoleName = (uid) => findForwardUserById(uid)?._roleName || '-'
+
+const removeForwardRecipient = (uid) => {
+  forwardRecipients.value = forwardRecipients.value.filter(id => id !== uid)
 }
 
 const confirmForward = async () => {
@@ -1278,5 +1347,59 @@ const filterList = () => {
   font-weight: 600;
   font-size: 13px;
   color: #303133;
+}
+
+/* 转发选人器已选人员名片 */
+.forward-recipient-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.fwd-recipient-card {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #ecf5ff;
+  border: 1px solid #d9ecff;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
+.fwd-card-name {
+  font-weight: 600;
+  color: #303133;
+}
+
+.fwd-card-dept {
+  color: #606266;
+  font-size: 11px;
+}
+
+.fwd-card-role {
+  color: #909399;
+  font-size: 11px;
+  background: #f0f0f0;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+.fwd-card-remove {
+  color: #f56c6c;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: bold;
+  margin-left: 4px;
+  line-height: 1;
+}
+
+.fwd-card-remove:hover {
+  color: #c45656;
+}
+
+:deep(.forward-recipient-select .el-select__tags) {
+  max-width: 100% !important;
 }
 </style>
