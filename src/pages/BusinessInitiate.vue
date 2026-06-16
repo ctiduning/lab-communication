@@ -19,6 +19,9 @@
           <el-button size="small" type="default" @click="showTemplateSelector = !showTemplateSelector">
             从模板
           </el-button>
+          <el-button size="small" type="primary" @click="showTemplateManager = true" plain>
+            管理模板
+          </el-button>
           <template v-if="showTemplateSelector && myTemplates.length > 0">
             <el-select v-model="selectedTemplateId" placeholder="选择模板..." size="small" style="width:200px;" @change="applyTemplate" clearable>
               <el-option v-for="tpl in myTemplates" :key="tpl.id" :label="tpl.name" :value="tpl.id" />
@@ -227,13 +230,55 @@
         </div>
       </div>
     </el-drawer>
+
+    <!-- 模板管理弹窗 -->
+    <el-dialog title="管理模板" v-model="showTemplateManager" width="600px" :close-on-click-modal="false">
+      <div style="margin-bottom:12px;">
+        <el-button type="primary" size="small" @click="openTemplateEditor(null)">新建模板</el-button>
+      </div>
+      <el-table :data="myTemplates" border stripe size="small" empty-text="暂无模板">
+        <el-table-column prop="name" label="名称" min-width="120"></el-table-column>
+        <el-table-column prop="title" label="标题" min-width="120" show-overflow-tooltip></el-table-column>
+        <el-table-column label="内容预览" min-width="200" show-overflow-tooltip>
+          <template #default="scope">
+            {{ scope.row.content || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="usage_count" label="使用次数" width="80" align="center"></el-table-column>
+        <el-table-column label="操作" width="140" align="center">
+          <template #default="scope">
+            <el-button size="small" @click="openTemplateEditor(scope.row)">编辑</el-button>
+            <el-button size="small" type="danger" @click="deleteTemplate(scope.row)">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-dialog>
+
+    <!-- 新建/编辑模板弹窗 -->
+    <el-dialog :title="editingTemplate ? '编辑模板' : '新建模板'" v-model="templateEditorVisible" width="500px" :close-on-click-modal="false">
+      <el-form label-width="80px">
+        <el-form-item label="名称">
+          <el-input v-model="templateForm.name" placeholder="模板名称" />
+        </el-form-item>
+        <el-form-item label="标题">
+          <el-input v-model="templateForm.title" placeholder="模板标题（可选）" />
+        </el-form-item>
+        <el-form-item label="内容">
+          <el-input v-model="templateForm.content" type="textarea" :rows="4" placeholder="模板内容" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="templateEditorVisible = false">取消</el-button>
+        <el-button type="primary" @click="saveTemplate" :loading="templateSaving">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, computed, onMounted, inject } from 'vue';
 import { useRouter } from 'vue-router';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { communicationAPI, storageAPI, departmentCardAPI, templateAPI, ROLE_OPTIONS, getRoleDisplayName } from '../api';
 import { supabase } from '../utils/supabase';
 import { buildSearchKeys, filterGroups } from '../utils/pinyinSearch';
@@ -266,6 +311,84 @@ const applyTemplate = (id) => {
   if (tpl.title) form.content = tpl.title + '\n' + tpl.content
   else form.content = tpl.content
   form.templateId = id
+}
+
+// 模板管理
+const showTemplateManager = ref(false)
+const templateEditorVisible = ref(false)
+const editingTemplate = ref(null)
+const templateSaving = ref(false)
+const templateForm = reactive({
+  name: '',
+  title: '',
+  content: ''
+})
+
+const openTemplateEditor = (tpl) => {
+  if (tpl) {
+    editingTemplate.value = tpl
+    templateForm.name = tpl.name || ''
+    templateForm.title = tpl.title || ''
+    templateForm.content = tpl.content || ''
+  } else {
+    editingTemplate.value = null
+    templateForm.name = ''
+    templateForm.title = ''
+    templateForm.content = ''
+  }
+  templateEditorVisible.value = true
+}
+
+const saveTemplate = async () => {
+  if (!templateForm.name.trim()) {
+    ElMessage.warning('请输入模板名称')
+    return
+  }
+  if (!templateForm.content.trim()) {
+    ElMessage.warning('请输入模板内容')
+    return
+  }
+  templateSaving.value = true
+  try {
+    if (editingTemplate.value) {
+      await templateAPI.update(editingTemplate.value.id, {
+        name: templateForm.name.trim(),
+        title: templateForm.title.trim(),
+        content: templateForm.content.trim()
+      })
+      ElMessage.success('模板已更新')
+    } else {
+      await templateAPI.create({
+        name: templateForm.name.trim(),
+        title: templateForm.title.trim(),
+        content: templateForm.content.trim()
+      })
+      ElMessage.success('模板已创建')
+    }
+    templateEditorVisible.value = false
+    await loadMyTemplates()
+  } catch (e) {
+    ElMessage.error('保存失败：' + (e.message || '未知错误'))
+  } finally {
+    templateSaving.value = false
+  }
+}
+
+const deleteTemplate = async (tpl) => {
+  try {
+    await ElMessageBox.confirm(`确定要删除模板「${tpl.name}」吗？删除后无法恢复。`, '确认删除', {
+      confirmButtonText: '确定删除',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    await templateAPI.remove(tpl.id)
+    ElMessage.success('模板已删除')
+    await loadMyTemplates()
+  } catch (e) {
+    if (e !== 'cancel') {
+      ElMessage.error('删除失败：' + (e.message || '未知错误'))
+    }
+  }
 }
 
 const loadDraftsFromStorage = () => {

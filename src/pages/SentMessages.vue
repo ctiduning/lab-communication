@@ -34,6 +34,14 @@
         style="width: 300px;"
         :prefix-icon="Search"
       />
+      <el-select v-model="tagFilter" clearable placeholder="按标签筛选" style="width:150px;margin-left:8px;">
+        <el-option label="加急" value="加急" />
+        <el-option label="常规" value="常规" />
+        <el-option label="样品确认" value="样品确认" />
+        <el-option label="报告核对" value="报告核对" />
+        <el-option label="催办" value="催办" />
+        <el-option label="已完成" value="已完成" />
+      </el-select>
     </div>
 
     <el-table :data="filteredCommunications" border stripe v-loading="loading" empty-text="暂无发送记录" v-if="activeFilter !== 'recalled'" @row-click="viewDetail" :row-class-name="getRowClassName">
@@ -255,10 +263,11 @@
                   <span v-else style="color:#999;">-</span>
                 </template>
               </el-table-column>
-              <el-table-column label="已读" width="60" align="center">
+              <el-table-column label="已读" width="72" align="center">
                 <template #default="scope">
-                  <span v-if="scope.row.is_read" style="color:#67c23a;">✓</span>
-                  <span v-else style="color:#f56c6c;">✗</span>
+                  <el-tag v-if="scope.row.has_new_reply" size="small" type="warning" style="border:none;">新回复</el-tag>
+                  <el-tag v-else-if="scope.row.is_read" size="small" type="success" style="border:none;">已读</el-tag>
+                  <el-tag v-else size="small" type="info" style="border:none;">未读</el-tag>
                 </template>
               </el-table-column>
               <el-table-column label="个人状态" width="90" align="center">
@@ -301,10 +310,11 @@
                   <span v-else style="color:#999;">-</span>
                 </template>
               </el-table-column>
-              <el-table-column label="已读" width="60" align="center">
+              <el-table-column label="已读" width="72" align="center">
                 <template #default="scope">
-                  <span v-if="scope.row.is_read" style="color:#67c23a;">✓</span>
-                  <span v-else style="color:#f56c6c;">✗</span>
+                  <el-tag v-if="scope.row.has_new_reply" size="small" type="warning" style="border:none;">新回复</el-tag>
+                  <el-tag v-else-if="scope.row.is_read" size="small" type="success" style="border:none;">已读</el-tag>
+                  <el-tag v-else size="small" type="info" style="border:none;">未读</el-tag>
                 </template>
               </el-table-column>
               <el-table-column label="回复状态" width="90" align="center">
@@ -348,10 +358,11 @@
               <el-tag v-else size="small" type="danger">未回复</el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="已读" width="60" align="center">
+          <el-table-column label="已读" width="72" align="center">
             <template #default="scope">
-              <span v-if="scope.row.is_read" style="color:#67c23a;">✓</span>
-              <span v-else style="color:#f56c6c;">✗</span>
+              <el-tag v-if="scope.row.has_new_reply" size="small" type="warning" style="border:none;">新回复</el-tag>
+              <el-tag v-else-if="scope.row.is_read" size="small" type="success" style="border:none;">已读</el-tag>
+              <el-tag v-else size="small" type="info" style="border:none;">未读</el-tag>
             </template>
           </el-table-column>
         </el-table>
@@ -538,6 +549,7 @@ const activeFilter = ref('all')
 const detailVisible = ref(false)
 const selectedComm = ref(null)
 const searchKeyword = ref('')  // 搜索关键词
+const tagFilter = ref('')  // 标签筛选
 const refreshTimer = ref(null)  // 自动刷新定时器
 const messageChannel = ref(null)  // Realtime 频道
 
@@ -653,6 +665,11 @@ const filteredCommunications = computed(() => {
     } else if (activeFilter.value === 'replied') {
       result = result.filter(c => computeReplyStatus(c) === 'replied' && !c.isCompleted)
     }
+  }
+  
+  // 标签筛选
+  if (tagFilter.value) {
+    result = result.filter(c => c.tags && c.tags.includes(tagFilter.value))
   }
   
   // 模糊搜索

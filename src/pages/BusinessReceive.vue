@@ -513,20 +513,24 @@
                           <span class="reply-time-mini">{{ formatTime(reply.createdAt) }}</span>
                           <el-button size="small" circle @click.stop="activeReplyId = reply.id; inlineReplyContent = ''" style="flex-shrink:0;padding:0 4px;min-width:auto;height:auto;font-size:13px;border:none;">💬</el-button>
                         </div>
-                        <div v-if="activeReplyId === reply.id" style="display:flex;gap:4px;margin:4px 0 4px 0;align-items:center;">
+                        <div v-if="activeReplyId === reply.id" style="display:flex;gap:4px;margin:4px 0 4px 0;align-items:center;flex-wrap:wrap;">
                           <el-input v-model="inlineReplyContent" size="small" placeholder="回复..." style="flex:1;" @keyup.enter="submitInlineReply(reply)" />
                           <el-button size="small" type="primary" @click="submitInlineReply(reply)" :loading="inlineReplyLoading">发送</el-button>
                           <el-button size="small" @click="cancelInlineReply">取消</el-button>
+                          <div style="width:100%;display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">
+                            <el-tag v-for="(qr, qi) in quickReplies" :key="qi" size="small" style="cursor:pointer;" @click="inlineReplyContent = qr">{{ qr }}</el-tag>
+                          </div>
                         </div>
                       </div>
                     </div>
                     <span v-else style="color:#999;">-</span>
                   </template>
                 </el-table-column>
-                <el-table-column label="已读" width="56" align="center">
+                <el-table-column label="已读" width="72" align="center">
                   <template #default="scope">
-                    <span v-if="scope.row.is_read" style="color:#67c23a;">✓</span>
-                    <span v-else style="color:#f56c6c;">✗</span>
+                    <el-tag v-if="scope.row.has_new_reply" size="small" type="warning" style="border:none;">新回复</el-tag>
+                    <el-tag v-else-if="scope.row.is_read" size="small" type="success" style="border:none;">已读</el-tag>
+                    <el-tag v-else size="small" type="info" style="border:none;">未读</el-tag>
                   </template>
                 </el-table-column>
                 <el-table-column label="红旗" width="50" align="center">
@@ -596,10 +600,13 @@
                     <el-button size="small" circle @click.stop="activeReplyId = reply.id; inlineReplyContent = ''" style="padding:0 4px;min-width:auto;height:auto;font-size:13px;border:none;">💬</el-button>
                   </div>
                 </div>
-                <div v-if="activeReplyId === reply.id" style="display:flex;gap:4px;margin:4px 0 8px 0;align-items:center;">
+                <div v-if="activeReplyId === reply.id" style="display:flex;gap:4px;margin:4px 0 8px 0;align-items:center;flex-wrap:wrap;">
                   <el-input v-model="inlineReplyContent" size="small" placeholder="回复..." style="flex:1;" @keyup.enter="submitInlineReply(reply)" />
                   <el-button size="small" type="primary" @click="submitInlineReply(reply)" :loading="inlineReplyLoading">发送</el-button>
                   <el-button size="small" @click="cancelInlineReply">取消</el-button>
+                  <div style="width:100%;display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">
+                    <el-tag v-for="(qr, qi) in quickReplies" :key="qi" size="small" style="cursor:pointer;" @click="inlineReplyContent = qr">{{ qr }}</el-tag>
+                  </div>
                 </div>
               </div>
             </div>
@@ -630,10 +637,13 @@
                     <el-button size="small" circle @click.stop="activeReplyId = reply.id; inlineReplyContent = ''" style="padding:0 4px;min-width:auto;height:auto;font-size:13px;border:none;">💬</el-button>
                   </div>
                 </div>
-                <div v-if="activeReplyId === reply.id" style="display:flex;gap:4px;margin:4px 0 8px 0;align-items:center;">
+                <div v-if="activeReplyId === reply.id" style="display:flex;gap:4px;margin:4px 0 8px 0;align-items:center;flex-wrap:wrap;">
                   <el-input v-model="inlineReplyContent" size="small" placeholder="回复..." style="flex:1;" @keyup.enter="submitInlineReply(reply)" />
                   <el-button size="small" type="primary" @click="submitInlineReply(reply)" :loading="inlineReplyLoading">发送</el-button>
                   <el-button size="small" @click="cancelInlineReply">取消</el-button>
+                  <div style="width:100%;display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">
+                    <el-tag v-for="(qr, qi) in quickReplies" :key="qi" size="small" style="cursor:pointer;" @click="inlineReplyContent = qr">{{ qr }}</el-tag>
+                  </div>
                 </div>
               </div>
             </div>
@@ -675,8 +685,58 @@
             {{ myRecipient.is_flagged ? '取消红旗' : '标记红旗' }}
           </el-button>
           <el-button type="primary" v-if="!selectedMessage?.isRecalled" @click="submitReplyFromDetail" :loading="replyLoading">发送回复</el-button>
+          <el-button type="primary" size="small" @click="showForwardDialog(selectedMessage)" plain v-if="!selectedMessage?.isRecalled">转发</el-button>
           <el-button type="info" plain @click="detailVisible = false">关闭</el-button>
         </div>
+      </template>
+    </el-dialog>
+
+    <!-- 转发弹窗 -->
+    <el-dialog title="转发消息" v-model="forwardDialogVisible" width="600px" :close-on-click-modal="false">
+      <div v-if="forwardTarget">
+        <div style="margin-bottom: 16px; padding: 12px; background: #f5f7fa; border-radius: 6px;">
+          <div style="font-weight: 600; margin-bottom: 8px;">原消息摘要</div>
+          <div style="font-size: 13px; color: #606266;">
+            <div>发送人：{{ getSenderName(forwardTarget.senderId) }}</div>
+            <div>类型：{{ getTypeName(forwardTarget.type) }}</div>
+            <div v-if="forwardTarget.content" style="margin-top: 4px;">内容：{{ forwardTarget.content }}</div>
+          </div>
+        </div>
+        <el-form>
+          <el-form-item label="转发附言">
+            <el-input v-model="forwardNote" type="textarea" :rows="2" placeholder="添加转发附言（可选）" />
+          </el-form-item>
+          <el-form-item label="接收人" prop="recipients">
+            <el-select
+              v-model="forwardRecipients"
+              multiple
+              filterable
+              reserve-keyword
+              placeholder="搜索选择接收人..."
+              style="width: 100%;"
+              :teleported="false"
+            >
+              <el-option
+                v-for="u in allUsers"
+                :key="u.id"
+                :label="u.name"
+                :value="u.id"
+              >
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span style="font-weight:500;">{{ u.name }}</span>
+                  <span style="color:#999;font-size:12px;">{{ u.department || '-' }}</span>
+                </div>
+              </el-option>
+            </el-select>
+            <div style="color: #999; font-size: 12px; margin-top: 4px;">
+              已选择 {{ forwardRecipients.length }} 人
+            </div>
+          </el-form-item>
+        </el-form>
+      </div>
+      <template #footer>
+        <el-button @click="forwardDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="confirmForward" :loading="forwardLoading" :disabled="forwardRecipients.length === 0">确认转发</el-button>
       </template>
     </el-dialog>
   </div>
@@ -707,6 +767,16 @@ const threadCollapsed = ref({});
 const activeReplyId = ref(null);
 const inlineReplyContent = ref('');
 const inlineReplyLoading = ref(false);
+
+// 转发相关
+const forwardDialogVisible = ref(false);
+const forwardTarget = ref(null);
+const forwardRecipients = ref([]);
+const forwardNote = ref('');
+const forwardLoading = ref(false);
+
+// 快捷回复预设
+const quickReplies = ['收到，已安排', '样品已收到，正在检测', '报告已出具，请查收', '预计 X 个工作日出报告', '数据确认中，稍后回复'];
 
 function toggleCollapsed(recipientId) {
   threadCollapsed.value = { ...threadCollapsed.value, [recipientId]: !threadCollapsed.value[recipientId] };
@@ -1217,6 +1287,50 @@ const submitInlineReply = async (reply) => {
 const cancelInlineReply = () => {
   activeReplyId.value = null;
   inlineReplyContent.value = '';
+};
+
+// 转发相关
+const showForwardDialog = (comm) => {
+  if (!comm) return;
+  forwardTarget.value = comm;
+  forwardRecipients.value = [];
+  forwardNote.value = '';
+  forwardDialogVisible.value = true;
+  loadForwardUsers();
+};
+
+const loadForwardUsers = async () => {
+  try {
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, name, department')
+      .neq('id', authUser?.id || '')
+      .order('name');
+    if (data) allUsers.value = data;
+  } catch (e) {
+    console.error('加载用户列表失败:', e);
+  }
+};
+
+const confirmForward = async () => {
+  if (!forwardTarget.value || forwardRecipients.value.length === 0) {
+    ElMessage.warning('请选择接收人');
+    return;
+  }
+  forwardLoading.value = true;
+  try {
+    await communicationAPI.forwardMessage(forwardTarget.value.id, {
+      recipientIds: forwardRecipients.value,
+      note: forwardNote.value
+    });
+    ElMessage.success('转发成功');
+    forwardDialogVisible.value = false;
+  } catch (e) {
+    ElMessage.error('转发失败：' + (e.message || '未知错误'));
+  } finally {
+    forwardLoading.value = false;
+  }
 };
 
 

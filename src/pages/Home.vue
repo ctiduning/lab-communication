@@ -425,10 +425,15 @@ const subscribeMessages = () => {
             .eq('recipient_id', user.value.id)
             .maybeSingle()
           if (recip && 'Notification' in window && Notification.permission === 'granted') {
-            new Notification('新消息', {
+            const notification = new Notification('新消息', {
               body: (payload.new.content || '').substring(0, 60) + '...' || '您收到一条新消息',
               icon: '/vite.svg'
             })
+            notification.onclick = () => {
+              window.focus()
+              window.location.hash = '#/home?tab=receive'
+              notification.close()
+            }
           }
         } catch (e) {
           console.error('桌面通知失败:', e)
