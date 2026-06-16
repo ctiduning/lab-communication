@@ -80,8 +80,8 @@
       </div>
     </el-collapse-transition>
 
-    <!-- 搜索栏 -->
-    <div class="search-bar" style="margin-bottom:16px;display:flex;gap:12px;align-items:center;">
+    <!-- 搜索栏 + 标签切换 -->
+    <div class="search-bar" style="margin-bottom:16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
       <el-input
         v-model="searchKeyword"
         placeholder="搜索标题或内容..."
@@ -93,6 +93,10 @@
       <span style="font-size:13px;color:#909399;">
         共 {{ filteredAnnouncements.length }} 条
       </span>
+      <el-radio-group v-if="isAdmin" v-model="announcementTab" size="small" style="margin-left:auto;">
+        <el-radio-button value="active">已发布</el-radio-button>
+        <el-radio-button value="recalled">已撤回</el-radio-button>
+      </el-radio-group>
     </div>
 
     <!-- 表格 -->
@@ -100,27 +104,30 @@
       ref="annTableRef"
       :data="filteredAnnouncements"
       stripe
-      style="width: 100%"
+      style="width: 100%; font-size: 14px;"
       @row-click="handleClickNotice"
       :row-class-name="tableRowClassName"
+      :row-style="{ minHeight: '48px' }"
       v-loading="loading"
       empty-text="暂无通知公告"
       @selection-change="handleSelectionChange"
     >
       <el-table-column v-if="isAdmin" type="selection" width="45" />
-      <el-table-column type="index" label="序号" width="80" align="center" :resizable="false">
+      <el-table-column type="index" label="序号" width="60" align="center" :resizable="false">
         <template #header>
           <span style="white-space: nowrap;">序号</span>
         </template>
       </el-table-column>
-      <el-table-column label="标题" min-width="200">
+      <el-table-column label="标题" min-width="280">
         <template #default="scope">
           <span v-if="scope.row.isFlagged" style="color:red;margin-right:4px;">🚩</span>
           <span :class="{ 'is-unread-text': !scope.row.isRead }">{{ scope.row.title }}</span>
           <span v-if="scope.row.attachments && scope.row.attachments.length > 0" class="attach-icon">📎</span>
+          <el-tag v-if="scope.row.status === 'recalled'" size="small" type="warning" style="margin-left:6px;">已撤回</el-tag>
+          <el-tag v-if="scope.row.republishedAt" size="small" type="success" style="margin-left:4px;">已重发</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="通知内容" min-width="300">
+      <el-table-column label="通知内容" min-width="400" max-width="500" show-overflow-tooltip>
         <template #default="scope">
           <span class="content-preview" :class="{ 'is-unread-text': !scope.row.isRead }">
             {{ truncateContent(scope.row.content, 300) }}
@@ -132,7 +139,7 @@
           <span>{{ scope.row.senderName }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="发布时间" width="160" align="center">
+      <el-table-column label="发布时间" width="170" align="center">
         <template #default="scope">
           <span>{{ formatTime(scope.row.createdAt) }}</span>
         </template>
@@ -143,7 +150,7 @@
           <el-tag v-else type="danger" size="small" effect="dark">未读</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="110" align="center" fixed="right">
+      <el-table-column label="操作" width="130" align="center" fixed="right">
         <template #default="scope">
           <el-button
             size="small"
@@ -152,11 +159,20 @@
           >
             {{ scope.row.isFlagged ? '🚩 已标记' : '🚩 标记' }}
           </el-button>
+          <el-button
+            v-if="isAdmin && scope.row.status === 'active'"
+            size="small"
+            type="warning"
+            @click.stop="handleRecall(scope.row)"
+            style="margin-left:4px;"
+          >
+            撤回
+          </el-button>
         </template>
       </el-table-column>
-      <el-table-column v-if="isAdmin" label="管理" width="140" align="center" fixed="right">
+      <el-table-column v-if="isAdmin" label="管理" width="180" align="center" fixed="right">
         <template #default="scope">
-          <el-button size="small" type="primary" link @click.stop="handleEdit(scope.row)">编辑</el-button>
+          <el-button size="small" type="primary" link @click.stop="handleEdit(scope.row)">{{ scope.row.status === 'recalled' ? '修改重发' : '编辑' }}</el-button>
           <el-button size="small" type="danger" link @click.stop="handleDelete(scope.row)">删除</el-button>
         </template>
       </el-table-column>
@@ -166,7 +182,7 @@
     <el-dialog
       v-model="detailVisible"
       :title="selectedAnn?.title || '通知详情'"
-      width="700px"
+      width="800px"
       destroy-on-close
     >
       <div v-if="selectedAnn" class="detail-content">
@@ -215,7 +231,7 @@
     </el-dialog>
 
     <!-- 编辑公告弹窗 -->
-    <el-dialog v-model="editVisible" title="编辑公告" width="600px" destroy-on-close>
+    <el-dialog v-model="editVisible" title="编辑公告" width="700px" destroy-on-close>
       <el-form :model="editForm" label-width="80px" size="default">
         <el-form-item label="标题" required>
           <el-input v-model="editForm.title" placeholder="通知标题" maxlength="100" show-word-limit></el-input>
@@ -347,6 +363,9 @@ const selectedAnn = ref(null)
 const showImagePreview = ref(false)
 const previewImageUrl = ref('')
 
+// 公告标签页管理（仅管理员）
+const announcementTab = ref('active')
+
 // 点赞详情弹窗
 const reactionDetailVisible = ref(false)
 const reactionDetailList = ref([])
@@ -422,6 +441,14 @@ const toggleFlag = async (ann) => {
 // 过滤后的列表
 const filteredAnnouncements = computed(() => {
   let list = announcements.value.filter(a => {
+    // 非管理员看不到已撤回的公告
+    if (!isAdmin.value && a.status === 'recalled') return false
+
+    // 管理员标签页过滤
+    if (isAdmin.value && announcementTab.value === 'recalled') {
+      return a.status === 'recalled'
+    }
+
     if (a.targetRole === 'all') return true
     if (a.targetRole === currentUserRole.value) return true
     // 青岛业务
@@ -674,6 +701,7 @@ const handleEdit = (ann) => {
   editForm.title = ann.title
   editForm.content = ann.content
   editForm.attachments = JSON.parse(JSON.stringify(ann.attachments || []))
+  editForm.isRecalled = ann.status === 'recalled'
   editVisible.value = true
 }
 
@@ -684,16 +712,25 @@ const handleUpdateAnnouncement = async () => {
   }
   editLoading.value = true
   try {
-    await announcementAPI.update(editForm.id, {
-      title: editForm.title,
-      content: editForm.content,
-      attachments: editForm.attachments
-    })
-    ElMessage.success('修改成功')
+    if (editForm.isRecalled) {
+      await announcementAPI.republish(editForm.id, {
+        title: editForm.title,
+        content: editForm.content,
+        attachments: editForm.attachments
+      })
+      ElMessage.success('修改并重发成功')
+    } else {
+      await announcementAPI.update(editForm.id, {
+        title: editForm.title,
+        content: editForm.content,
+        attachments: editForm.attachments
+      })
+      ElMessage.success('修改成功')
+    }
     editVisible.value = false
     loadAnnouncements()
   } catch (error) {
-    ElMessage.error('修改失败：' + (error.message || '未知错误'))
+    ElMessage.error('操作失败：' + (error.message || '未知错误'))
   } finally {
     editLoading.value = false
   }
@@ -713,6 +750,24 @@ const handleDelete = async (ann) => {
   } catch (error) {
     if (error !== 'cancel') {
       ElMessage.error('删除失败：' + (error.message || '未知错误'))
+    }
+  }
+}
+
+// 管理员撤回公告
+const handleRecall = async (ann) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要撤回公告「${ann.title}」吗？撤回后业务和实验室端将看不到此公告。`,
+      '撤回确认',
+      { confirmButtonText: '确定撤回', cancelButtonText: '取消', type: 'warning' }
+    )
+    await announcementAPI.recall(ann.id)
+    ElMessage.success('已撤回')
+    loadAnnouncements()
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error('撤回失败：' + (error.message || '未知错误'))
     }
   }
 }
@@ -753,9 +808,9 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.notice-board { padding: 20px; max-width: 1100px; margin: 0 auto; }
+.notice-board { padding: 24px; max-width: 1200px; margin: 0 auto; }
 .board-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-.board-header h2 { margin: 0; font-size: 20px; color: #333; }
+.board-header h2 { margin: 0; font-size: 22px; color: #333; }
 .header-actions { display: flex; align-items: center; gap: 12px; }
 .create-section { margin-bottom: 20px; }
 :deep(.unread-row) { background: #fef0f0 !important; font-weight: 500; }
@@ -776,4 +831,6 @@ onUnmounted(() => {
 .upload-thumb { position: relative; width: 80px; height: 80px; border-radius: 6px; overflow: hidden; border: 1px solid #e8e8e8; }
 .upload-thumb img { width: 100%; height: 100%; object-fit: cover; cursor: pointer; }
 .upload-thumb .el-button { position: absolute; top: 2px; right: 2px; min-width: 20px; min-height: 20px; width: 20px; height: 20px; padding: 0; font-size: 12px; }
+:deep(.el-table .cell) { padding-left: 14px; padding-right: 14px; line-height: 1.6; }
+:deep(.el-dialog__body) { padding: 24px 28px; }
 </style>

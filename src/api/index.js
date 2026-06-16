@@ -1520,7 +1520,7 @@ export const announcementAPI = {
     // 查所有公告（不使用 sender join，因为 FK 可能不存在）
     const { data: announcements, error } = await supabase
       .from('announcements')
-      .select('id, title, content, created_at, sender_id, target_role, target_regions, attachments')
+      .select('id, title, content, created_at, sender_id, target_role, target_regions, attachments, status, recalled_at, republished_at')
       .order('created_at', { ascending: false })
       .range(from, to)
 
@@ -1568,6 +1568,9 @@ export const announcementAPI = {
           senderName: senderMap[a.sender_id] || '',
           createdAt: a.created_at,
           attachments: a.attachments || [],
+          status: a.status || 'active',
+          recalledAt: a.recalled_at || null,
+          republishedAt: a.republished_at || null,
           isRead: !!myRead,
           readAt: myRead?.readAt || null,
           isFlagged: myRead?.isFlagged || false
@@ -1707,6 +1710,36 @@ export const announcementAPI = {
 
     if (error) throw error
     return { data: { message: '删除成功' } }
+  },
+
+  // 管理员撤回公告
+  async recall(id) {
+    const { data, error } = await supabase
+      .from('announcements')
+      .update({ status: 'recalled', recalled_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single()
+    if (error) throw error
+    return { data }
+  },
+
+  // 管理员修改已撤回公告并重发
+  async republish(id, { title, content, attachments }) {
+    const { data, error } = await supabase
+      .from('announcements')
+      .update({
+        title,
+        content,
+        attachments: attachments || [],
+        status: 'active',
+        republished_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single()
+    if (error) throw error
+    return { data }
   },
 
   // ========== 公告红旗标记（简单update模式） ==========
