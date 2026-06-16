@@ -2350,12 +2350,28 @@ export const templateAPI = {
     return { data: data || [] }
   },
 
-  async create({ name, title, content }) {
+  async create({ name, title, content, type, vip, customerName, sampleCode, sampleMatrix, sampleCount, testItems, sampleDate, requestedCycle, chargeStatus, urgentFee, remark, tags }) {
     const userId = await getCurrentUserId()
     if (!userId) throw new Error('未登录')
     const { data, error } = await supabase
       .from('message_templates')
-      .insert({ user_id: userId, name, title, content })
+      .insert({
+        user_id: userId,
+        name, title, content,
+        type: type || '',
+        vip: vip || '',
+        customer_name: customerName || '',
+        sample_code: sampleCode || '',
+        sample_matrix: sampleMatrix || '',
+        sample_count: sampleCount || '',
+        test_items: testItems || '',
+        sample_date: sampleDate || '',
+        requested_cycle: requestedCycle || '',
+        charge_status: chargeStatus || '',
+        urgent_fee: urgentFee || '',
+        remark: remark || '',
+        tags: tags || []
+      })
       .select()
       .single()
     if (error) throw error
@@ -2363,9 +2379,28 @@ export const templateAPI = {
   },
 
   async update(id, updates) {
+    const dbUpdates = { ...updates, updated_at: new Date().toISOString() }
+    // 转换前端字段名到数据库字段名
+    const fieldMap = {
+      customerName: 'customer_name',
+      sampleCode: 'sample_code',
+      sampleMatrix: 'sample_matrix',
+      sampleCount: 'sample_count',
+      testItems: 'test_items',
+      sampleDate: 'sample_date',
+      requestedCycle: 'requested_cycle',
+      chargeStatus: 'charge_status',
+      urgentFee: 'urgent_fee'
+    }
+    for (const [frontKey, dbKey] of Object.entries(fieldMap)) {
+      if (frontKey in dbUpdates) {
+        dbUpdates[dbKey] = dbUpdates[frontKey]
+        delete dbUpdates[frontKey]
+      }
+    }
     const { data, error } = await supabase
       .from('message_templates')
-      .update({ ...updates, updated_at: new Date().toISOString() })
+      .update(dbUpdates)
       .eq('id', id)
       .select()
       .single()

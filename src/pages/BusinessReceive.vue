@@ -518,7 +518,7 @@
                           <el-button size="small" type="primary" @click="submitInlineReply(reply)" :loading="inlineReplyLoading">发送</el-button>
                           <el-button size="small" @click="cancelInlineReply">取消</el-button>
                           <div style="width:100%;display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">
-                            <el-tag v-for="(qr, qi) in quickReplies" :key="qi" size="small" style="cursor:pointer;" @click="inlineReplyContent = qr">{{ qr }}</el-tag>
+                            <el-tag v-for="(qr, qi) in quickReplies" :key="qi" size="small" style="cursor:pointer;margin:2px;" @click="inlineReplyContent = qr">{{ qr }}</el-tag>
                           </div>
                         </div>
                       </div>
@@ -605,7 +605,7 @@
                   <el-button size="small" type="primary" @click="submitInlineReply(reply)" :loading="inlineReplyLoading">发送</el-button>
                   <el-button size="small" @click="cancelInlineReply">取消</el-button>
                   <div style="width:100%;display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">
-                    <el-tag v-for="(qr, qi) in quickReplies" :key="qi" size="small" style="cursor:pointer;" @click="inlineReplyContent = qr">{{ qr }}</el-tag>
+                    <el-tag v-for="(qr, qi) in quickReplies" :key="qi" size="small" style="cursor:pointer;margin:2px;" @click="inlineReplyContent = qr">{{ qr }}</el-tag>
                   </div>
                 </div>
               </div>
@@ -642,7 +642,7 @@
                   <el-button size="small" type="primary" @click="submitInlineReply(reply)" :loading="inlineReplyLoading">发送</el-button>
                   <el-button size="small" @click="cancelInlineReply">取消</el-button>
                   <div style="width:100%;display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">
-                    <el-tag v-for="(qr, qi) in quickReplies" :key="qi" size="small" style="cursor:pointer;" @click="inlineReplyContent = qr">{{ qr }}</el-tag>
+                    <el-tag v-for="(qr, qi) in quickReplies" :key="qi" size="small" style="cursor:pointer;margin:2px;" @click="inlineReplyContent = qr">{{ qr }}</el-tag>
                   </div>
                 </div>
               </div>
@@ -663,6 +663,7 @@
             class="quick-btn agree-btn"
             @click="sendQuickReply('同意')"
             :loading="replyLoading"
+            style="min-width:110px"
           >同意</el-button>
           <el-button 
             v-if="!selectedMessage?.myCompleted && !selectedMessage?.isCompleted"
@@ -670,12 +671,15 @@
             class="quick-btn reject-btn"
             @click="sendQuickReply('拒绝')"
             :loading="replyLoading"
+            style="min-width:110px"
           >拒绝</el-button>
           <el-button 
             v-if="!selectedMessage?.myCompleted && !selectedMessage?.isCompleted"
+            type="info"
             class="quick-btn pending-btn"
             @click="sendQuickReply('等我确认后回复')"
             :loading="replyLoading"
+            style="min-width:110px"
           >等我确认后回复</el-button>
           <el-button 
             v-if="myRecipient"
@@ -685,7 +689,7 @@
             {{ myRecipient.is_flagged ? '取消红旗' : '标记红旗' }}
           </el-button>
           <el-button type="primary" v-if="!selectedMessage?.isRecalled" @click="submitReplyFromDetail" :loading="replyLoading">发送回复</el-button>
-          <el-button type="primary" size="small" @click="showForwardDialog(selectedMessage)" plain v-if="!selectedMessage?.isRecalled">转发</el-button>
+          <el-button type="primary" size="small" @click="showForwardDialog(selectedMessage)" v-if="!selectedMessage?.isRecalled">转发</el-button>
           <el-button type="info" plain @click="detailVisible = false">关闭</el-button>
         </div>
       </template>

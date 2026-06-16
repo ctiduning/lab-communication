@@ -255,16 +255,101 @@
     </el-dialog>
 
     <!-- 新建/编辑模板弹窗 -->
-    <el-dialog :title="editingTemplate ? '编辑模板' : '新建模板'" v-model="templateEditorVisible" width="500px" :close-on-click-modal="false">
-      <el-form label-width="80px">
+    <el-dialog :title="editingTemplate ? '编辑模板' : '新建模板'" v-model="templateEditorVisible" width="700px" :close-on-click-modal="false">
+      <el-form label-width="100px">
         <el-form-item label="名称">
           <el-input v-model="templateForm.name" placeholder="模板名称" />
+        </el-form-item>
+        <el-form-item label="沟通类型">
+          <el-select v-model="templateForm.type" placeholder="请选择沟通类型" clearable style="width:100%;">
+            <el-option label="付费加急" value="paid_urgent"></el-option>
+            <el-option label="免费加急" value="free_urgent"></el-option>
+            <el-option label="数据质疑" value="data_dispute"></el-option>
+            <el-option label="跟单" value="follow_up"></el-option>
+            <el-option label="咨询" value="consultation"></el-option>
+            <el-option label="其他" value="other"></el-option>
+          </el-select>
         </el-form-item>
         <el-form-item label="标题">
           <el-input v-model="templateForm.title" placeholder="模板标题（可选）" />
         </el-form-item>
         <el-form-item label="内容">
           <el-input v-model="templateForm.content" type="textarea" :rows="4" placeholder="模板内容" />
+        </el-form-item>
+        <el-row :gutter="12">
+          <el-col :span="12">
+            <el-form-item label="V1V2客户">
+              <el-select v-model="templateForm.vip" placeholder="请选择" clearable style="width:100%;">
+                <el-option label="是" value="yes"></el-option>
+                <el-option label="否" value="no"></el-option>
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="客户名称">
+              <el-input v-model="templateForm.customerName" placeholder="客户名称" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="12">
+          <el-col :span="12">
+            <el-form-item label="样品短号">
+              <el-input v-model="templateForm.sampleCode" placeholder="样品短号" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="样品基质">
+              <el-input v-model="templateForm.sampleMatrix" placeholder="样品基质" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="12">
+          <el-col :span="12">
+            <el-form-item label="样品数量">
+              <el-input v-model="templateForm.sampleCount" placeholder="样品数量" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="测试项目">
+              <el-input v-model="templateForm.testItems" placeholder="测试项目" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="12">
+          <el-col :span="12">
+            <el-form-item label="到样日期">
+              <el-input v-model="templateForm.sampleDate" placeholder="到样日期" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="测试周期">
+              <el-input v-model="templateForm.requestedCycle" placeholder="想要的测试周期" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="12">
+          <el-col :span="12">
+            <el-form-item label="测试费用">
+              <el-input v-model="templateForm.chargeStatus" placeholder="测试费用金额" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="加急费用">
+              <el-input v-model="templateForm.urgentFee" placeholder="加急费用" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-form-item label="备注">
+          <el-input v-model="templateForm.remark" type="textarea" :rows="2" placeholder="备注" />
+        </el-form-item>
+        <el-form-item label="标签">
+          <el-select v-model="templateForm.tags" multiple placeholder="选择标签" style="width:100%;" clearable>
+            <el-option label="加急" value="加急" />
+            <el-option label="样品确认" value="样品确认" />
+            <el-option label="报告核对" value="报告核对" />
+            <el-option label="常规" value="常规" />
+            <el-option label="催办" value="催办" />
+          </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -311,6 +396,19 @@ const applyTemplate = (id) => {
   if (tpl.title) form.content = tpl.title + '\n' + tpl.content
   else form.content = tpl.content
   form.templateId = id
+  if (tpl.type) form.type = tpl.type
+  if (tpl.vip) form.vip = tpl.vip
+  if (tpl.customerName || tpl.customer_name) form.customerName = tpl.customerName || tpl.customer_name
+  if (tpl.sampleCode || tpl.sample_code) form.sampleCode = tpl.sampleCode || tpl.sample_code
+  if (tpl.sampleMatrix || tpl.sample_matrix) form.sampleMatrix = tpl.sampleMatrix || tpl.sample_matrix
+  if (tpl.sampleCount || tpl.sample_count) form.sampleCount = tpl.sampleCount || tpl.sample_count
+  if (tpl.testItems || tpl.test_items) form.testItems = tpl.testItems || tpl.test_items
+  if (tpl.sampleDate || tpl.sample_date) form.sampleDate = tpl.sampleDate || tpl.sample_date
+  if (tpl.requestedCycle || tpl.requested_cycle) form.requestedCycle = tpl.requestedCycle || tpl.requested_cycle
+  if (tpl.chargeStatus || tpl.charge_status) form.chargeStatus = tpl.chargeStatus || tpl.charge_status
+  if (tpl.urgentFee || tpl.urgent_fee) form.urgentFee = tpl.urgentFee || tpl.urgent_fee
+  if (tpl.remark) form.remark = tpl.remark
+  if (tpl.tags && tpl.tags.length > 0) form.tags = [...tpl.tags]
 }
 
 // 模板管理
@@ -321,7 +419,20 @@ const templateSaving = ref(false)
 const templateForm = reactive({
   name: '',
   title: '',
-  content: ''
+  content: '',
+  type: '',
+  vip: '',
+  customerName: '',
+  sampleCode: '',
+  sampleMatrix: '',
+  sampleCount: '',
+  testItems: '',
+  sampleDate: '',
+  requestedCycle: '',
+  chargeStatus: '',
+  urgentFee: '',
+  remark: '',
+  tags: []
 })
 
 const openTemplateEditor = (tpl) => {
@@ -330,11 +441,37 @@ const openTemplateEditor = (tpl) => {
     templateForm.name = tpl.name || ''
     templateForm.title = tpl.title || ''
     templateForm.content = tpl.content || ''
+    templateForm.type = tpl.type || ''
+    templateForm.vip = tpl.vip || ''
+    templateForm.customerName = tpl.customerName || tpl.customer_name || ''
+    templateForm.sampleCode = tpl.sampleCode || tpl.sample_code || ''
+    templateForm.sampleMatrix = tpl.sampleMatrix || tpl.sample_matrix || ''
+    templateForm.sampleCount = tpl.sampleCount || tpl.sample_count || ''
+    templateForm.testItems = tpl.testItems || tpl.test_items || ''
+    templateForm.sampleDate = tpl.sampleDate || tpl.sample_date || ''
+    templateForm.requestedCycle = tpl.requestedCycle || tpl.requested_cycle || ''
+    templateForm.chargeStatus = tpl.chargeStatus || tpl.charge_status || ''
+    templateForm.urgentFee = tpl.urgentFee || tpl.urgent_fee || ''
+    templateForm.remark = tpl.remark || ''
+    templateForm.tags = tpl.tags || []
   } else {
     editingTemplate.value = null
     templateForm.name = ''
     templateForm.title = ''
     templateForm.content = ''
+    templateForm.type = ''
+    templateForm.vip = ''
+    templateForm.customerName = ''
+    templateForm.sampleCode = ''
+    templateForm.sampleMatrix = ''
+    templateForm.sampleCount = ''
+    templateForm.testItems = ''
+    templateForm.sampleDate = ''
+    templateForm.requestedCycle = ''
+    templateForm.chargeStatus = ''
+    templateForm.urgentFee = ''
+    templateForm.remark = ''
+    templateForm.tags = []
   }
   templateEditorVisible.value = true
 }
@@ -354,14 +491,40 @@ const saveTemplate = async () => {
       await templateAPI.update(editingTemplate.value.id, {
         name: templateForm.name.trim(),
         title: templateForm.title.trim(),
-        content: templateForm.content.trim()
+        content: templateForm.content.trim(),
+        type: templateForm.type,
+        vip: templateForm.vip,
+        customerName: templateForm.customerName,
+        sampleCode: templateForm.sampleCode,
+        sampleMatrix: templateForm.sampleMatrix,
+        sampleCount: templateForm.sampleCount,
+        testItems: templateForm.testItems,
+        sampleDate: templateForm.sampleDate,
+        requestedCycle: templateForm.requestedCycle,
+        chargeStatus: templateForm.chargeStatus,
+        urgentFee: templateForm.urgentFee,
+        remark: templateForm.remark,
+        tags: templateForm.tags
       })
       ElMessage.success('模板已更新')
     } else {
       await templateAPI.create({
         name: templateForm.name.trim(),
         title: templateForm.title.trim(),
-        content: templateForm.content.trim()
+        content: templateForm.content.trim(),
+        type: templateForm.type,
+        vip: templateForm.vip,
+        customerName: templateForm.customerName,
+        sampleCode: templateForm.sampleCode,
+        sampleMatrix: templateForm.sampleMatrix,
+        sampleCount: templateForm.sampleCount,
+        testItems: templateForm.testItems,
+        sampleDate: templateForm.sampleDate,
+        requestedCycle: templateForm.requestedCycle,
+        chargeStatus: templateForm.chargeStatus,
+        urgentFee: templateForm.urgentFee,
+        remark: templateForm.remark,
+        tags: templateForm.tags
       })
       ElMessage.success('模板已创建')
     }

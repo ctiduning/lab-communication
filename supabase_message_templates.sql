@@ -13,7 +13,11 @@ CREATE INDEX IF NOT EXISTS idx_message_templates_user ON message_templates(user_
 
 ALTER TABLE message_templates ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "用户只能管理自己的模板"
-  ON message_templates FOR ALL
-  USING (user_id = auth.uid())
-  WITH CHECK (user_id = auth.uid());
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'message_templates' AND policyname = '用户只能管理自己的模板') THEN
+    CREATE POLICY "用户只能管理自己的模板"
+      ON message_templates FOR ALL
+      USING (user_id = auth.uid())
+      WITH CHECK (user_id = auth.uid());
+  END IF;
+END $$;
