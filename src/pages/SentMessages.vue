@@ -62,6 +62,15 @@
           {{ getTypeName(scope.row.type) }}
         </template>
       </el-table-column>
+      <el-table-column label="标签" width="160">
+        <template #default="scope">
+          <span v-if="scope.row.tags && scope.row.tags.length > 0" style="display:flex;flex-wrap:wrap;gap:3px;">
+            <el-tag v-for="tag in scope.row.tags" :key="tag" size="small" :color="getTagColor(tag)" style="color:#fff;border:none;">
+              {{ tag }}
+            </el-tag>
+          </span>
+        </template>
+      </el-table-column>
       <el-table-column label="客户/样品" min-width="140">
         <template #default="scope">
           <div>{{ scope.row.customerName || '-' }}</div>
@@ -192,6 +201,14 @@
           <el-descriptions-item label="客户名称">{{ selectedComm.customerName || '-' }}</el-descriptions-item>
           <el-descriptions-item label="样品短号">{{ selectedComm.sampleCode || '-' }}</el-descriptions-item>
           <el-descriptions-item label="发送时间">{{ formatTime(selectedComm.createdAt) }}</el-descriptions-item>
+          <el-descriptions-item label="标签">
+            <span v-if="selectedComm.tags && selectedComm.tags.length > 0" style="display:flex;flex-wrap:wrap;gap:3px;">
+              <el-tag v-for="tag in selectedComm.tags" :key="tag" size="small" :color="getTagColor(tag)" style="color:#fff;border:none;">
+                {{ tag }}
+              </el-tag>
+            </span>
+            <span v-else>-</span>
+          </el-descriptions-item>
           <el-descriptions-item v-if="selectedComm.remark" label="备注" :span="2">{{ selectedComm.remark }}</el-descriptions-item>
           <el-descriptions-item v-if="selectedComm.content" label="内容" :span="2">{{ selectedComm.content }}</el-descriptions-item>
         </el-descriptions>
@@ -225,14 +242,23 @@
                         <span class="reply-time-mini">{{ formatTime(reply.createdAt) }}</span>
                         <el-button size="small" circle @click.stop="activeReplyId = reply.id; inlineReplyContent = ''" style="flex-shrink:0;padding:0 4px;min-width:auto;height:auto;font-size:13px;border:none;">💬</el-button>
                       </div>
-                      <div v-if="activeReplyId === reply.id" style="display:flex;gap:4px;margin:4px 0;align-items:center;">
-                        <el-input v-model="inlineReplyContent" size="small" placeholder="回复..." style="flex:1;" @keyup.enter="submitInlineReply(reply)" />
+                      <div v-if="activeReplyId === reply.id" style="display:flex;flex-wrap:wrap;gap:4px;margin:4px 0;">
+                        <el-input v-model="inlineReplyContent" size="small" placeholder="回复..." style="flex:1;min-width:200px;" @keyup.enter="submitInlineReply(reply)" />
                         <el-button size="small" type="primary" @click="submitInlineReply(reply)" :loading="inlineReplyLoading">发送</el-button>
                         <el-button size="small" @click="cancelInlineReply">取消</el-button>
+                        <div style="width:100%;display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">
+                          <el-tag v-for="(qr, qi) in quickReplies" :key="qi" size="small" style="cursor:pointer;" @click="inlineReplyContent = qr">{{ qr }}</el-tag>
+                        </div>
                       </div>
                     </div>
                   </div>
                   <span v-else style="color:#999;">-</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="已读" width="60" align="center">
+                <template #default="scope">
+                  <span v-if="scope.row.is_read" style="color:#67c23a;">✓</span>
+                  <span v-else style="color:#f56c6c;">✗</span>
                 </template>
               </el-table-column>
               <el-table-column label="个人状态" width="90" align="center">
@@ -262,10 +288,13 @@
                         <span class="reply-time-mini">{{ formatTime(reply.createdAt) }}</span>
                         <el-button size="small" circle @click.stop="activeReplyId = reply.id; inlineReplyContent = ''" style="flex-shrink:0;padding:0 4px;min-width:auto;height:auto;font-size:13px;border:none;">💬</el-button>
                       </div>
-                      <div v-if="activeReplyId === reply.id" style="display:flex;gap:4px;margin:4px 0;align-items:center;">
-                        <el-input v-model="inlineReplyContent" size="small" placeholder="回复..." style="flex:1;" @keyup.enter="submitInlineReply(reply)" />
+                      <div v-if="activeReplyId === reply.id" style="display:flex;flex-wrap:wrap;gap:4px;margin:4px 0;">
+                        <el-input v-model="inlineReplyContent" size="small" placeholder="回复..." style="flex:1;min-width:200px;" @keyup.enter="submitInlineReply(reply)" />
                         <el-button size="small" type="primary" @click="submitInlineReply(reply)" :loading="inlineReplyLoading">发送</el-button>
                         <el-button size="small" @click="cancelInlineReply">取消</el-button>
+                        <div style="width:100%;display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">
+                          <el-tag v-for="(qr, qi) in quickReplies" :key="qi" size="small" style="cursor:pointer;" @click="inlineReplyContent = qr">{{ qr }}</el-tag>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -327,6 +356,14 @@
           </el-table-column>
         </el-table>
 
+        <div style="margin-top: 12px; color: #606266; font-size: 13px; padding: 8px 0;">
+          <span v-if="selectedComm.recipientDetails && selectedComm.recipientDetails.length > 0">
+            已读 {{ selectedComm.recipientDetails.filter(r => r.is_read).length }}/{{ selectedComm.recipientDetails.length }}
+            <span v-if="selectedComm.recipientDetails.filter(r => !r.is_read).length > 0" style="color: #e6a23c;">
+              · {{ selectedComm.recipientDetails.filter(r => !r.is_read).length }} 人未读
+            </span>
+          </span>
+        </div>
         <div style="margin-top: 12px;">
           <el-button
             v-if="!selectedComm.isCompleted"
@@ -354,6 +391,15 @@
             style="margin-left: 8px;"
           >
             撤回消息
+          </el-button>
+          <!-- 转发按钮 -->
+          <el-button
+            type="primary"
+            size="small"
+            @click="showForwardDialog(selectedComm)"
+            style="margin-left: 8px;"
+          >
+            转发
           </el-button>
         </div>
       </div>
@@ -388,6 +434,55 @@
       <template #footer>
         <el-button @click="recallDialogVisible = false">取消</el-button>
         <el-button type="warning" @click="confirmRecall()" :loading="recallLoading">确认撤回</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 转发弹窗 -->
+    <el-dialog title="转发消息" v-model="forwardDialogVisible" width="600px" :close-on-click-modal="false">
+      <div v-if="forwardTarget">
+        <div style="margin-bottom: 16px; padding: 12px; background: #f5f7fa; border-radius: 6px;">
+          <div style="font-weight: 600; margin-bottom: 8px;">原消息摘要</div>
+          <div style="font-size: 13px; color: #606266;">
+            <div>发送人：{{ forwardTarget.senderName }}</div>
+            <div>类型：{{ getTypeName(forwardTarget.type) }}</div>
+            <div v-if="forwardTarget.content" style="margin-top: 4px;">内容：{{ forwardTarget.content }}</div>
+          </div>
+        </div>
+        <el-form>
+          <el-form-item label="转发附言">
+            <el-input v-model="forwardNote" type="textarea" :rows="2" placeholder="添加转发附言（可选）" />
+          </el-form-item>
+          <el-form-item label="接收人" prop="recipients">
+            <el-select
+              v-model="forwardRecipients"
+              multiple
+              filterable
+              reserve-keyword
+              placeholder="搜索选择接收人..."
+              style="width: 100%;"
+              :teleported="false"
+            >
+              <el-option
+                v-for="u in allUsers"
+                :key="u.id"
+                :label="u.name"
+                :value="u.id"
+              >
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span style="font-weight:500;">{{ u.name }}</span>
+                  <span style="color:#999;font-size:12px;">{{ u.department || '-' }}</span>
+                </div>
+              </el-option>
+            </el-select>
+            <div style="color: #999; font-size: 12px; margin-top: 4px;">
+              已选择 {{ forwardRecipients.length }} 人
+            </div>
+          </el-form-item>
+        </el-form>
+      </div>
+      <template #footer>
+        <el-button @click="forwardDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="confirmForward" :loading="forwardLoading" :disabled="forwardRecipients.length === 0">确认转发</el-button>
       </template>
     </el-dialog>
 
@@ -464,6 +559,17 @@ const activeReplyId = ref(null)
 const inlineReplyContent = ref('')
 const inlineReplyLoading = ref(false)
 
+// 转发相关
+const forwardDialogVisible = ref(false)
+const forwardTarget = ref(null)
+const forwardRecipients = ref([])
+const forwardNote = ref('')
+const forwardLoading = ref(false)
+const allUsers = ref([])
+
+// 快捷回复预设
+const quickReplies = ['收到，已安排', '样品已收到，正在检测', '报告已出具，请查收', '预计 X 个工作日出报告', '数据确认中，稍后回复']
+
 const typeMap = {
   paid_urgent: '付费加急',
   free_urgent: '免费加急',
@@ -476,6 +582,17 @@ const typeMap = {
 }
 
 const getTypeName = (type) => typeMap[type] || type || '-'
+
+const getTagColor = (tag) => {
+  const colors = {
+    '加急': '#e74c3c',
+    '样品确认': '#27ae60',
+    '报告核对': '#2980b9',
+    '常规': '#95a5a6',
+    '催办': '#f39c12'
+  }
+  return colors[tag] || '#909399'
+}
 
 const formatTime = (t) => {
   if (!t) return '-'
@@ -825,6 +942,51 @@ const confirmRecall = async () => {
     ElMessage.error('撤回失败：' + (error.message || '未知错误'))
   } finally {
     recallLoading.value = false
+  }
+}
+
+// 转发相关
+const showForwardDialog = (comm) => {
+  forwardTarget.value = comm
+  forwardRecipients.value = []
+  forwardNote.value = ''
+  forwardDialogVisible.value = true
+  // 加载用户列表
+  loadForwardUsers()
+}
+
+const loadForwardUsers = async () => {
+  try {
+    const { data: { user: authUser } } = await supabase.auth.getUser()
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, name, department')
+      .neq('id', authUser?.id || '')
+      .order('name')
+    allUsers.value = data || []
+  } catch (e) {
+    console.error('加载用户列表失败:', e)
+  }
+}
+
+const confirmForward = async () => {
+  if (!forwardTarget.value || forwardRecipients.value.length === 0) {
+    ElMessage.warning('请选择接收人')
+    return
+  }
+  forwardLoading.value = true
+  try {
+    await communicationAPI.forwardMessage(forwardTarget.value.id, {
+      recipientIds: forwardRecipients.value,
+      note: forwardNote.value
+    })
+    ElMessage.success('转发成功')
+    forwardDialogVisible.value = false
+    loadCommunications()
+  } catch (e) {
+    ElMessage.error('转发失败：' + (e.message || '未知错误'))
+  } finally {
+    forwardLoading.value = false
   }
 }
 

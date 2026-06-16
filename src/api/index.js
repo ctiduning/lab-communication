@@ -389,6 +389,26 @@ export const communicationAPI = {
 
     if (error) throw error
 
+    // 批量获取标签信息
+    let tagsMap = {}
+    try {
+      const commIds = communications.map(c => c.id)
+      if (commIds.length > 0) {
+        const { data: tagsData } = await supabase
+          .from('message_tags')
+          .select('communication_id, tag_name')
+          .in('communication_id', commIds)
+        if (tagsData) {
+          tagsData.forEach(t => {
+            if (!tagsMap[t.communication_id]) tagsMap[t.communication_id] = []
+            tagsMap[t.communication_id].push(t.tag_name)
+          })
+        }
+      }
+    } catch (e) {
+      console.warn('获取标签失败:', e)
+    }
+
     const formatted = communications.map(c => ({
       id: c.id,
       senderId: c.sender_id,
@@ -426,6 +446,8 @@ export const communicationAPI = {
       isRecalled: c.is_recalled || false,
       recallReason: c.recall_reason || '',
       recalledAt: c.recalled_at || null,
+      forwardedFrom: c.forwarded_from || null,
+      forwardNote: c.forward_note || '',
       replyCount: c.replies?.length || 0,
       hasNewReply: c.has_new_reply || c.communication_recipients?.some(r => r.has_new_reply) || false,
       newReplyCount: c.communication_recipients?.filter(r => r.has_new_reply).length || 0,
@@ -437,7 +459,8 @@ export const communicationAPI = {
         content: r.content,
         createdAt: r.created_at,
         targetRecipientId: r.target_recipient_id
-      })) || []
+      })) || [],
+      tags: tagsMap[c.id] || []
     }))
 
     return { data: formatted, total: count || 0, page, pageSize, totalPages: Math.ceil((count || 0) / pageSize) }
@@ -505,6 +528,15 @@ export const communicationAPI = {
         .insert(notifications)
 
       if (notifError) throw notifError
+    }
+
+    // 如果有标签，保存标签
+    if (data.tags && data.tags.length > 0) {
+      try {
+        await tagAPI.setTags(communication.id, data.tags)
+      } catch (e) {
+        console.warn('保存标签失败:', e)
+      }
     }
 
     return { data: communication }
@@ -758,6 +790,8 @@ export const communicationAPI = {
           has_new_reply: r.has_new_reply || false
         })) || [],
         isCompleted: communication.is_completed || false,  // 沟通记录是否已完结（全局）
+        forwardedFrom: communication.forwarded_from || null,
+        forwardNote: communication.forward_note || '',
         replyCount: communication.replies?.length || 0,
         hasNewReply: communication.has_new_reply || communication.communication_recipients?.some(r => r.has_new_reply) || false,
         newReplyCount: communication.communication_recipients?.filter(r => r.has_new_reply).length || 0,
@@ -1316,6 +1350,76 @@ export const communicationAPI = {
     }));
 
     return { data: formatted };
+  },
+
+  // 转发消息
+  async forwardMessage(originalCommId, { recipientIds, departmentCardIds, note, senderRole }) {
+    const userId = await getCurrentUserId()
+    if (!userId) throw new Error('未登录')
+
+    // 获取原消息
+    const { data: original, error: origError } = await supabase
+      .from('communications')
+      .select('*')
+      .eq('id', originalCommId)
+      .single()
+    if (origError) throw origError
+
+    // 创建新消息（复制原消息内容）
+    const newComm = {
+      sender_id: userId,
+      type: original.type,
+      content: original.content,
+      customer_name: original.customer_name,
+      sample_code: original.sample_code,
+      sample_matrix: original.sample_matrix,
+      sample_count: original.sample_count,
+      test_items: original.test_items,
+      sample_date: original.sample_date,
+      requested_cycle: original.requested_cycle,
+      charge_status: original.charge_status,
+      urgent_fee: original.urgent_fee,
+      remark: original.remark,
+      vip: original.vip,
+      attachments: original.attachments,
+      senderRole: senderRole || original.senderRole,
+      forwarded_from: originalCommId,
+      forward_note: note || ''
+    }
+
+    const { data: comm, error: commError } = await supabase
+      .from('communications')
+      .insert(newComm)
+      .select()
+      .single()
+    if (commError) throw commError
+
+    // 创建接收人
+    const allRecipients = [...new Set([...(recipientIds || []), ...(departmentCardIds || [])])]
+    const recipientRows = allRecipients.map(rid => ({
+      communication_id: comm.id,
+      recipient_id: rid
+    }))
+    if (recipientRows.length > 0) {
+      const { error: recError } = await supabase
+        .from('communication_recipients')
+        .insert(recipientRows)
+      if (recError) throw recError
+    }
+
+    // 为所有接收人创建通知
+    if (recipientIds && recipientIds.length > 0) {
+      await Promise.all(recipientIds.map(recipientId =>
+        supabase.from('notifications').insert({
+          user_id: recipientId,
+          communication_id: comm.id,
+          type: 'new_message',
+          content: `有新的沟通请求：${getTypeLabel(original.type)}`
+        })
+      ))
+    }
+
+    return { data: comm }
   },
 
   // 编辑消息（2分钟内可编辑）
@@ -2227,6 +2331,124 @@ export const departmentAPI = {
       .not('department_level1', 'is', null)
 
     if (error) throw error
+  }
+}
+
+// ==========================================
+// 消息模板 API
+// ==========================================
+export const templateAPI = {
+  async getMyTemplates() {
+    const userId = await getCurrentUserId()
+    if (!userId) return { data: [] }
+    const { data, error } = await supabase
+      .from('message_templates')
+      .select('*')
+      .eq('user_id', userId)
+      .order('usage_count', { ascending: false })
+    if (error) throw error
     return { data: data || [] }
+  },
+
+  async create({ name, title, content }) {
+    const userId = await getCurrentUserId()
+    if (!userId) throw new Error('未登录')
+    const { data, error } = await supabase
+      .from('message_templates')
+      .insert({ user_id: userId, name, title, content })
+      .select()
+      .single()
+    if (error) throw error
+    return { data }
+  },
+
+  async update(id, updates) {
+    const { data, error } = await supabase
+      .from('message_templates')
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single()
+    if (error) throw error
+    return { data }
+  },
+
+  async incrementUsage(id) {
+    const { data, error } = await supabase
+      .rpc('increment_template_usage', { template_id: id })
+    if (error) {
+      // fallback: 直接 update
+      const { data: tpl } = await supabase
+        .from('message_templates')
+        .select('usage_count')
+        .eq('id', id)
+        .single()
+      if (tpl) {
+        await supabase
+          .from('message_templates')
+          .update({ usage_count: (tpl.usage_count || 0) + 1, updated_at: new Date().toISOString() })
+          .eq('id', id)
+      }
+    }
+    return { data }
+  },
+
+  async remove(id) {
+    const { error } = await supabase
+      .from('message_templates')
+      .delete()
+      .eq('id', id)
+    if (error) throw error
+  }
+}
+
+// ==========================================
+// 标签 API
+// ==========================================
+export const tagAPI = {
+  // 获取可用的标签列表
+  async getAvailableTags() {
+    const { data, error } = await supabase
+      .from('message_tags')
+      .select('tag_name')
+      .order('tag_name')
+    if (error) throw error
+    // 去重
+    const tags = [...new Set((data || []).map(t => t.tag_name))].sort()
+    return { data: tags }
+  },
+
+  // 获取某条消息的标签
+  async getByCommunication(communicationId) {
+    const { data, error } = await supabase
+      .from('message_tags')
+      .select('id, tag_name')
+      .eq('communication_id', communicationId)
+    if (error) throw error
+    return { data: data || [] }
+  },
+
+  // 设置消息标签（先删后插）
+  async setTags(communicationId, tagNames) {
+    // 先删旧的
+    const { error: delError } = await supabase
+      .from('message_tags')
+      .delete()
+      .eq('communication_id', communicationId)
+    if (delError) throw delError
+
+    if (!tagNames || tagNames.length === 0) return { data: [] }
+
+    // 插入新标签
+    const rows = tagNames.map(name => ({
+      communication_id: communicationId,
+      tag_name: name
+    }))
+    const { data, error } = await supabase
+      .from('message_tags')
+      .insert(rows)
+      .select()
+    if (error) throw error
+    return { data }
   }
 }

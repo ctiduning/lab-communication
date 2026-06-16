@@ -15,6 +15,16 @@
       </el-form-item>
       
       <el-form-item label="消息内容" prop="content">
+        <div style="display:flex;gap:8px;margin-bottom:8px;">
+          <el-button size="small" type="default" @click="showTemplateSelector = !showTemplateSelector">
+            从模板
+          </el-button>
+          <template v-if="showTemplateSelector && myTemplates.length > 0">
+            <el-select v-model="selectedTemplateId" placeholder="选择模板..." size="small" style="width:200px;" @change="applyTemplate" clearable>
+              <el-option v-for="tpl in myTemplates" :key="tpl.id" :label="tpl.name" :value="tpl.id" />
+            </el-select>
+          </template>
+        </div>
         <el-input type="textarea" v-model="form.content" placeholder="请输入消息内容" :rows="4"></el-input>
       </el-form-item>
       
@@ -177,6 +187,16 @@
           选择部门后，消息将发送给该部门的负责人（组长+组长助理），同组任意一人回复即为该组已处理
         </div>
       </el-form-item>
+
+      <el-form-item label="标签">
+        <el-select v-model="form.tags" multiple placeholder="选择标签（可选）" style="width: 100%;" clearable>
+          <el-option label="加急" value="加急" />
+          <el-option label="样品确认" value="样品确认" />
+          <el-option label="报告核对" value="报告核对" />
+          <el-option label="常规" value="常规" />
+          <el-option label="催办" value="催办" />
+        </el-select>
+      </el-form-item>
       
       <el-form-item>
         <el-button type="primary" @click="submitForm">发送</el-button>
@@ -214,7 +234,7 @@
 import { ref, reactive, computed, onMounted, inject } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
-import { communicationAPI, storageAPI, departmentCardAPI, ROLE_OPTIONS, getRoleDisplayName } from '../api';
+import { communicationAPI, storageAPI, departmentCardAPI, templateAPI, ROLE_OPTIONS, getRoleDisplayName } from '../api';
 import { supabase } from '../utils/supabase';
 import { buildSearchKeys, filterGroups } from '../utils/pinyinSearch';
 import { getLevel2Options, getLevel3Options, getRoleOptions, isDepartmentCardRole } from '../utils/departmentConfig';
@@ -224,6 +244,29 @@ const router = useRouter();
 // 草稿箱
 const showDraftBox = ref(false);
 const drafts = ref([]);
+
+// 模板相关
+const showTemplateSelector = ref(false);
+const selectedTemplateId = ref(null);
+const myTemplates = ref([]);
+
+const loadMyTemplates = async () => {
+  try {
+    const { data } = await templateAPI.getMyTemplates()
+    myTemplates.value = data || []
+  } catch (e) {
+    console.warn('加载模板失败:', e)
+  }
+}
+
+const applyTemplate = (id) => {
+  if (!id) return
+  const tpl = myTemplates.value.find(t => t.id === id)
+  if (!tpl) return
+  if (tpl.title) form.content = tpl.title + '\n' + tpl.content
+  else form.content = tpl.content
+  form.templateId = id
+}
 
 const loadDraftsFromStorage = () => {
   try {
@@ -284,7 +327,9 @@ const form = reactive({
   content: '',
   recipients: [],
   departmentCards: [],
-  attachments: []
+  attachments: [],
+  tags: [],
+  templateId: null
 });
 
 // 部门名片数据
@@ -501,6 +546,9 @@ const submitForm = async () => {
     }
     await communicationAPI.create(payload);
     ElMessage.success('发送成功');
+    if (form.templateId) {
+      templateAPI.incrementUsage(form.templateId).catch(e => console.warn('更新模板使用次数失败:', e))
+    }
     // 清除匹配的草稿（按内容+样品短号匹配）
     const draftIdx = drafts.value.findIndex(d => d.content === form.content && d.sampleCode === form.sampleCode);
     if (draftIdx >= 0) deleteDraft(draftIdx);
@@ -527,6 +575,7 @@ const resetForm = () => {
   form.recipients = [];
   form.departmentCards = [];
   form.attachments = [];
+  form.tags = [];
   currentCardMap = {};
 };
 
@@ -609,6 +658,9 @@ const pickFilesWithAPI = async () => {
 onMounted(() => {
   // 加载草稿
   loadDraftsFromStorage();
+
+  // 加载模板
+  loadMyTemplates()
   
   // 获取当前用户角色
   supabase.auth.getUser().then(({ data: { user } }) => {

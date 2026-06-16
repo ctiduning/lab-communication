@@ -344,6 +344,11 @@ const loadUser = async () => {
   // 写入缓存
   sessionStorage.setItem('cachedUser', JSON.stringify(user.value));
   localStorage.setItem('user', JSON.stringify(user.value));
+
+  // 请求桌面通知权限
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission()
+  }
 };
 
 const initMenu = async () => {
@@ -407,9 +412,28 @@ const loadSentNewReplyCount = async () => {
 const subscribeMessages = () => {
   messageChannel = supabase
     .channel('messages-pending-count')
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'communications' }, () => {
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'communications' }, async (payload) => {
       loadPendingMsgCount();
       loadSentNewReplyCount();
+      // 桌面通知：检查是否是新消息发给当前用户
+      if (payload.new && user.value && user.value.id && payload.new.sender_id !== user.value.id) {
+        try {
+          const { data: recip } = await supabase
+            .from('communication_recipients')
+            .select('recipient_id')
+            .eq('communication_id', payload.new.id)
+            .eq('recipient_id', user.value.id)
+            .maybeSingle()
+          if (recip && 'Notification' in window && Notification.permission === 'granted') {
+            new Notification('新消息', {
+              body: (payload.new.content || '').substring(0, 60) + '...' || '您收到一条新消息',
+              icon: '/vite.svg'
+            })
+          }
+        } catch (e) {
+          console.error('桌面通知失败:', e)
+        }
+      }
     })
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'communication_recipients' }, () => loadPendingMsgCount())
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'communications' }, () => loadSentNewReplyCount())
