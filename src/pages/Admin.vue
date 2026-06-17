@@ -316,12 +316,7 @@
       </el-tab-pane>
 
       <el-tab-pane label="数据看板" name="dashboard">
-        <div style="text-align: center; padding: 60px 20px;">
-          <div style="font-size: 16px; color: #666; margin-bottom: 20px;">点击按钮进入完整数据看板页面</div>
-          <el-button type="primary" size="large" @click="$router.push('/dashboard')" style="padding: 12px 40px; font-size: 16px;">
-            进入数据看板
-          </el-button>
-        </div>
+        <Dashboard />
       </el-tab-pane>
 
       <el-tab-pane label="存储管理" name="stats">
@@ -676,6 +671,7 @@
 import { ref, reactive, computed, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { userAPI, authAPI, communicationAPI, notificationAPI, reactionAPI, ROLE_OPTIONS, getRoleDisplayName, getRoleCategory, adminLogAPI, departmentAPI } from '../api';
+import Dashboard from './Dashboard.vue';
 import { supabase } from '../utils/supabase';
 import * as XLSX from 'xlsx';
 import { getLevel2Options, getLevel3Options, getRoleOptions, isLevel3ManualInput } from '../utils/departmentConfig';
