@@ -1303,24 +1303,23 @@ const confirmForward = async () => {
   }
   forwardLoading.value = true
   try {
-    // 收集部门持有人ID（与发起沟通逻辑一致）
+    // 收集部门持有人ID（与 submitForm 逻辑一致：department_card_ids 存用户ID）
     let deptHolderIds = []
     if (forwardDepartmentCardIds.value.length > 0 && forwardDepartmentCards.value.length > 0) {
       forwardDepartmentCardIds.value.forEach(cardKey => {
-        const card = forwardDepartmentCards.value.find(c => c.departmentLevel3 === cardKey)
-        if (card) deptHolderIds.push(...card.holders.map(h => h.id))
+        const ids = departmentCardAPI.getHolderIds(cardKey, forwardDepartmentCards.value)
+        deptHolderIds.push(...ids)
       })
     }
-    // 合并个人收件人 + 部门持有人，去重
-    const allRecipientIds = [...new Set([...forwardRecipients.value, ...deptHolderIds])]
+    // forwardRecipients 已包含个人+部门持有人（onForwardDepartmentCardsChange 自动添加）
     
     await communicationAPI.forwardMessage(forwardTarget.value.id, {
-      recipientIds: allRecipientIds,
-      departmentCardIds: forwardDepartmentCardIds.value,  // 传 level3 keys，不是用户ID
+      recipientIds: [...forwardRecipients.value],
+      departmentCardIds: deptHolderIds,  // 传用户ID（与 submitForm line 802 一致）
       note: forwardNote.value,
       senderRole: forwardTarget.value.senderRole
     })
-    ElMessage.success(`转发成功（共 ${allRecipientIds.length} 人）`)
+    ElMessage.success(`转发成功（共 ${forwardRecipients.value.length} 人）`)
     forwardDialogVisible.value = false
     loadCommunications()
   } catch (e) {
