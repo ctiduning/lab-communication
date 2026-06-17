@@ -25,7 +25,7 @@
           <el-table-column label="状态" width="100" align="center" fixed="left">
             <template #default="scope">
               <el-tag v-if="scope.row.myCompleted || scope.row.isCompleted" size="small" type="info">已完结</el-tag>
-              <el-tag v-else-if="scope.row.isRecalled && !scope.row.hasReplied" size="small" type="warning">已撤回</el-tag>
+              <el-tag v-if="scope.row.isRecalled" size="small" type="warning">已撤回</el-tag>
               <el-tag v-else-if="scope.row.hasReplied" size="small" type="success">已回复</el-tag>
               <el-tag v-else size="small" type="warning">待处理</el-tag>
             </template>
@@ -129,7 +129,7 @@
           <el-table-column label="状态" width="100" align="center" fixed="left">
             <template #default="scope">
               <el-tag v-if="scope.row.myCompleted || scope.row.isCompleted" size="small" type="info">已完结</el-tag>
-              <el-tag v-else-if="scope.row.isRecalled && !scope.row.hasReplied" size="small" type="warning">已撤回</el-tag>
+              <el-tag v-if="scope.row.isRecalled" size="small" type="warning">已撤回</el-tag>
               <el-tag v-else-if="scope.row.hasReplied" size="small" type="success">已回复</el-tag>
               <el-tag v-else size="small" type="warning">待处理</el-tag>
             </template>
@@ -375,7 +375,7 @@
           <el-table-column label="状态" width="100" align="center" fixed="left">
             <template #default="scope">
               <el-tag v-if="scope.row.myCompleted || scope.row.isCompleted" size="small" type="info">已完结</el-tag>
-              <el-tag v-else-if="scope.row.isRecalled && !scope.row.hasReplied" size="small" type="warning">已撤回</el-tag>
+              <el-tag v-if="scope.row.isRecalled" size="small" type="warning">已撤回</el-tag>
               <el-tag v-else-if="scope.row.hasReplied" size="small" type="success">已回复</el-tag>
               <el-tag v-else size="small" type="warning">待处理</el-tag>
             </template>
@@ -464,7 +464,7 @@
           <el-table-column label="状态" width="100" align="center" fixed="left">
             <template #default="scope">
               <el-tag v-if="scope.row.myCompleted || scope.row.isCompleted" size="small" type="info">已完结</el-tag>
-              <el-tag v-else-if="scope.row.isRecalled && !scope.row.hasReplied" size="small" type="warning">已撤回</el-tag>
+              <el-tag v-if="scope.row.isRecalled" size="small" type="warning">已撤回</el-tag>
               <el-tag v-else-if="scope.row.hasReplied" size="small" type="success">已回复</el-tag>
               <el-tag v-else size="small" type="warning">待处理</el-tag>
             </template>
@@ -1221,7 +1221,7 @@ const pendingMessages = computed(() => {
 // 已处理消息：已回复 且 我个人未完结 且 全局未完结 且 未撤回 且 非系统通知
 const processedMessages = computed(() => {
   let result = messages.value.filter(m => 
-    m.hasReplied && !m.myCompleted && !m.isCompleted && !m.isSystemNotification
+    m.hasReplied && !m.myCompleted && !m.isCompleted && !m.isRecalled && !m.isSystemNotification
   );
 
   // 模糊搜索

@@ -498,6 +498,17 @@
               </div>
             </div>
           </el-form-item>
+          <el-form-item label="按部门转发" v-if="forwardDepartmentCards.length > 0">
+            <el-select v-model="forwardDepartmentCardIds" multiple filterable placeholder="搜索或选择检测部门（可多选）" style="width:100%;" clearable>
+              <el-option v-for="card in forwardDepartmentCards" :key="card.departmentLevel3" :label="(card.departmentLevel2 || '') + ' · ' + (card.departmentLevel3 || '')" :value="card.departmentLevel3">
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span style="font-weight:500;">{{ card.departmentLevel3 }}</span>
+                  <span style="color:#999;font-size:12px;">{{ card.leader?.name || '无组长' }}</span>
+                </div>
+              </el-option>
+            </el-select>
+            <div style="font-size:12px;color:#909399;margin-top:4px;">选择部门后，消息将发送给该部门的负责人（组长+组长助理）</div>
+          </el-form-item>
         </el-form>
       </div>
       <template #footer>
@@ -603,6 +614,8 @@ const forwardTarget = ref(null)
 const forwardRecipients = ref([])
 const forwardNote = ref('')
 const forwardLoading = ref(false)
+const forwardDepartmentCards = ref([])
+const forwardDepartmentCardIds = ref([])
 const allUsers = ref([])
 const forwardSearchQuery = ref('')
 const forwardRecipientGroups = ref([])
@@ -1080,9 +1093,16 @@ const showForwardDialog = (comm) => {
   forwardTarget.value = comm
   forwardRecipients.value = []
   forwardNote.value = ''
+  forwardDepartmentCardIds.value = []
   forwardDialogVisible.value = true
   // 加载用户列表
   loadForwardUsers()
+  // 加载部门名片
+  import('../api').then(({ departmentCardAPI }) => {
+    departmentCardAPI.getDepartmentCards().then(res => {
+      forwardDepartmentCards.value = res.data || []
+    }).catch(() => {})
+  })
 }
 
 const loadForwardUsers = async () => {
@@ -1150,14 +1170,22 @@ const removeForwardRecipient = (uid) => {
 }
 
 const confirmForward = async () => {
-  if (!forwardTarget.value || forwardRecipients.value.length === 0) {
-    ElMessage.warning('请选择接收人')
+  if (!forwardTarget.value || (forwardRecipients.value.length === 0 && forwardDepartmentCardIds.value.length === 0)) {
+    ElMessage.warning('请选择个人接收人或部门名片')
     return
   }
   forwardLoading.value = true
   try {
+    let deptHolderIds = []
+    if (forwardDepartmentCardIds.value.length > 0 && forwardDepartmentCards.value.length > 0) {
+      forwardDepartmentCardIds.value.forEach(cardKey => {
+        const card = forwardDepartmentCards.value.find(c => c.departmentLevel3 === cardKey)
+        if (card) deptHolderIds.push(...card.holders.map(h => h.id))
+      })
+    }
     await communicationAPI.forwardMessage(forwardTarget.value.id, {
-      recipientIds: forwardRecipients.value,
+      recipientIds: [...forwardRecipients.value, ...deptHolderIds],
+      departmentCardIds: deptHolderIds,
       note: forwardNote.value
     })
     ElMessage.success('转发成功')
@@ -1375,10 +1403,10 @@ const filterList = () => {
 }
 
 /* 已撤回行样式 - 浅紫色 */
-.recalled-row {
+:deep(.recalled-row) {
   background-color: #f5f0ff !important;
 }
-.recalled-row:hover {
+:deep(.recalled-row:hover) {
   background-color: #ede0ff !important;
 }
 

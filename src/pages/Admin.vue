@@ -673,6 +673,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { userAPI, authAPI, communicationAPI, notificationAPI, reactionAPI, ROLE_OPTIONS, getRoleDisplayName, getRoleCategory, adminLogAPI, departmentAPI } from '../api';
 import Dashboard from './Dashboard.vue';
 import { supabase } from '../utils/supabase';
+import { buildSearchKeys, matchUser } from '../utils/pinyinSearch';
 import * as XLSX from 'xlsx';
 import { getLevel2Options, getLevel3Options, getRoleOptions, isLevel3ManualInput } from '../utils/departmentConfig';
 
@@ -747,16 +748,10 @@ const commSearchKeyword = ref('');
 const filteredUsers = computed(() => {
   if (!searchKeyword.value) return users.value;
   const kw = searchKeyword.value;
-  return users.value.filter(u =>
-    fuzzyMatch(u.name, kw) ||
-    fuzzyMatch(u.employeeId, kw) ||
-    fuzzyMatch(u.email, kw) ||
-    fuzzyMatch(u.departmentLevel1, kw) ||
-    fuzzyMatch(u.departmentLevel2, kw) ||
-    fuzzyMatch(u.departmentLevel3, kw) ||
-    fuzzyMatch(u.role, kw) ||
-    fuzzyMatch(u.phone, kw)
-  );
+  return users.value.filter(u => {
+    const keys = buildSearchKeys(u, ROLE_OPTIONS)
+    return matchUser(kw, keys._searchKeys)
+  });
 });
 
 const totalUsers = computed(() => users.value.length);
