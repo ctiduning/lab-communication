@@ -2571,7 +2571,7 @@ export const statisticsAPI = {
     // 3. 获取这些沟通的所有接收人
     const { data: recipients, error: recipError } = await supabase
       .from('communication_recipients')
-      .select('id, communication_id, recipient_id, has_replied, created_at')
+      .select('id, communication_id, recipient_id, has_replied')
       .in('communication_id', commIds)
 
     if (recipError) throw recipError
