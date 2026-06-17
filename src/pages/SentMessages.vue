@@ -8,7 +8,7 @@
     <!-- 筛选标签 + 刷新按钮 -->
     <div class="filter-bar">
       <el-radio-group v-model="activeFilter" @change="filterList">
-        <el-radio-button label="all">全部 ({{ communications.length + recalledMessages.length }})</el-radio-button>
+        <el-radio-button label="all">全部 ({{ communications.length }})</el-radio-button>
         <el-radio-button label="unreplied">未回复 ({{ unrepliedCount }})</el-radio-button>
         <el-radio-button label="partial_replied">部分回复 ({{ partialRepliedCount }})</el-radio-button>
         <el-radio-button label="all_replied">全部回复 ({{ allRepliedCount }})</el-radio-button>
@@ -872,7 +872,7 @@ const getRowClassName = ({ row }) => {
 }
 
 // 各状态计数
-const unrepliedCount = computed(() => communications.value.filter(c => computeReplyStatus(c) === 'unreplied' && !c.isCompleted).length)
+const unrepliedCount = computed(() => communications.value.filter(c => !c.isRecalled && computeReplyStatus(c) === 'unreplied' && !c.isCompleted).length)
 const partialRepliedCount = computed(() => communications.value.filter(c => computeReplyStatus(c) === 'partial_replied' && !c.isCompleted).length)
 const allRepliedCount = computed(() => communications.value.filter(c => computeReplyStatus(c) === 'all_replied' && !c.isCompleted).length)
 const completedCount = computed(() => communications.value.filter(c => c.isCompleted).length)

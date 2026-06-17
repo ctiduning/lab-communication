@@ -4,7 +4,10 @@
 
     <el-tabs v-model="activeTab" class="message-tabs">
       <!-- 待处理标签页 -->
-      <el-tab-pane label="待处理" name="pending">
+      <el-tab-pane name="pending">
+        <template #label>
+          <span>待处理 ({{ pendingMessages.length }})</span>
+        </template>
         <div class="table-toolbar">
           <div class="toolbar-left">
             <el-input
@@ -111,7 +114,10 @@
       </el-tab-pane>
 
       <!-- 已处理标签页 -->
-      <el-tab-pane label="已处理" name="processed">
+      <el-tab-pane name="processed">
+        <template #label>
+          <span>已处理 ({{ processedMessages.length }})</span>
+        </template>
         <div class="table-toolbar">
           <div class="toolbar-left">
             <el-input
@@ -215,7 +221,10 @@
       </el-tab-pane>
 
       <!-- 已完结标签页 -->
-      <el-tab-pane label="已完结" name="completed">
+      <el-tab-pane name="completed">
+        <template #label>
+          <span>已完结 ({{ completedMessages.length }})</span>
+        </template>
         <div class="table-toolbar">
           <div class="toolbar-left">
             <el-input
@@ -295,7 +304,10 @@
       </el-tab-pane>
 
       <!-- 已被撤回标签页 -->
-      <el-tab-pane label="已被撤回" name="recalled">
+      <el-tab-pane name="recalled">
+        <template #label>
+          <span>已被撤回 ({{ recalledMessages.length }})</span>
+        </template>
         <div class="table-toolbar">
           <div class="toolbar-left">
             <el-input
@@ -355,7 +367,10 @@
         </div>
       </el-tab-pane>
       <!-- 全部 -->
-      <el-tab-pane label="全部" name="all">
+      <el-tab-pane name="all">
+        <template #label>
+          <span>全部 ({{ allMessages.length }})</span>
+        </template>
         <div class="table-toolbar">
           <div class="toolbar-left">
             <el-input
@@ -447,7 +462,10 @@
       </el-tab-pane>
 
       <!-- 红旗标签页 -->
-      <el-tab-pane label="红旗" name="flagged">
+      <el-tab-pane name="flagged">
+        <template #label>
+          <span>🚩 红旗 ({{ flaggedMessages.length }})</span>
+        </template>
         <div class="table-toolbar">
           <div class="toolbar-left">
             <el-input
