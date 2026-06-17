@@ -20,7 +20,7 @@
           <el-button size="small" type="default" @click="showTemplateSelector = !showTemplateSelector">
             从模板
           </el-button>
-          <el-button size="small" type="primary" @click="showTemplateManager = true" plain>
+          <el-button size="small" type="primary" @click="showTemplateManager = true">
             管理模板
           </el-button>
           <template v-if="showTemplateSelector && myTemplates.length > 0">

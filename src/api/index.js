@@ -733,7 +733,7 @@ export const communicationAPI = {
           has_replied,
           replied_by,
           has_new_reply,
-          recipient:recipient_id(id, name, department, region)
+          recipient:recipient_id(id, name, department, department_level3, region)
         ),
         replies(
           id,

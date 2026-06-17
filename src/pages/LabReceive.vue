@@ -684,7 +684,7 @@ const getAllDeptGroups = (comm) => {
   const recipients = comm.recipientDetails || [];
   const groups = {};
   recipients.forEach(r => {
-    const dept = r.department_level3 || r.department || '未分组';
+    const dept = r.department_level3 || r.department_level2 || r.department || '未分组';
     if (!groups[dept]) {
       groups[dept] = { deptName: dept, recipients: [], hasReplied: false, repliedByName: '' };
     }
@@ -1433,12 +1433,12 @@ onUnmounted(() => {
   padding: 8px 0;
 }
 
-/* 已撤回 - 浅红底色 */
+/* 已撤回 - 浅紫色底色 */
 :deep(.recalled-row) {
-  background-color: #fff0f0 !important;
+  background-color: #f5f0ff !important;
 }
 
 :deep(.recalled-row:hover) {
-  background-color: #ffe0e0 !important;
+  background-color: #ede0ff !important;
 }
 </style>

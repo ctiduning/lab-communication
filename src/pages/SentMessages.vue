@@ -1273,12 +1273,12 @@ const filterList = () => {
   border-radius: 8px;
 }
 
-/* 已撤回行样式 */
+/* 已撤回行样式 - 浅紫色 */
 .recalled-row {
-  background-color: #fff0f0 !important;
+  background-color: #f5f0ff !important;
 }
 .recalled-row:hover {
-  background-color: #ffe0e0 !important;
+  background-color: #ede0ff !important;
 }
 
 /* 新回复高亮样式 */
