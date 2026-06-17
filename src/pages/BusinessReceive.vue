@@ -1645,7 +1645,7 @@ const confirmForward = async () => {
       })
     }
     await communicationAPI.forwardMessage(forwardTarget.value.id, {
-      recipientIds: [...forwardRecipients.value, ...deptHolderIds],
+      recipientIds: [...new Set([...forwardRecipients.value, ...deptHolderIds])],
       departmentCardIds: deptHolderIds,
       note: forwardNote.value
     });
