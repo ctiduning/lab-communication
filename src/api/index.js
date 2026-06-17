@@ -2525,3 +2525,63 @@ export const tagAPI = {
     return { data }
   }
 }
+
+// ==========================================
+// 统计看板 API
+// ==========================================
+export const statisticsAPI = {
+  async getDashboardData(startDate, endDate) {
+    // 1. 获取时间范围内的所有沟通记录
+    const { data: communications, error: commError } = await supabase
+      .from('communications')
+      .select('id, type, vip, sender_id, created_at, is_completed')
+      .gte('created_at', startDate)
+      .lte('created_at', endDate)
+      .order('created_at', { ascending: false })
+
+    if (commError) throw commError
+
+    if (!communications || communications.length === 0) {
+      return {
+        communications: [],
+        replies: [],
+        profiles: [],
+        recipients: []
+      }
+    }
+
+    const commIds = communications.map(c => c.id)
+
+    // 2. 获取这些沟通的所有回复
+    const { data: replies, error: replyError } = await supabase
+      .from('replies')
+      .select('id, communication_id, sender_id, content, created_at')
+      .in('communication_id', commIds)
+      .order('created_at', { ascending: true })
+
+    if (replyError) throw replyError
+
+    // 3. 获取这些沟通的所有接收人
+    const { data: recipients, error: recipError } = await supabase
+      .from('communication_recipients')
+      .select('id, communication_id, recipient_id, has_replied, created_at')
+      .in('communication_id', commIds)
+
+    if (recipError) throw recipError
+
+    // 4. 获取所有用户档案
+    const { data: profiles, error: profError } = await supabase
+      .from('profiles')
+      .select('id, name, role, department_level1, department_level2, department_level3')
+      .not('name', 'eq', '已删除用户')
+
+    if (profError) throw profError
+
+    return {
+      communications,
+      replies: replies || [],
+      profiles,
+      recipients: recipients || []
+    }
+  }
+}

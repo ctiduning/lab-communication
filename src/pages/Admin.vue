@@ -3,6 +3,11 @@
     <div class="page-header">
       <h1>管理员控制台</h1>
       <p>用户管理、沟通记录查看、系统配置</p>
+      <div style="margin-top: 10px;">
+        <el-button type="primary" @click="$router.push('/dashboard')" size="large">
+          数据看板
+        </el-button>
+      </div>
     </div>
     
     <div class="page-content">
