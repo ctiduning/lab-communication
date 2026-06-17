@@ -1393,7 +1393,6 @@ export const communicationAPI = {
       remark: original.remark,
       vip: original.vip,
       attachments: original.attachments,
-      senderRole: senderRole || original.senderRole,
       forwarded_from: originalCommId,
       forward_note: note || '',
       department_card_ids: departmentCardIds || []

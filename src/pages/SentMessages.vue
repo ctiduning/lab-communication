@@ -1294,9 +1294,8 @@ const confirmForward = async () => {
     
     await communicationAPI.forwardMessage(forwardTarget.value.id, {
       recipientIds: [...forwardRecipients.value],
-      departmentCardIds: deptHolderIds,  // 传用户ID（与 submitForm line 802 一致）
-      note: forwardNote.value,
-      senderRole: forwardTarget.value.senderRole
+      departmentCardIds: deptHolderIds,
+      note: forwardNote.value
     })
     ElMessage.success(`转发成功（共 ${forwardRecipients.value.length} 人）`)
     forwardDialogVisible.value = false
