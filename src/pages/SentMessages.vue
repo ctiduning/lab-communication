@@ -510,21 +510,45 @@
             </div>
           </el-form-item>
           <el-form-item label="按部门转发" v-if="forwardDepartmentCards.length > 0">
-            <el-select v-model="forwardDepartmentCardIds" multiple filterable placeholder="搜索或选择检测部门（可多选）" style="width:100%;" clearable>
-              <el-option v-for="card in forwardDepartmentCards" :key="card.departmentLevel3" :label="(card.departmentLevel2 || '') + ' · ' + (card.departmentLevel3 || '')" :value="card.departmentLevel3">
-                <div style="display:flex;align-items:center;gap:8px;">
-                  <span style="font-weight:500;">{{ card.departmentLevel3 }}</span>
-                  <span style="color:#999;font-size:12px;">{{ card.leader?.name || '无组长' }}</span>
+            <el-select
+              v-model="forwardDepartmentCardIds"
+              multiple
+              filterable
+              placeholder="搜索或选择检测部门（可多选）"
+              style="width: 100%;"
+              popper-class="dept-card-popper"
+              clearable
+            >
+              <el-option
+                v-for="card in forwardDepartmentCards"
+                :key="card.departmentLevel3"
+                :label="(card.departmentLevel2 || '') + ' · ' + (card.departmentLevel3 || '')"
+                :value="card.departmentLevel3"
+              >
+                <div style="padding: 6px 0;">
+                  <div style="font-weight: 600; font-size: 14px; color: #303133;">
+                    {{ card.departmentLevel2 }} · {{ card.departmentLevel3 }}
+                  </div>
+                  <div style="font-size: 12px; color: #606266; margin-top: 4px; line-height: 1.6;">
+                    <span style="display: inline-flex; align-items: center; gap: 4px;">
+                      🧑 检测组长：{{ card.leader?.name || '-' }}
+                    </span>
+                    <template v-if="card.assistants && card.assistants.length > 0">
+                      <span v-for="(a, i) in card.assistants" :key="a.id" style="margin-left: 12px; display: inline-flex; align-items: center; gap: 4px;">
+                        👤 检测组长助理{{ card.assistants.length > 1 ? (i + 1) : '' }}：{{ a.name }}
+                      </span>
+                    </template>
+                  </div>
                 </div>
               </el-option>
             </el-select>
-            <div style="font-size:12px;color:#909399;margin-top:4px;">选择部门后，消息将发送给该部门的负责人（组长+组长助理）</div>
+            <div style="font-size:12px;color:#909399;margin-top:4px;">选择部门后，消息将发送给该部门的负责人（组长+组长助理），同组任意一人回复即为该组已处理</div>
           </el-form-item>
         </el-form>
       </div>
       <template #footer>
         <el-button @click="forwardDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="confirmForward" :loading="forwardLoading" :disabled="forwardRecipients.length === 0">确认转发</el-button>
+        <el-button type="primary" @click="confirmForward" :loading="forwardLoading" :disabled="forwardRecipients.length === 0 && forwardDepartmentCardIds.length === 0">确认转发</el-button>
       </template>
     </el-dialog>
 
