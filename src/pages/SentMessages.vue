@@ -1203,9 +1203,24 @@ const getForwardUserRoleName = (uid) => findForwardUserById(uid)?._roleName || '
 
 const removeForwardRecipient = (uid) => {
   forwardRecipients.value = forwardRecipients.value.filter(id => id !== uid)
+  // 检查是否属于某张部门名片，同步取消（与 BusinessInitiate removeRecipient 逻辑一致）
+  const cardKey = findForwardCardKeyByHolderId(uid)
+  if (cardKey && forwardDepartmentCardIds.value.includes(cardKey)) {
+    forwardDepartmentCardIds.value = forwardDepartmentCardIds.value.filter(k => k !== cardKey)
+    delete forwardDeptCardMap[cardKey]
+    ElMessage.info('已同步取消部门名片')
+  }
 }
 
-// 部门名片选择变化（与 BusinessInitiate.vue onDepartmentCardsChange 逻辑一致）
+// 根据持有人ID查找所属部门名片key（与 BusinessInitiate findCardKeyByHolderId 一致）
+const findForwardCardKeyByHolderId = (uid) => {
+  for (const [cardKey, holderIds] of Object.entries(forwardDeptCardMap)) {
+    if (holderIds.includes(uid)) return cardKey
+  }
+  return null
+}
+
+// 部门名片选择变化（与 BusinessInitiate onDepartmentCardsChange 逻辑一致）
 let forwardDeptCardMap = {}  // { cardKey: [holderId, ...] }
 const onForwardDepartmentCardsChange = (newSelection) => {
   const prev = { ...forwardDeptCardMap }
@@ -1242,6 +1257,7 @@ const openForwardDialog = async (comm) => {
   forwardTarget.value = comm
   forwardRecipients.value = []
   forwardDepartmentCardIds.value = []
+  forwardDeptCardMap = {}  // 重置部门名片映射
   forwardNote.value = ''
   forwardSearchQuery.value = ''
   forwardDialogVisible.value = true
