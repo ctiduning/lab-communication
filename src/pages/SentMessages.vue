@@ -78,8 +78,11 @@
       </el-table-column>
       <el-table-column label="客户/样品" min-width="140">
         <template #default="scope">
-          <div>{{ scope.row.customerName || '-' }}</div>
-          <div style="font-size:11px;color:#999;">{{ scope.row.sampleCode || scope.row.content?.substring(0, 20) || '' }}</div>
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+            <span>{{ scope.row.customerName || '-' }}</span>
+            <el-tag v-if="scope.row.forwardedFrom" size="small" type="warning" effect="dark" style="font-size:10px;height:20px;line-height:18px;">转发</el-tag>
+          </div>
+          <div style="font-size:11px;color:#999;margin-top:2px;">{{ scope.row.sampleCode || scope.row.content?.substring(0, 20) || '' }}</div>
         </template>
       </el-table-column>
       <el-table-column label="接收人" min-width="220">
@@ -223,9 +226,10 @@
         </el-descriptions>
 
         <!-- 转发消息：原消息引用卡片 -->
-        <div v-if="forwardedOriginalMsg" style="margin-top: 16px; border-left: 4px solid #409eff; background: #f0f7ff; border-radius: 6px; padding: 12px;">
-          <div style="font-size: 12px; color: #409eff; font-weight: 600; margin-bottom: 8px;">
-            📎 转发自 {{ forwardedOriginalMsg.senderName }} 的消息
+        <div v-if="forwardedOriginalMsg" style="margin-top: 16px; border: 2px solid #409eff; border-left: 6px solid #409eff; background: #eaf4ff; border-radius: 8px; padding: 14px;">
+          <div style="font-size: 13px; color: #409eff; font-weight: 700; margin-bottom: 10px; display:flex;align-items:center;gap:6px;">
+            <span style="background:#409eff;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;">转发</span>
+            <span>以下为 {{ forwardedOriginalMsg.senderName }} 发送的原消息</span>
           </div>
           <el-descriptions :column="2" border size="small">
             <el-descriptions-item label="沟通类型">{{ getTypeName(forwardedOriginalMsg.type) }}</el-descriptions-item>

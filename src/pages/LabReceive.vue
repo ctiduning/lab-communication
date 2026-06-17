@@ -48,9 +48,12 @@
             </template>
           </el-table-column>
 
-          <el-table-column label="沟通内容" min-width="200" show-overflow-tooltip>
+          <el-table-column label="沟通内容" min-width="220" show-overflow-tooltip>
             <template #default="scope">
-              {{ scope.row.content || '-' }}
+              <div style="display:flex;align-items:center;gap:4px;">
+                <el-tag v-if="scope.row.forwardedFrom" size="small" type="warning" effect="dark" style="font-size:10px;height:20px;line-height:18px;flex-shrink:0;">转发</el-tag>
+                <span>{{ scope.row.content || '-' }}</span>
+              </div>
             </template>
           </el-table-column>
 
@@ -302,9 +305,12 @@
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="沟通内容" min-width="200" show-overflow-tooltip>
+          <el-table-column label="沟通内容" min-width="220" show-overflow-tooltip>
             <template #default="scope">
-              {{ scope.row.content || '-' }}
+              <div style="display:flex;align-items:center;gap:4px;">
+                <el-tag v-if="scope.row.forwardedFrom" size="small" type="warning" effect="dark" style="font-size:10px;height:20px;line-height:18px;flex-shrink:0;">转发</el-tag>
+                <span>{{ scope.row.content || '-' }}</span>
+              </div>
             </template>
           </el-table-column>
           <el-table-column label="发送人">
@@ -379,9 +385,12 @@
             </template>
           </el-table-column>
 
-          <el-table-column label="沟通内容" min-width="200" show-overflow-tooltip>
+          <el-table-column label="沟通内容" min-width="220" show-overflow-tooltip>
             <template #default="scope">
-              {{ scope.row.content || '-' }}
+              <div style="display:flex;align-items:center;gap:4px;">
+                <el-tag v-if="scope.row.forwardedFrom" size="small" type="warning" effect="dark" style="font-size:10px;height:20px;line-height:18px;flex-shrink:0;">转发</el-tag>
+                <span>{{ scope.row.content || '-' }}</span>
+              </div>
             </template>
           </el-table-column>
 
@@ -460,7 +469,25 @@
           <el-descriptions-item label="发送时间">{{ formatTime(selectedMessage.createdAt) }}</el-descriptions-item>
           <el-descriptions-item label="备注" :span="2">{{ selectedMessage.remark || '-' }}</el-descriptions-item>
         </el-descriptions>
-        
+
+        <!-- 转发消息：原消息引用卡片 -->
+        <div v-if="selectedMessage?.forwardedFrom && forwardedOriginalMsg" style="margin-top: 16px; border: 2px solid #409eff; border-left: 6px solid #409eff; background: #eaf4ff; border-radius: 8px; padding: 14px;">
+          <div style="font-size: 13px; color: #409eff; font-weight: 700; margin-bottom: 10px; display:flex;align-items:center;gap:6px;">
+            <span style="background:#409eff;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;">转发</span>
+            <span>以下为 {{ forwardedOriginalMsg.senderName }} 发送的原消息</span>
+          </div>
+          <el-descriptions :column="2" border size="small">
+            <el-descriptions-item label="沟通类型">{{ getTypeName(forwardedOriginalMsg.type) }}</el-descriptions-item>
+            <el-descriptions-item label="客户名称">{{ forwardedOriginalMsg.customerName || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="样品短号">{{ forwardedOriginalMsg.sampleCode || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="发送时间">{{ formatTime(forwardedOriginalMsg.createdAt) }}</el-descriptions-item>
+            <el-descriptions-item v-if="forwardedOriginalMsg.content" label="内容" :span="2">{{ forwardedOriginalMsg.content }}</el-descriptions-item>
+          </el-descriptions>
+          <div style="font-size: 12px; color: #909399; margin-top: 8px;">
+            接收人：{{ (forwardedOriginalMsg.recipientDetails || []).map(r => r.name || '').join('、') || '-' }}
+          </div>
+        </div>
+
         <!-- 撤回信息（仅撤回消息显示） -->
         <h4 v-if="selectedMessage?.isRecalled" style="margin-top: 20px; color: #e6a23c;">撤回信息</h4>
         <el-descriptions v-if="selectedMessage?.isRecalled" :column="2" border>
@@ -801,6 +828,7 @@ const showFlaggedOnly = ref(false);
 
 // 点赞/点踩数据
 const reactionStats = ref({});
+const forwardedOriginalMsg = ref(null);
 let messageChannel = null;
 
 const typeMap = {
@@ -1145,6 +1173,18 @@ const viewDetail = async (message) => {
   // 重新获取完整的消息详情（包含所有接收人）
   const response = await communicationAPI.getById(message.id);
   selectedMessage.value = JSON.parse(JSON.stringify(response.data));
+  forwardedOriginalMsg.value = null;
+  
+  // 如果是转发消息，获取原消息
+  if (response.data.forwardedFrom) {
+    try {
+      const origRes = await communicationAPI.getById(response.data.forwardedFrom);
+      forwardedOriginalMsg.value = origRes.data;
+    } catch (e) {
+      console.error('加载原消息失败:', e);
+    }
+  }
+  
   replyContent.value = '';
   
   // 获取发送人详情
