@@ -540,6 +540,23 @@
         <el-button type="primary" @click="submitFollowUp" :loading="followUpLoading">发送</el-button>
       </template>
     </el-dialog>
+
+    <!-- 快捷回复管理对话框 -->
+    <el-dialog title="管理快捷回复" v-model="showQuickReplyManager" width="450px" :close-on-click-modal="false">
+      <div style="margin-bottom: 12px;">
+        <div style="display:flex;gap:8px;margin-bottom:12px;">
+          <el-input v-model="editingQuickReply" placeholder="输入快捷回复内容" size="small" clearable @keyup.enter="saveQuickReply" />
+          <el-button type="primary" size="small" @click="saveQuickReply">{{ editingQuickReplyIndex >= 0 ? '修改' : '添加' }}</el-button>
+        </div>
+        <el-divider />
+        <div v-if="quickReplies.length === 0" style="text-align:center;color:#999;padding:20px;font-size:13px;">暂无快捷回复，上方添加</div>
+        <div v-for="(qr, idx) in quickReplies" :key="idx" style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid #f0f0f0;font-size:13px;">
+          <span style="flex:1;">{{ qr }}</span>
+          <el-button size="small" link type="primary" @click="editQuickReply(idx)">编辑</el-button>
+          <el-button size="small" link type="danger" @click="deleteQuickReply(idx)">删除</el-button>
+        </div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -605,7 +622,13 @@ async function loadQuickReplies() {
   } catch {}
 }
 
-function addQuickReply() {
+function openAddQuickReply() {
+  editingQuickReply.value = ''
+  editingQuickReplyIndex.value = -1
+  showQuickReplyManager.value = true
+}
+
+function saveQuickReply() {
   if (!editingQuickReply.value.trim()) return
   if (editingQuickReplyIndex.value >= 0) {
     quickReplies.value[editingQuickReplyIndex.value] = editingQuickReply.value.trim()
@@ -614,11 +637,15 @@ function addQuickReply() {
   }
   editingQuickReply.value = ''
   editingQuickReplyIndex.value = -1
+  showQuickReplyManager.value = false
+  // 保存到服务器
+  quickReplyAPI.create(editingQuickReply.value.trim()).catch(() => {})
 }
 
 function editQuickReply(index) {
   editingQuickReply.value = quickReplies.value[index]
   editingQuickReplyIndex.value = index
+  showQuickReplyManager.value = true
 }
 
 function deleteQuickReply(index) {
