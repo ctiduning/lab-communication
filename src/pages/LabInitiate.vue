@@ -145,8 +145,6 @@
         </div>
       </el-form-item>
 
-      </el-form-item>
-
       <el-form-item>
         <el-button type="primary" @click="submitForm">发送</el-button>
         <el-button @click="saveDraft">保存草稿</el-button>
