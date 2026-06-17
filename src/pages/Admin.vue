@@ -243,7 +243,8 @@
             </el-table-column>
             <el-table-column label="状态" width="90">
               <template #default="scope">
-                <el-tag :type="scope.row.replyCount > 0 ? 'success' : 'warning'" size="small">
+                <el-tag v-if="scope.row.is_recalled" type="warning" size="small">已撤回</el-tag>
+                <el-tag v-else :type="scope.row.replyCount > 0 ? 'success' : 'warning'" size="small">
                   {{ scope.row.replyCount > 0 ? '有回复' : '待回复' }}
                 </el-tag>
               </template>
@@ -1271,6 +1272,7 @@ const loadCommunications = async (page = commPage.value) => {
       recipientNames: (c.communication_recipients || []).map(r => r.recipient?.name || '-').join(', '),
       replyCount: c.replies?.[0]?.count || 0,
       status: c.status,
+      is_recalled: c.is_recalled || false,
       createdAt: c.created_at
     }));
     commPage.value = page;

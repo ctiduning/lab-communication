@@ -312,14 +312,6 @@ const openTemplateEditor = (tpl) => {
 }
 
 const saveTemplate = async () => {
-  if (!templateForm.name.trim()) {
-    ElMessage.warning('请输入模板名称')
-    return
-  }
-  if (!templateForm.content.trim()) {
-    ElMessage.warning('请输入模板内容')
-    return
-  }
   templateSaving.value = true
   try {
     if (editingTemplate.value) {
