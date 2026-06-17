@@ -147,8 +147,6 @@
           </el-button>
         </template>
       </el-table-column>
-        </template>
-      </el-table-column>
     </el-table>
 
     <!-- 已撤回消息表格 -->
@@ -430,109 +428,6 @@
           {{ selectedComm.hasFlagged ? '取消红旗' : '标记红旗' }}
         </el-button>
         <el-button @click="detailVisible = false">关闭</el-button>
-      </template>
-    </el-dialog>
-
-    <!-- 转发弹窗 -->
-    <el-dialog title="转发消息" v-model="forwardDialogVisible" width="600px" :close-on-click-modal="false" destroy-on-close>
-      <div>
-        <p style="margin-bottom: 8px; font-weight: 500;">选择转发给谁：</p>
-        
-        <!-- 个人收件人选择 -->
-        <el-form-item label="按个人转发">
-          <el-select
-            v-model="forwardRecipients"
-            multiple
-            filterable
-            placeholder="搜索或选择个人收件人（可多选）"
-            style="width: 100%;"
-            clearable
-          >
-            <el-option
-              v-for="u in allUsers"
-              :key="u.id"
-              :label="`${u.name}（${u.department || u.department_level3 || ''}）`"
-              :value="u.id"
-            >
-              <div style="padding: 4px 0;">
-                <div style="font-weight: 500;">{{ u.name }}</div>
-                <div style="font-size: 12px; color: #909399;">
-                  {{ u.department_level1 || '' }} / {{ u.department_level2 || '' }} / {{ u.department_level3 || '' }}
-                  <span v-if="u.role" style="margin-left: 8px;">{{ getRoleDisplayName(u.role) }}</span>
-                </div>
-              </div>
-            </el-option>
-          </el-select>
-        </el-form-item>
-
-        <!-- 按部门转发 -->
-        <el-form-item label="按部门转发" v-if="forwardDepartmentCards.length > 0">
-          <el-select
-            v-model="forwardDeptCardKeys"
-            multiple
-            filterable
-            placeholder="搜索或选择检测部门（可多选）"
-            style="width: 100%;"
-            popper-class="dept-card-popper"
-            clearable
-          >
-            <el-option
-              v-for="card in forwardDepartmentCards"
-              :key="card.departmentLevel3"
-              :label="(card.departmentLevel2 || '') + ' · ' + (card.departmentLevel3 || '')"
-              :value="card.departmentLevel3"
-            >
-              <div style="padding: 6px 0;">
-                <div style="font-weight: 600; font-size: 14px; color: #303133;">
-                  {{ card.departmentLevel2 }} · {{ card.departmentLevel3 }}
-                </div>
-                <div style="font-size: 12px; color: #606266; margin-top: 4px; line-height: 1.6;">
-                  <span style="display: inline-flex; align-items: center; gap: 4px;">
-                    🧑 检测组长：{{ card.leader?.name || '-' }}
-                  </span>
-                  <template v-if="card.assistants && card.assistants.length > 0">
-                    <span v-for="(a, i) in card.assistants" :key="a.id" style="margin-left: 12px; display: inline-flex; align-items: center; gap: 4px;">
-                      👤 检测组长助理{{ card.assistants.length > 1 ? (i + 1) : '' }}：{{ a.name }}
-                    </span>
-                  </template>
-                  <div style="margin-top: 4px; color: #909399; font-size: 11px;">
-                    共 {{ card.holders.length }} 人（组长 + {{ card.assistants.length }} 名助理）
-                  </div>
-                </div>
-              </div>
-            </el-option>
-          </el-select>
-          <div style="font-size: 12px; color: #909399; margin-top: 4px;">
-            选择部门后，消息将转发给该部门的负责人（组长+组长助理：共 <strong>{{ totalForwardHolderCount }}</strong> 人），同组任意一人回复即为该组已处理
-          </div>
-        </el-form-item>
-
-        <div v-if="forwardRecipients.length > 0 || forwardDeptCardKeys.length > 0" style="margin-top: 12px; padding: 12px; background: #f5f7fa; border-radius: 6px;">
-          <div style="font-weight: 500; margin-bottom: 8px;">转发给（共 {{ totalForwardCount }} 人）：</div>
-          <div v-if="forwardRecipients.length > 0">
-            <div style="font-size: 13px; color: #606266; margin-bottom: 4px;">个人收件人：</div>
-            <el-tag v-for="uid in forwardRecipients" :key="uid" size="small" style="margin: 2px 4px 2px 0;">
-              {{ getUserName(uid) }}
-            </el-tag>
-          </div>
-          <div v-if="forwardDeptCardKeys.length > 0" style="margin-top: 8px;">
-            <div style="font-size: 13px; color: #606266; margin-bottom: 4px;">部门收件人：</div>
-            <div v-for="cardKey in forwardDeptCardKeys" :key="cardKey" style="margin: 4px 0;">
-              <el-tag type="primary" size="small">
-                {{ getDeptCardLabel(cardKey) }}
-                <span style="margin-left: 4px; font-weight: normal;">
-                  （{{ getDeptCardHolderNames(cardKey) }}）
-                </span>
-              </el-tag>
-            </div>
-          </div>
-        </div>
-      </div>
-      <template #footer>
-        <el-button @click="forwardDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="confirmForward" :loading="forwardLoading" :disabled="forwardRecipients.length === 0 && forwardDeptCardKeys.length === 0">
-          确认转发
-        </el-button>
       </template>
     </el-dialog>
 
@@ -1285,6 +1180,49 @@ const removeForwardRecipient = (uid) => {
   forwardRecipients.value = forwardRecipients.value.filter(id => id !== uid)
 }
 
+// 打开转发弹窗（加载用户列表和部门名片）
+const openForwardDialog = async (comm) => {
+  forwardTarget.value = comm
+  forwardRecipients.value = []
+  forwardDepartmentCardIds.value = []
+  forwardNote.value = ''
+  forwardSearchQuery.value = ''
+  forwardDialogVisible.value = true
+  
+  // 加载用户列表
+  try {
+    const { data: { user: authUser } } = await supabase.auth.getUser()
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, name, role, department, department_level1, department_level2, department_level3')
+      .not('id', 'eq', authUser?.id || '')
+      .order('department_level1', { ascending: true })
+    
+    if (error) throw error
+    allUsers.value = data?.map(u => ({
+      ...u,
+      _searchKey: [u.name, u.department, u.department_level1, u.department_level2, u.department_level3, u.role]
+        .filter(Boolean).join(' ').toLowerCase(),
+      _roleName: getRoleDisplayName(u.role)
+    })) || []
+    // 重置搜索并构建分组
+    forwardSearchQuery.value = ''
+    buildForwardGroups()
+  } catch (e) {
+    console.error('加载用户列表失败:', e)
+    allUsers.value = []
+  }
+  
+  // 加载部门名片
+  try {
+    const res = await departmentCardAPI.getDepartmentCards()
+    forwardDepartmentCards.value = res.data || []
+  } catch (e) {
+    console.error('加载部门名片失败:', e)
+    forwardDepartmentCards.value = []
+  }
+}
+
 const confirmForward = async () => {
   if (!forwardTarget.value || (forwardRecipients.value.length === 0 && forwardDepartmentCardIds.value.length === 0)) {
     ElMessage.warning('请选择个人接收人或部门名片')
@@ -1448,152 +1386,6 @@ const submitFollowUp = async () => {
 const filterList = () => {
   if (activeFilter.value === 'recalled') {
     loadRecalledMessages()
-  }
-}
-
-// ======== 转发功能 ========
-const forwardDialogVisible = ref(false)
-const forwardTargetComm = ref(null)
-const forwardRecipients = ref([])
-const forwardDeptCardKeys = ref([])
-const forwardDepartmentCards = ref([])
-const allUsers = ref([])
-const forwardLoading = ref(false)
-
-// 计算转发总人数
-const totalForwardCount = computed(() => {
-  const personalCount = forwardRecipients.value.length
-  let deptCount = 0
-  forwardDeptCardKeys.value.forEach(key => {
-    const ids = departmentCardAPI.getHolderIds(key, forwardDepartmentCards.value)
-    deptCount += ids.length
-  })
-  return personalCount + deptCount
-})
-
-// 计算按部门转发的总人数
-const totalForwardHolderCount = computed(() => {
-  let count = 0
-  forwardDeptCardKeys.value.forEach(key => {
-    const ids = departmentCardAPI.getHolderIds(key, forwardDepartmentCards.value)
-    count += ids.length
-  })
-  return count
-})
-
-// 获取所有用户（排除当前用户自己）
-const loadAllUsers = async () => {
-  try {
-    const { data: { user: authUser } } = await supabase.auth.getUser()
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('id, name, role, department_level1, department_level2, department_level3, department')
-      .not('id', 'eq', authUser?.id || '')
-      .order('department_level1', { ascending: true })
-      .order('department_level2', { ascending: true })
-    
-    if (error) throw error
-    allUsers.value = data || []
-  } catch (e) {
-    console.error('加载用户列表失败:', e)
-    allUsers.value = []
-  }
-}
-
-// 获取用户名称
-const getUserName = (userId) => {
-  const u = allUsers.value.find(u => u.id === userId)
-  return u?.name || userId
-}
-
-// 获取部门名片标签
-const getDeptCardLabel = (cardKey) => {
-  const card = forwardDepartmentCards.value.find(c => c.departmentLevel3 === cardKey)
-  if (!card) return cardKey
-  return (card.departmentLevel2 || '') + ' · ' + (card.departmentLevel3 || '')
-}
-
-// 获取部门名片持有人名称列表
-const getDeptCardHolderNames = (cardKey) => {
-  const card = forwardDepartmentCards.value.find(c => c.departmentLevel3 === cardKey)
-  if (!card) return ''
-  return card.holders.map(h => h.name).join('、')
-}
-
-// 打开转发弹窗
-const openForwardDialog = async (comm) => {
-  forwardTargetComm.value = comm
-  forwardRecipients.value = []
-  forwardDeptCardKeys.value = []
-  forwardDialogVisible.value = true
-  
-  await Promise.all([
-    loadAllUsers(),
-    (async () => {
-      try {
-        const res = await departmentCardAPI.getDepartmentCards()
-        forwardDepartmentCards.value = res.data || []
-      } catch (e) {
-        console.error('加载部门名片失败:', e)
-        forwardDepartmentCards.value = []
-      }
-    })()
-  ])
-}
-
-// 确认转发
-const confirmForward = async () => {
-  if (forwardRecipients.value.length === 0 && forwardDeptCardKeys.value.length === 0) {
-    ElMessage.warning('请至少选择一个收件人')
-    return
-  }
-  
-  if (!forwardTargetComm.value) return
-  
-  forwardLoading.value = true
-  try {
-    const allRecipientIds = [...forwardRecipients.value]
-    const deptCardKeys = []
-    
-    forwardDeptCardKeys.value.forEach(key => {
-      const holderIds = departmentCardAPI.getHolderIds(key, forwardDepartmentCards.value)
-      holderIds.forEach(id => {
-        if (!allRecipientIds.includes(id)) {
-          allRecipientIds.push(id)
-        }
-      })
-      deptCardKeys.push(key)
-    })
-    
-    const forwardData = {
-      type: forwardTargetComm.value.type,
-      vip: forwardTargetComm.value.vip,
-      customerName: forwardTargetComm.value.customerName,
-      sampleCode: forwardTargetComm.value.sampleCode,
-      sampleMatrix: forwardTargetComm.value.sampleMatrix,
-      sampleCount: forwardTargetComm.value.sampleCount,
-      testItems: forwardTargetComm.value.testItems,
-      sampleDate: forwardTargetComm.value.sampleDate,
-      requestedCycle: forwardTargetComm.value.requestedCycle,
-      chargeStatus: forwardTargetComm.value.chargeStatus,
-      urgentFee: forwardTargetComm.value.urgentFee,
-      remark: '【转发】' + (forwardTargetComm.value.remark || '') + '\n原消息ID: ' + forwardTargetComm.value.id,
-      content: forwardTargetComm.value.content,
-      recipients: allRecipientIds,
-      attachments: forwardTargetComm.value.attachments || [],
-      department_card_ids: deptCardKeys
-    }
-    
-    await communicationAPI.create(forwardData)
-    
-    ElMessage.success(`转发成功（共 ${allRecipientIds.length} 人）`)
-    forwardDialogVisible.value = false
-    forwardTargetComm.value = null
-    loadCommunications()
-  } catch (error) {
-    ElMessage.error('转发失败：' + (error.message || '未知错误'))
-  } finally {
-    forwardLoading.value = false
   }
 }
 </script>
