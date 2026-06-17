@@ -471,10 +471,10 @@
         </el-descriptions>
 
         <!-- 转发消息：原消息引用卡片 -->
-        <div v-if="selectedMessage?.forwardedFrom && forwardedOriginalMsg" style="margin-top: 16px; border: 2px solid #409eff; border-left: 6px solid #409eff; background: #eaf4ff; border-radius: 8px; padding: 14px;">
-          <div style="font-size: 13px; color: #409eff; font-weight: 700; margin-bottom: 10px; display:flex;align-items:center;gap:6px;">
-            <span style="background:#409eff;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;">转发</span>
-            <span>以下为 {{ forwardedOriginalMsg.senderName }} 发送的原消息</span>
+        <div v-if="selectedMessage?.forwardedFrom && forwardedOriginalMsg" style="margin-top: 20px; border: 4px solid #409eff; border-left: 8px solid #409eff; background: #dceefb; border-radius: 10px; padding: 18px;">
+          <div style="font-size: 16px; color: #409eff; font-weight: 800; margin-bottom: 12px; display:flex;align-items:center;gap:8px;">
+            <span style="background:#409eff;color:#fff;padding:4px 14px;border-radius:6px;font-size:14px;font-weight:700;">转发</span>
+            <span style="font-size:16px;font-weight:700;">以下为 {{ forwardedOriginalMsg.senderName }} 发送的原消息</span>
           </div>
           <el-descriptions :column="2" border size="small">
             <el-descriptions-item label="沟通类型">{{ getTypeName(forwardedOriginalMsg.type) }}</el-descriptions-item>
