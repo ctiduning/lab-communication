@@ -10,7 +10,8 @@
       <el-radio-group v-model="activeFilter" @change="filterList">
         <el-radio-button label="all">全部 ({{ communications.length + recalledMessages.length }})</el-radio-button>
         <el-radio-button label="unreplied">未回复 ({{ unrepliedCount }})</el-radio-button>
-        <el-radio-button label="replied">已回复 ({{ repliedCount }})</el-radio-button>
+        <el-radio-button label="partial_replied">部分回复 ({{ partialRepliedCount }})</el-radio-button>
+        <el-radio-button label="all_replied">全部回复 ({{ allRepliedCount }})</el-radio-button>
         <el-radio-button label="completed">已完结 ({{ completedCount }})</el-radio-button>
         <el-radio-button label="recalled">已撤回 ({{ recalledCount }})</el-radio-button>
         <el-radio-button label="flagged">🚩 红旗 ({{ flaggedCount }})</el-radio-button>
@@ -45,7 +46,8 @@
             {{ getRecallStatusText(scope.row) }}
           </el-tag>
           <el-tag v-else-if="scope.row.isCompleted" size="small" type="success">已完结</el-tag>
-          <el-tag v-else-if="computeReplyStatus(scope.row) === 'replied'" size="small" :type="getReplyTagType(scope.row)">{{ getReplyStatusText(scope.row) }}</el-tag>
+          <el-tag v-else-if="computeReplyStatus(scope.row) === 'all_replied'" size="small" type="success">已回复</el-tag>
+          <el-tag v-else-if="computeReplyStatus(scope.row) === 'partial_replied'" size="small" type="warning">{{ getReplyStatusText(scope.row) }}</el-tag>
           <el-tag v-else size="small" type="danger">未回复</el-tag>
           <el-tag v-if="!scope.row.isRecalled && !scope.row.isCompleted && isOverdue(scope.row)" size="small" type="danger" effect="dark">超时</el-tag>
           </div>
@@ -695,38 +697,34 @@ const formatTime = (t) => {
   return new Date(t).toLocaleString('zh-CN')
 }
 
-// 计算回复状态（发件人视角，简化版：仅区分 已回复 / 未回复）
+// 计算回复状态（发件人视角）
 // 已完结由 isCompleted 字段单独控制
 const computeReplyStatus = (comm) => {
   const recipients = comm.recipientDetails || []
   const total = recipients.length
-  if (total === 0) return 'replied'
+  if (total === 0) return 'all_replied'
   const repliedCount = recipients.filter(r => r.has_replied).length
-  return repliedCount > 0 ? 'replied' : 'unreplied'
+  if (repliedCount === 0) return 'unreplied'
+  if (repliedCount === total) return 'all_replied'
+  return 'partial_replied'
 }
 
-// 获取回复状态文字（区分个人名片和部门名片）
-// 个人名片：显示 "n/m 已回复" 或 "已回复"
-// 部门名片：统一显示 "已回复"
+// 获取回复状态文字
 const getReplyStatusText = (comm) => {
   const recipients = comm.recipientDetails || []
   const total = recipients.length
   if (total === 0) return '已回复'
   const repliedCount = recipients.filter(r => r.has_replied).length
   if (repliedCount === 0) return '未回复'
-
-  const hasDeptCards = comm.departmentCardIds && comm.departmentCardIds.length > 0
-  if (hasDeptCards) return '已回复'
   if (repliedCount === total) return '已回复'
   return `${repliedCount}/${total} 已回复`
 }
 
 // 获取回复状态标签颜色
-// 个人部分回复 → warning（黄色），全部回复或部门卡片 → success（绿色）
 const getReplyTagType = (comm) => {
-  const statusText = getReplyStatusText(comm)
-  if (statusText.includes('/')) return 'warning'
-  if (statusText === '未回复') return 'danger'
+  const status = computeReplyStatus(comm)
+  if (status === 'unreplied') return 'danger'
+  if (status === 'partial_replied') return 'warning'
   return 'success'
 }
 
@@ -761,7 +759,8 @@ const getRowClassName = ({ row }) => {
 
 // 各状态计数
 const unrepliedCount = computed(() => communications.value.filter(c => computeReplyStatus(c) === 'unreplied' && !c.isCompleted).length)
-const repliedCount = computed(() => communications.value.filter(c => computeReplyStatus(c) === 'replied' && !c.isCompleted).length)
+const partialRepliedCount = computed(() => communications.value.filter(c => computeReplyStatus(c) === 'partial_replied' && !c.isCompleted).length)
+const allRepliedCount = computed(() => communications.value.filter(c => computeReplyStatus(c) === 'all_replied' && !c.isCompleted).length)
 const completedCount = computed(() => communications.value.filter(c => c.isCompleted).length)
 const recalledCount = computed(() => recalledMessages.value.length)
 const flaggedCount = computed(() => communications.value.filter(c => c.hasFlagged).length)
@@ -792,8 +791,10 @@ const filteredCommunications = computed(() => {
       result = result.filter(c => c.hasFlagged)
     } else if (activeFilter.value === 'unreplied') {
       result = result.filter(c => !c.isRecalled && computeReplyStatus(c) === 'unreplied' && !c.isCompleted)
-    } else if (activeFilter.value === 'replied') {
-      result = result.filter(c => computeReplyStatus(c) === 'replied' && !c.isCompleted)
+    } else if (activeFilter.value === 'partial_replied') {
+      result = result.filter(c => computeReplyStatus(c) === 'partial_replied' && !c.isCompleted)
+    } else if (activeFilter.value === 'all_replied') {
+      result = result.filter(c => computeReplyStatus(c) === 'all_replied' && !c.isCompleted)
     }
   }
   
@@ -1259,7 +1260,8 @@ const deleteRecalled = async (msg) => {
 
 // 判断是否可追加回复：已回复且未完结
 const canFollowUp = (comm) => {
-  return computeReplyStatus(comm) === 'replied' && !comm.isRecalled && !comm.isCompleted
+  const status = computeReplyStatus(comm)
+  return (status === 'partial_replied' || status === 'all_replied') && !comm.isRecalled && !comm.isCompleted
 }
 
 // 打开追加回复弹窗
