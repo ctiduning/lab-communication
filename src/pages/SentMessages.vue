@@ -8,7 +8,7 @@
     <!-- 筛选标签 + 刷新按钮 -->
     <div class="filter-bar">
       <el-radio-group v-model="activeFilter" @change="filterList">
-        <el-radio-button label="all">全部 ({{ communications.length }})</el-radio-button>
+        <el-radio-button label="all">全部 ({{ searchFilteredComms.length }})</el-radio-button>
         <el-radio-button label="unreplied">未回复 ({{ unrepliedCount }})</el-radio-button>
         <el-radio-button label="partial_replied">部分回复 ({{ partialRepliedCount }})</el-radio-button>
         <el-radio-button label="all_replied">全部回复 ({{ allRepliedCount }})</el-radio-button>
@@ -872,12 +872,32 @@ const getRowClassName = ({ row }) => {
 }
 
 // 各状态计数
-const unrepliedCount = computed(() => communications.value.filter(c => !c.isRecalled && computeReplyStatus(c) === 'unreplied' && !c.isCompleted).length)
-const partialRepliedCount = computed(() => communications.value.filter(c => computeReplyStatus(c) === 'partial_replied' && !c.isCompleted).length)
-const allRepliedCount = computed(() => communications.value.filter(c => computeReplyStatus(c) === 'all_replied' && !c.isCompleted).length)
-const completedCount = computed(() => communications.value.filter(c => c.isCompleted).length)
+// 搜索关键词过滤函数（与 filteredCommunications 共用，保证计数与显示一致）
+const applySearchFilter = (data) => {
+  const kw = searchKeyword.value.trim().toLowerCase()
+  if (!kw) return data
+  return data.filter(c => {
+    const replyTexts = (c.replies || []).map(r => r.content || '').join(' ')
+    const fields = [
+      c.content || '',
+      c.customerName || '',
+      c.sampleCode || '',
+      getTypeName(c.type),
+      replyTexts
+    ].map(f => f.toLowerCase())
+    return fields.some(f => f.includes(kw))
+  })
+}
+
+// 先过滤已撤回的消息，再应用搜索过滤，确保计数和显示一一对应
+const searchFilteredComms = computed(() => applySearchFilter(communications.value))
+
+const unrepliedCount = computed(() => searchFilteredComms.value.filter(c => !c.isRecalled && computeReplyStatus(c) === 'unreplied' && !c.isCompleted).length)
+const partialRepliedCount = computed(() => searchFilteredComms.value.filter(c => computeReplyStatus(c) === 'partial_replied' && !c.isCompleted).length)
+const allRepliedCount = computed(() => searchFilteredComms.value.filter(c => computeReplyStatus(c) === 'all_replied' && !c.isCompleted).length)
+const completedCount = computed(() => searchFilteredComms.value.filter(c => c.isCompleted).length)
 const recalledCount = computed(() => recalledMessages.value.length)
-const flaggedCount = computed(() => communications.value.filter(c => c.hasFlagged).length)
+const flaggedCount = computed(() => searchFilteredComms.value.filter(c => c.hasFlagged).length)
 
 // 判断消息是否可以撤回（不限时间，只要未撤回即可）
 const canRecall = (comm) => {
@@ -892,15 +912,13 @@ const filteredCommunications = computed(() => {
     return recalledMessages.value
   }
   
-  // 所有消息（包括已撤回）进入主表格过滤系统
-  let result = communications.value
+  // 使用与计数相同的 searchFilteredComms 作为基数据，保证完全同步
+  let result = searchFilteredComms.value
   
-  // 状态过滤（简化版：未回复/已回复/已完结/已撤回）
+  // 状态过滤
   if (activeFilter.value !== 'all') {
     if (activeFilter.value === 'completed') {
       result = result.filter(c => c.isCompleted)
-    } else if (activeFilter.value === 'recalled') {
-      // 已撤回在单独的表格中处理
     } else if (activeFilter.value === 'flagged') {
       result = result.filter(c => c.hasFlagged)
     } else if (activeFilter.value === 'unreplied') {
@@ -910,23 +928,6 @@ const filteredCommunications = computed(() => {
     } else if (activeFilter.value === 'all_replied') {
       result = result.filter(c => computeReplyStatus(c) === 'all_replied' && !c.isCompleted)
     }
-  }
-  
-  // 模糊搜索
-  const kw = searchKeyword.value.trim().toLowerCase()
-  if (kw) {
-    result = result.filter(c => {
-      // 搜索字段：沟通内容、客户名称、样品短号、沟通类型、回复内容
-      const replyTexts = (c.replies || []).map(r => r.content || '').join(' ')
-      const fields = [
-        c.content || '',
-        c.customerName || '',
-        c.sampleCode || '',
-        getTypeName(c.type),
-        replyTexts
-      ].map(f => f.toLowerCase())
-      return fields.some(f => f.includes(kw))
-    })
   }
   
   return result
