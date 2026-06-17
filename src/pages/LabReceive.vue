@@ -643,7 +643,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { ElMessage } from 'element-plus';
 import { Search, CircleCheck, CircleClose, Document } from '@element-plus/icons-vue';
-import { communicationAPI, userAPI, reactionAPI } from '../api';
+import { communicationAPI, userAPI, reactionAPI, getRoleDisplayName, ROLE_OPTIONS } from '../api';
 import { supabase } from '../utils/supabase';
 
 const activeTab = ref('pending');
@@ -740,6 +740,42 @@ const getRoleTagColor = (role) => {
     roleColorIndex[role] = Object.keys(roleColorIndex).length % colorCycle.length;
   }
   return colorCycle[roleColorIndex[role]];
+};
+
+// 内联回复相关
+const quickReplies = ['同意', '拒绝', '等我确认后回复', '已收到，正在处理', '请补充信息', '已提交审批'];
+const activeReplyId = ref(null);
+const inlineReplyContent = ref('');
+const inlineReplyLoading = ref(false);
+
+const submitInlineReply = async (reply) => {
+  const content = inlineReplyContent.value.trim();
+  if (!content) {
+    ElMessage.warning('请输入回复内容');
+    return;
+  }
+  inlineReplyLoading.value = true;
+  try {
+    await communicationAPI.createReply(selectedMessage.value.id, {
+      content,
+      targetRecipientId: reply.senderId
+    }, true);
+    ElMessage.success('回复成功');
+    inlineReplyContent.value = '';
+    activeReplyId.value = null;
+    // 重新加载详情
+    const { data } = await communicationAPI.getById(selectedMessage.value.id);
+    selectedMessage.value = data;
+  } catch (error) {
+    ElMessage.error('回复失败：' + (error.message || '未知错误'));
+  } finally {
+    inlineReplyLoading.value = false;
+  }
+};
+
+const cancelInlineReply = () => {
+  inlineReplyContent.value = '';
+  activeReplyId.value = null;
 };
 
 const searchKeyword = ref('');
