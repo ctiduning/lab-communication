@@ -191,16 +191,6 @@
         </div>
       </el-form-item>
 
-      <el-form-item label="标签">
-        <el-select v-model="form.tags" multiple placeholder="选择标签（可选）" style="width: 100%;" clearable>
-          <el-option label="加急" value="加急" />
-          <el-option label="样品确认" value="样品确认" />
-          <el-option label="报告核对" value="报告核对" />
-          <el-option label="常规" value="常规" />
-          <el-option label="催办" value="催办" />
-        </el-select>
-      </el-form-item>
-      
       <el-form-item>
         <el-button type="primary" @click="submitForm">发送</el-button>
         <el-button @click="saveDraft">保存草稿</el-button>
@@ -342,15 +332,6 @@
         <el-form-item label="备注">
           <el-input v-model="templateForm.remark" type="textarea" :rows="2" placeholder="备注" />
         </el-form-item>
-        <el-form-item label="标签">
-          <el-select v-model="templateForm.tags" multiple placeholder="选择标签" style="width:100%;" clearable>
-            <el-option label="加急" value="加急" />
-            <el-option label="样品确认" value="样品确认" />
-            <el-option label="报告核对" value="报告核对" />
-            <el-option label="常规" value="常规" />
-            <el-option label="催办" value="催办" />
-          </el-select>
-        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="templateEditorVisible = false">取消</el-button>
@@ -408,7 +389,6 @@ const applyTemplate = (id) => {
   if (tpl.chargeStatus || tpl.charge_status) form.chargeStatus = tpl.chargeStatus || tpl.charge_status
   if (tpl.urgentFee || tpl.urgent_fee) form.urgentFee = tpl.urgentFee || tpl.urgent_fee
   if (tpl.remark) form.remark = tpl.remark
-  if (tpl.tags && tpl.tags.length > 0) form.tags = [...tpl.tags]
 }
 
 // 模板管理
@@ -432,7 +412,6 @@ const templateForm = reactive({
   chargeStatus: '',
   urgentFee: '',
   remark: '',
-  tags: []
 })
 
 const openTemplateEditor = (tpl) => {
@@ -453,7 +432,6 @@ const openTemplateEditor = (tpl) => {
     templateForm.chargeStatus = tpl.chargeStatus || tpl.charge_status || ''
     templateForm.urgentFee = tpl.urgentFee || tpl.urgent_fee || ''
     templateForm.remark = tpl.remark || ''
-    templateForm.tags = tpl.tags || []
   } else {
     editingTemplate.value = null
     templateForm.name = ''
@@ -471,7 +449,6 @@ const openTemplateEditor = (tpl) => {
     templateForm.chargeStatus = ''
     templateForm.urgentFee = ''
     templateForm.remark = ''
-    templateForm.tags = []
   }
   templateEditorVisible.value = true
 }
@@ -504,7 +481,6 @@ const saveTemplate = async () => {
         chargeStatus: templateForm.chargeStatus,
         urgentFee: templateForm.urgentFee,
         remark: templateForm.remark,
-        tags: templateForm.tags
       })
       ElMessage.success('模板已更新')
     } else {
@@ -523,8 +499,7 @@ const saveTemplate = async () => {
         requestedCycle: templateForm.requestedCycle,
         chargeStatus: templateForm.chargeStatus,
         urgentFee: templateForm.urgentFee,
-        remark: templateForm.remark,
-        tags: templateForm.tags
+        remark: templateForm.remark
       })
       ElMessage.success('模板已创建')
     }
@@ -614,7 +589,6 @@ const form = reactive({
   recipients: [],
   departmentCards: [],
   attachments: [],
-  tags: [],
   templateId: null
 });
 
@@ -861,7 +835,6 @@ const resetForm = () => {
   form.recipients = [];
   form.departmentCards = [];
   form.attachments = [];
-  form.tags = [];
   currentCardMap = {};
 };
 

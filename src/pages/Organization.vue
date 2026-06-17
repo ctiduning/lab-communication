@@ -49,7 +49,7 @@
       />
     </div>
 
-    <!-- 搜索结果 -->
+    <!-- 搜索结果（大卡片，充分展示信息） -->
     <div v-if="searchText" class="search-results">
       <h3>搜索结果（{{ filteredAll.length }}人）</h3>
       <div class="person-grid-search">
@@ -72,10 +72,11 @@
                 {{ [p.department_level2, p.department_level3].filter(Boolean).join(' · ') || p.department_level1 || '-' }}
               </template>
             </div>
-          </div>
-          <div class="person-contact">
-            <div v-if="p.phone" class="contact-item">📞 {{ p.phone }}</div>
-            <div v-if="p.email" class="contact-item">📧 {{ p.email }}</div>
+            <div class="person-contact-detail">
+              <span v-if="p.phone" class="contact-detail-item">📞 {{ p.phone }}</span>
+              <span v-if="p.email" class="contact-detail-item">📧 {{ p.email }}</span>
+              <span v-if="p.employee_id" class="contact-detail-item">🆔 {{ p.employee_id }}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -267,6 +268,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { supabase } from '../utils/supabase'
 import { departmentCardAPI } from '../api'
+import { buildSearchKeys, matchUser } from '../utils/pinyinSearch'
 
 const router = useRouter()
 
@@ -554,13 +556,16 @@ const getAvatarClass = (role) => {
 // 按角色分组
 const activeUsers = computed(() => users.value.filter(u => !u.is_disabled && u.name !== '已删除用户'))
 
+// 预计算拼音搜索关键词
+const usersWithKeys = computed(() => activeUsers.value.map(u => buildSearchKeys(u, ROLE_MAP)))
+
 // 按一级部门划分用户（最准确的分类方式）
 const isBizUser = (u) => u.department_level1 === '业务'
 const isLabUser = (u) => u.department_level1 === '实验室'
 
 // 业务端（按属地分组 - 使用三级部门字段）
 const businessRegionGroups = computed(() => {
-  const bizUsers = activeUsers.value.filter(u => isBizUser(u))
+  const bizUsers = usersWithKeys.value.filter(u => isBizUser(u))
   const groups = {}
   bizUsers.forEach(u => {
     const region = u.department_level3 || u.department_level2 || u.department_level1 || '未分配属地'
@@ -575,11 +580,11 @@ const businessRegionGroups = computed(() => {
   return groups
 })
 
-const businessUsers = computed(() => activeUsers.value.filter(u => isBizUser(u)))
+const businessUsers = computed(() => usersWithKeys.value.filter(u => isBizUser(u)))
 
 // 实验室端（按二级部门→三级部门两级分组，角色排序）
 const labLevel2Groups = computed(() => {
-  const labUsers = activeUsers.value.filter(u => isLabUser(u))
+  const labUsers = usersWithKeys.value.filter(u => isLabUser(u))
   const groups = {}
   labUsers.forEach(u => {
     const l2 = u.department_level2 || '未分配实验室'
@@ -604,10 +609,10 @@ const labLevel2Groups = computed(() => {
   return groups
 })
 
-const supervisors = computed(() => activeUsers.value.filter(u => u.role === 'supervisor'))
+const supervisors = computed(() => usersWithKeys.value.filter(u => u.role === 'supervisor'))
 
 const inspectionGroups = computed(() => {
-  const inspUsers = activeUsers.value.filter(u => u.role === 'inspection_leader' || u.role === 'inspection_engineer' || u.role === 'inspection_leader_assistant')
+  const inspUsers = usersWithKeys.value.filter(u => u.role === 'inspection_leader' || u.role === 'inspection_engineer' || u.role === 'inspection_leader_assistant')
   const groups = {}
   inspUsers.forEach(u => {
     const dept = u.department || '未分组'
@@ -626,24 +631,16 @@ const inspectionGroups = computed(() => {
   return groups
 })
 
-const csUsers = computed(() => activeUsers.value.filter(u => u.role === 'customer_service' || u.role === 'cs_leader' || u.role === 'cs_leader_assistant'))
+const csUsers = computed(() => usersWithKeys.value.filter(u => u.role === 'customer_service' || u.role === 'cs_leader' || u.role === 'cs_leader_assistant'))
 
-const techSupports = computed(() => activeUsers.value.filter(u => u.role === 'tech_support'))
+const techSupports = computed(() => usersWithKeys.value.filter(u => u.role === 'tech_support'))
 
-const labUsersTotal = computed(() => activeUsers.value.filter(u => isLabUser(u)).length)
+const labUsersTotal = computed(() => usersWithKeys.value.filter(u => isLabUser(u)).length)
 
-// 搜索
+// 搜索（使用拼音模糊搜索）
 const filteredAll = computed(() => {
   if (!searchText.value) return []
-  const kw = searchText.value.toLowerCase()
-  return activeUsers.value.filter(u =>
-    (u.name && u.name.toLowerCase().includes(kw)) ||
-    (u.employee_id && u.employee_id.toLowerCase().includes(kw)) ||
-    (u.department && u.department.toLowerCase().includes(kw)) ||
-    (u.phone && u.phone.includes(kw)) ||
-    (u.email && u.email.toLowerCase().includes(kw)) ||
-    (getRoleName(u.role).includes(kw))
-  )
+  return usersWithKeys.value.filter(u => matchUser(searchText.value, u._searchKeys))
 })
 
 const showDetail = (person) => {
@@ -937,7 +934,91 @@ onMounted(() => {
   color: #333;
 }
 
-/* 左右固定两栏布局 */
+/* 搜索结果网格 - 扩大2倍 */
+.person-grid-search {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(460px, 1fr));
+  gap: 14px;
+}
+
+.person-card-search {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  border: 1px solid #eee;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: white;
+  min-height: 90px;
+}
+
+.person-card-search:hover {
+  border-color: #667eea;
+  box-shadow: 0 3px 12px rgba(102, 126, 234, 0.15);
+  transform: translateY(-2px);
+}
+
+.person-card-search .person-avatar {
+  width: 44px;
+  height: 44px;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.person-card-search .person-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.person-card-search .person-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.person-card-search .person-dept {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.person-card-search .person-contact-detail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.person-card-search .contact-detail-item {
+  font-size: 12px;
+  color: #888;
+  white-space: nowrap;
+  background: #f5f7fa;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.person-card-search .role-tag {
+  font-size: 10px;
+  padding: 1px 6px;
+}
+
+.person-card-search.selected {
+  border-color: #409eff;
+  background: #f0f7ff;
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.2);
+}
 .org-layout {
   display: flex;
   gap: 20px;
@@ -1062,12 +1143,7 @@ onMounted(() => {
   gap: 10px;
 }
 
-.person-grid-search {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 12px;
-}
-
+/* 非搜索模式下的名片 */
 .person-card {
   display: flex;
   align-items: center;
@@ -1094,25 +1170,8 @@ onMounted(() => {
   box-shadow: 0 2px 8px rgba(64, 158, 255, 0.2);
 }
 
-.person-card-search {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border: 1px solid #eee;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.person-card-search:hover {
-  border-color: #667eea;
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.12);
-}
-
-/* 选择按钮 */
 .select-btn {
-  width: 20px;
+  width: 22px;
   height: 20px;
   border-radius: 50%;
   border: 2px solid #ccc;

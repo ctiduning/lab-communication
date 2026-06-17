@@ -1,6 +1,6 @@
 /**
  * 拼音模糊搜索工具
- * 支持：中文姓名、拼音全拼、拼音首字母、部门、角色名
+ * 支持：中文姓名、拼音全拼、拼音首字母、部门、角色名、工号、电话、邮箱
  * 例如：输入 "jw" 能匹配 "姜伟"，输入 "液相" 能匹配液相组所有人
  */
 import { pinyin } from 'pinyin-pro'
@@ -52,12 +52,19 @@ export function buildSearchKeys(user, roleNameMap = {}) {
       region,                  // 青岛
       regionPinyinInitial,     // qd
       regionPinyinFull,        // qingdao
+      // 新增字段
+      employeeId: (user.employee_id || '').toLowerCase(),
+      phone: user.phone || '',
+      email: (user.email || '').toLowerCase(),
+      deptLevel1: (user.department_level1 || '').toLowerCase(),
+      deptLevel2: (user.department_level2 || '').toLowerCase(),
+      deptLevel3: (user.department_level3 || '').toLowerCase(),
     }
   }
 }
 
 /**
- * 模糊+拼音匹配
+ * 模糊+拼音匹配（增强版）
  * @param {string} query - 用户输入的搜索词
  * @param {Object} searchKeys - 预计算的搜索关键词
  * @returns {boolean} 是否匹配
@@ -93,6 +100,20 @@ export function matchUser(query, searchKeys) {
   if (s.region.toLowerCase().includes(q)) return true
   if (s.regionPinyinInitial.startsWith(q)) return true
   if (s.regionPinyinFull.startsWith(q)) return true
+
+  // 6. 工号匹配（支持模糊）
+  if (s.employeeId.includes(q)) return true
+
+  // 7. 电话匹配
+  if (s.phone.includes(q)) return true
+
+  // 8. 邮箱匹配
+  if (s.email.includes(q)) return true
+
+  // 9. 部门级别匹配
+  if (s.deptLevel1.includes(q)) return true
+  if (s.deptLevel2.includes(q)) return true
+  if (s.deptLevel3.includes(q)) return true
 
   return false
 }

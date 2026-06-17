@@ -35,14 +35,6 @@
         style="width: 300px;"
         :prefix-icon="Search"
       />
-      <el-select v-model="tagFilter" clearable placeholder="按标签筛选" style="width:150px;margin-left:8px;">
-        <el-option label="加急" value="加急" />
-        <el-option label="常规" value="常规" />
-        <el-option label="样品确认" value="样品确认" />
-        <el-option label="报告核对" value="报告核对" />
-        <el-option label="催办" value="催办" />
-        <el-option label="已完成" value="已完成" />
-      </el-select>
     </div>
 
     <el-table :data="filteredCommunications" border stripe v-loading="loading" empty-text="暂无发送记录" v-if="activeFilter !== 'recalled'" @row-click="viewDetail" :row-class-name="getRowClassName">
@@ -209,13 +201,8 @@
           <el-descriptions-item label="客户名称">{{ selectedComm.customerName || '-' }}</el-descriptions-item>
           <el-descriptions-item label="样品短号">{{ selectedComm.sampleCode || '-' }}</el-descriptions-item>
           <el-descriptions-item label="发送时间">{{ formatTime(selectedComm.createdAt) }}</el-descriptions-item>
-          <el-descriptions-item label="标签">
-            <span v-if="selectedComm.tags && selectedComm.tags.length > 0" style="display:flex;flex-wrap:wrap;gap:3px;">
-              <el-tag v-for="tag in selectedComm.tags" :key="tag" size="small" :color="getTagColor(tag)" style="color:#fff;border:none;">
-                {{ tag }}
-              </el-tag>
-            </span>
-            <span v-else>-</span>
+          <el-descriptions-item label="沟通类型标签">
+            <el-tag size="small" :type="getTypeTag(selectedComm.type)" style="border:none;">{{ getTypeName(selectedComm.type) }}</el-tag>
           </el-descriptions-item>
           <el-descriptions-item v-if="selectedComm.remark" label="备注" :span="2">{{ selectedComm.remark }}</el-descriptions-item>
           <el-descriptions-item v-if="selectedComm.content" label="内容" :span="2">{{ selectedComm.content }}</el-descriptions-item>
@@ -565,7 +552,6 @@ const activeFilter = ref('all')
 const detailVisible = ref(false)
 const selectedComm = ref(null)
 const searchKeyword = ref('')  // 搜索关键词
-const tagFilter = ref('')  // 标签筛选
 const refreshTimer = ref(null)  // 自动刷新定时器
 const messageChannel = ref(null)  // Realtime 频道
 
@@ -613,16 +599,17 @@ const typeMap = {
 
 const getTypeName = (type) => typeMap[type] || type || '-'
 
-const getTagColor = (tag) => {
-  const colors = {
-    '加急': '#e74c3c',
-    '样品确认': '#27ae60',
-    '报告核对': '#2980b9',
-    '常规': '#95a5a6',
-    '催办': '#f39c12'
-  }
-  return colors[tag] || '#909399'
+const typeTagMap = {
+  paid_urgent: 'danger',
+  free_urgent: 'warning',
+  data_dispute: 'danger',
+  follow_up: 'info',
+  consultation: 'info',
+  other: '',
+  unqualified: 'danger',
+  data_confirm: 'success'
 }
+const getTypeTag = (type) => typeTagMap[type] || ''
 
 const formatTime = (t) => {
   if (!t) return '-'
@@ -695,11 +682,6 @@ const filteredCommunications = computed(() => {
     } else if (activeFilter.value === 'replied') {
       result = result.filter(c => computeReplyStatus(c) === 'replied' && !c.isCompleted)
     }
-  }
-  
-  // 标签筛选
-  if (tagFilter.value) {
-    result = result.filter(c => c.tags && c.tags.includes(tagFilter.value))
   }
   
   // 模糊搜索

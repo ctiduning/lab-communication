@@ -145,16 +145,8 @@
         </div>
       </el-form-item>
 
-      <el-form-item label="标签">
-        <el-select v-model="form.tags" multiple placeholder="选择标签（可选）" style="width: 100%;" clearable>
-          <el-option label="加急" value="加急" />
-          <el-option label="样品确认" value="样品确认" />
-          <el-option label="报告核对" value="报告核对" />
-          <el-option label="常规" value="常规" />
-          <el-option label="催办" value="催办" />
-        </el-select>
       </el-form-item>
-      
+
       <el-form-item>
         <el-button type="primary" @click="submitForm">发送</el-button>
         <el-button @click="saveDraft">保存草稿</el-button>
@@ -380,7 +372,6 @@ const form = reactive({
   recipients: [],
   departmentCards: [],
   attachments: [],
-  tags: [],
   templateId: null
 });
 
@@ -608,7 +599,6 @@ const resetForm = () => {
   form.recipients = [];
   form.departmentCards = [];
   form.attachments = [];
-  form.tags = [];
   form.templateId = null;
   currentCardMap = {};
   selectedLevel1.value = '';

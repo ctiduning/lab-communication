@@ -227,7 +227,7 @@ export const userAPI = {
   async getAll() {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, name, username, role, employee_id, phone, email, department_level1, department_level2, department_level3, priority, is_disabled, created_at')
+      .select('id, name, username, role, employee_id, phone, email, department_level1, department_level2, department_level3, priority, is_disabled, last_active_at, created_at')
 
     if (error) throw error
     return { data: data.map(formatProfile) }
@@ -236,7 +236,7 @@ export const userAPI = {
   async getByRole(role) {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, name, username, role, employee_id, phone, email, department_level1, department_level2, department_level3, priority, is_disabled, created_at')
+      .select('id, name, username, role, employee_id, phone, email, department_level1, department_level2, department_level3, priority, is_disabled, last_active_at, created_at')
       .eq('role', role)
 
     if (error) throw error
@@ -528,15 +528,6 @@ export const communicationAPI = {
         .insert(notifications)
 
       if (notifError) throw notifError
-    }
-
-    // 如果有标签，保存标签
-    if (data.tags && data.tags.length > 0) {
-      try {
-        await tagAPI.setTags(communication.id, data.tags)
-      } catch (e) {
-        console.warn('保存标签失败:', e)
-      }
     }
 
     return { data: communication }
@@ -2380,7 +2371,7 @@ export const templateAPI = {
     return { data: data || [] }
   },
 
-  async create({ name, title, content, type, vip, customerName, sampleCode, sampleMatrix, sampleCount, testItems, sampleDate, requestedCycle, chargeStatus, urgentFee, remark, tags }) {
+  async create({ name, title, content, type, vip, customerName, sampleCode, sampleMatrix, sampleCount, testItems, sampleDate, requestedCycle, chargeStatus, urgentFee, remark }) {
     const userId = await getCurrentUserId()
     if (!userId) throw new Error('未登录')
     const { data, error } = await supabase
@@ -2399,8 +2390,7 @@ export const templateAPI = {
         requested_cycle: requestedCycle || '',
         charge_status: chargeStatus || '',
         urgent_fee: urgentFee || '',
-        remark: remark || '',
-        tags: tags || []
+        remark: remark || ''
       })
       .select()
       .single()

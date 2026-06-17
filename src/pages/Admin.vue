@@ -785,19 +785,11 @@ const getRoleName = (role) => getRoleDisplayName(role);
 // 判断用户是否在线（最近30分钟内有活动）
 const isUserOnline = (user) => {
   if (!user || user.isDisabled) return false;
-  // 如果有 last_active_at 字段，使用它判断
   if (user.last_active_at) {
     const lastActive = new Date(user.last_active_at);
     const now = new Date();
     const diffMinutes = (now - lastActive) / (1000 * 60);
     return diffMinutes <= 30; // 30分钟内有活动则认为在线
-  }
-  // 降级：使用 last_sign_in_at 判断（不太准确）
-  if (user.last_sign_in_at) {
-    const lastSignin = new Date(user.last_sign_in_at);
-    const now = new Date();
-    const diffMinutes = (now - lastSignin) / (1000 * 60);
-    return diffMinutes <= 30;
   }
   return false;
 };

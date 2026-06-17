@@ -207,9 +207,9 @@ const handleSave = async () => {
     try {
       await userAPI.update(form.id, {
         phone: form.phone,
-        departmentLevel1: form.departmentLevel1,
-        departmentLevel2: form.departmentLevel2,
-        departmentLevel3: form.departmentLevel3,
+        department_level1: form.departmentLevel1,
+        department_level2: form.departmentLevel2,
+        department_level3: form.departmentLevel3,
         role: form.role
       })
       ElMessage.success('保存成功')

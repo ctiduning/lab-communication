@@ -124,7 +124,7 @@
           </div>
         </div>
 
-        <el-table :data="processedMessages" border stripe v-loading="loading" @row-click="viewDetail">
+        <el-table :data="processedMessages" border stripe v-loading="loading" :row-class-name="tableRowClassName" @row-click="viewDetail">
           <!-- 状态列 - 移到最前面 -->
           <el-table-column label="状态" width="100" align="center" fixed="left">
             <template #default="scope">
@@ -228,7 +228,7 @@
           </div>
         </div>
 
-        <el-table :data="completedMessages" border stripe v-loading="loading" @row-click="viewDetail">
+        <el-table :data="completedMessages" border stripe v-loading="loading" :row-class-name="tableRowClassName" @row-click="viewDetail">
           <!-- 状态列 - 移到最前面 -->
           <el-table-column label="状态" width="90" align="center" fixed="left">
             <template #default="scope">
@@ -781,7 +781,7 @@
             style="min-width:110px"
           >同意</el-button>
           <el-button 
-            v-if="!selectedMessage?.myCompleted && !selectedMessage?.isCompleted"
+            v-if="!selectedMessage?.myCompleted && !selectedMessage?.isCompleted && !selectedMessage?.isRecalled"
             type="danger" 
             class="quick-btn reject-btn"
             @click="sendQuickReply('拒绝')"
@@ -789,7 +789,7 @@
             style="min-width:110px"
           >拒绝</el-button>
           <el-button 
-            v-if="!selectedMessage?.myCompleted && !selectedMessage?.isCompleted"
+            v-if="!selectedMessage?.myCompleted && !selectedMessage?.isCompleted && !selectedMessage?.isRecalled"
             type="info"
             class="quick-btn pending-btn"
             @click="sendQuickReply('等我确认后回复')"

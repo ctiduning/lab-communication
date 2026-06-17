@@ -119,7 +119,7 @@
           </div>
         </div>
 
-        <el-table :data="processedMessages" border stripe v-loading="loading" @row-click="viewDetail">
+        <el-table :data="processedMessages" border stripe v-loading="loading" :row-class-name="tableRowClassName" @row-click="viewDetail">
           <!-- 状态列 - 移到最前面 -->
           <el-table-column label="状态" width="100" align="center" fixed="left">
             <template #default="scope">
@@ -203,7 +203,7 @@
           </div>
         </div>
 
-        <el-table :data="completedMessages" border stripe v-loading="loading" @row-click="viewDetail">
+        <el-table :data="completedMessages" border stripe v-loading="loading" :row-class-name="tableRowClassName" @row-click="viewDetail">
           <!-- 状态列 - 移到最前面 -->
           <el-table-column label="状态" width="90" align="center" fixed="left">
             <template #default="scope">
@@ -1183,11 +1183,11 @@ onUnmounted(() => {
 }
 
 /* 待处理消息 - 淡蓝色底色 */
-::deep(.pending-row) {
+:deep(.pending-row) {
   background-color: #ecf5ff !important;
 }
 
-::deep(.pending-row:hover) {
+:deep(.pending-row:hover) {
   background-color: #d9ecff !important;
 }
 
@@ -1258,11 +1258,11 @@ onUnmounted(() => {
 }
 
 /* 已撤回 - 浅红底色 */
-::deep(.recalled-row) {
+:deep(.recalled-row) {
   background-color: #fff0f0 !important;
 }
 
-::deep(.recalled-row:hover) {
+:deep(.recalled-row:hover) {
   background-color: #ffe0e0 !important;
 }
 </style>
