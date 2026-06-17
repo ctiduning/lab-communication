@@ -11,8 +11,9 @@
       <input type="date" v-model="startDate" class="date-input" />
       <span class="date-sep">~</span>
       <input type="date" v-model="endDate" class="date-input" />
-      <button class="query-btn" @click="loadData" :disabled="loading">{{ loading ? '查询中...' : '查询' }}</button>
-      <span v-if="lastUpdated" class="update-time">最后更新：{{ lastUpdated }}</span>
+    <button class="query-btn" @click="loadData" :disabled="loading">{{ loading ? '查询中...' : '查询' }}</button>
+    <button v-if="dataLoaded" class="export-btn" @click="exportExcel">导出Excel</button>
+    <span v-if="lastUpdated" class="update-time">最后更新：{{ lastUpdated }}</span>
     </div>
 
     <div v-if="loading" class="loading-state">加载中...</div>
@@ -148,6 +149,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { statisticsAPI } from '../api'
+import * as XLSX from 'xlsx'
 
 const startDate = ref('')
 const endDate = ref('')
@@ -445,6 +447,70 @@ async function loadData() {
     loading.value = false
   }
 }
+
+// ====== 导出 Excel ======
+function exportExcel() {
+  const wb = XLSX.utils.book_new()
+
+  // Sheet1: 各排名
+  const rankRows = []
+  const maxLen = Math.max(
+    rankings.value.fastest.length,
+    rankings.value.slowest.length,
+    rankings.value.mostReceived.length,
+    rankings.value.mostReplies.length
+  )
+  for (let i = 0; i < maxLen; i++) {
+    rankRows.push({
+      '排名': i + 1,
+      '回复最快': rankings.value.fastest[i] ? `${rankings.value.fastest[i].name} - ${rankings.value.fastest[i].value}` : '',
+      '回复最慢': rankings.value.slowest[i] ? `${rankings.value.slowest[i].name} - ${rankings.value.slowest[i].value}` : '',
+      '收到最多': rankings.value.mostReceived[i] ? `${rankings.value.mostReceived[i].name} - ${rankings.value.mostReceived[i].value}` : '',
+      '回复最多': rankings.value.mostReplies[i] ? `${rankings.value.mostReplies[i].name} - ${rankings.value.mostReplies[i].value}` : ''
+    })
+  }
+  const ws1 = XLSX.utils.json_to_sheet(rankRows)
+  XLSX.utils.book_append_sheet(wb, ws1, '排名统计')
+
+  // Sheet2: 沟通类型分布
+  const typeRows = typeDistribution.value.map(t => ({
+    '沟通类型': t.type,
+    '数量': t.count,
+    '占比': t.pct
+  }))
+  const ws2 = XLSX.utils.json_to_sheet(typeRows)
+  XLSX.utils.book_append_sheet(wb, ws2, '沟通类型分布')
+
+  // Sheet3: 加急统计
+  const urgentRows = []
+  urgentRows.push({ '指标': '付费加急总数', '数值': urgentStats.value.paidUrgent })
+  urgentRows.push({ '指标': '免费加急总数', '数值': urgentStats.value.freeUrgent })
+  urgentStats.value.initiatorsPaid.forEach((item, i) => {
+    urgentRows.push({ '指标': `发起付费加急TOP${i+1}`, '数值': `${item.name} ${item.count}次` })
+  })
+  urgentStats.value.initiatorsFree.forEach((item, i) => {
+    urgentRows.push({ '指标': `发起免费加急TOP${i+1}`, '数值': `${item.name} ${item.count}次` })
+  })
+  urgentStats.value.approvers.forEach((item, i) => {
+    urgentRows.push({ '指标': `同意加急TOP${i+1}`, '数值': `${item.name} ${item.count}次` })
+  })
+  const ws3 = XLSX.utils.json_to_sheet(urgentRows)
+  XLSX.utils.book_append_sheet(wb, ws3, '加急统计')
+
+  // Sheet4: 近7天趋势
+  const trendRows = trend.value.map(t => ({
+    '日期': t.label,
+    '普通沟通': t.normal,
+    '加急沟通': t.urgent,
+    '合计': t.normal + t.urgent
+  }))
+  const ws4 = XLSX.utils.json_to_sheet(trendRows)
+  XLSX.utils.book_append_sheet(wb, ws4, '近7天趋势')
+
+  // 导出
+  const fileName = `数据看板_${startDate.value}_${endDate.value}.xlsx`
+  XLSX.writeFile(wb, fileName)
+}
 </script>
 
 <style scoped>
@@ -512,6 +578,20 @@ async function loadData() {
 .query-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.export-btn {
+  padding: 6px 16px;
+  background: #27ae60;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.export-btn:hover {
+  background: #219a52;
 }
 
 .update-time {
