@@ -222,6 +222,23 @@
           <el-descriptions-item v-if="selectedComm.content" label="内容" :span="2">{{ selectedComm.content }}</el-descriptions-item>
         </el-descriptions>
 
+        <!-- 转发消息：原消息引用卡片 -->
+        <div v-if="forwardedOriginalMsg" style="margin-top: 16px; border-left: 4px solid #409eff; background: #f0f7ff; border-radius: 6px; padding: 12px;">
+          <div style="font-size: 12px; color: #409eff; font-weight: 600; margin-bottom: 8px;">
+            📎 转发自 {{ forwardedOriginalMsg.senderName }} 的消息
+          </div>
+          <el-descriptions :column="2" border size="small">
+            <el-descriptions-item label="沟通类型">{{ getTypeName(forwardedOriginalMsg.type) }}</el-descriptions-item>
+            <el-descriptions-item label="客户名称">{{ forwardedOriginalMsg.customerName || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="样品短号">{{ forwardedOriginalMsg.sampleCode || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="发送时间">{{ formatTime(forwardedOriginalMsg.createdAt) }}</el-descriptions-item>
+            <el-descriptions-item v-if="forwardedOriginalMsg.content" label="内容" :span="2">{{ forwardedOriginalMsg.content }}</el-descriptions-item>
+          </el-descriptions>
+          <div style="font-size: 12px; color: #909399; margin-top: 8px;">
+            接收人：{{ (forwardedOriginalMsg.recipientDetails || []).map(r => r.name || '').join('、') || '-' }}
+          </div>
+        </div>
+
         <h4 style="margin-top: 20px;">接收人状态</h4>
         <div v-if="selectedComm.departmentCardIds && selectedComm.departmentCardIds.length > 0">
           <!-- 部门名片分组 -->
@@ -754,6 +771,9 @@ const getReplyStatusText = (comm) => {
   return `${repliedCount}/${total} 已回复`
 }
 
+// 转发消息的原消息引用
+const forwardedOriginalMsg = ref(null)
+
 // 获取回复状态标签颜色
 const getReplyTagType = (comm) => {
   const status = computeReplyStatus(comm)
@@ -857,6 +877,17 @@ const filteredCommunications = computed(() => {
   const viewDetail = async (comm) => {
   selectedComm.value = comm
   detailVisible.value = true
+  forwardedOriginalMsg.value = null  // 重置
+
+  // 如果是转发消息，获取原消息
+  if (comm.forwardedFrom) {
+    try {
+      const res = await communicationAPI.getById(comm.forwardedFrom)
+      forwardedOriginalMsg.value = res.data
+    } catch (e) {
+      console.error('加载原消息失败:', e)
+    }
+  }
 
   // 如果有新回复，清除标记
   if (comm.hasNewReply) {

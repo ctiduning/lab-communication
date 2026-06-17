@@ -1376,23 +1376,11 @@ export const communicationAPI = {
       .single()
     if (origError) throw origError
 
-    // 创建新消息（复制原消息内容）
+    // 创建新消息（不复制原消息内容，转发的附言作为消息内容）
     const newComm = {
       sender_id: userId,
       type: original.type,
-      content: original.content,
-      customer_name: original.customer_name,
-      sample_code: original.sample_code,
-      sample_matrix: original.sample_matrix,
-      sample_count: original.sample_count,
-      test_items: original.test_items,
-      sample_date: original.sample_date,
-      requested_cycle: original.requested_cycle,
-      charge_status: original.charge_status,
-      urgent_fee: original.urgent_fee,
-      remark: original.remark,
-      vip: original.vip,
-      attachments: original.attachments,
+      content: note || '',  // 转发附言作为消息内容
       forwarded_from: originalCommId,
       forward_note: note || '',
       department_card_ids: departmentCardIds || []
