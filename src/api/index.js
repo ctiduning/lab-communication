@@ -363,6 +363,7 @@ export const communicationAPI = {
           recipient_id,
           is_read,
           is_flagged,
+          read_at,
           is_completed,
           has_replied,
           replied_by,
@@ -436,6 +437,7 @@ export const communicationAPI = {
         ...r.recipient,
         recipient_id: r.recipient_id,
         is_read: r.is_read,
+        read_at: r.read_at || null,
         is_flagged: r.is_flagged,
         is_completed: r.is_completed,
         has_replied: r.has_replied,
@@ -748,6 +750,7 @@ export const communicationAPI = {
           recipient_id,
           is_read,
           is_flagged,
+          read_at,
           is_completed,
           has_replied,
           replied_by,
@@ -793,6 +796,7 @@ export const communicationAPI = {
           ...r.recipient,
           recipient_id: r.recipient_id,
           is_read: r.is_read,
+          read_at: r.read_at || null,
           is_flagged: r.is_flagged,
           is_completed: r.is_completed,
           has_replied: r.has_replied,
@@ -981,7 +985,8 @@ export const communicationAPI = {
           recipient:recipient_id(name, employee_id, role),
           is_completed,
           has_replied,
-          is_flagged
+          is_flagged,
+          read_at
         ),
         replies(
           id,
@@ -1280,6 +1285,7 @@ export const communicationAPI = {
           recipient_id,
           is_read,
           is_flagged,
+          read_at,
           is_completed,
           has_replied,
           replied_by,
@@ -1331,6 +1337,7 @@ export const communicationAPI = {
         ...r.recipient,
         recipient_id: r.recipient_id,
         is_read: r.is_read,
+        read_at: r.read_at || null,
         is_flagged: r.is_flagged,
         is_completed: r.is_completed,
         has_replied: r.has_replied,
@@ -2583,5 +2590,72 @@ export const statisticsAPI = {
       profiles,
       recipients: recipients || []
     }
+  }
+}
+
+// ==========================================
+// 已读回执 API
+// ==========================================
+export const readReceiptAPI = {
+  async markAsRead(communicationId) {
+    const userId = await getCurrentUserId()
+    if (!userId) return
+    const now = new Date().toISOString()
+    const { error } = await supabase
+      .from('communication_recipients')
+      .update({ is_read: true, read_at: now })
+      .eq('communication_id', communicationId)
+      .eq('recipient_id', userId)
+      .is('read_at', null)
+    if (error) console.warn('markAsRead error:', error)
+  }
+}
+
+// ==========================================
+// 快捷回复 API
+// ==========================================
+export const quickReplyAPI = {
+  async getMyQuickReplies() {
+    const userId = await getCurrentUserId()
+    if (!userId) return { data: [] }
+    const { data, error } = await supabase
+      .from('user_quick_replies')
+      .select('*')
+      .eq('user_id', userId)
+      .order('sort_order', { ascending: true })
+    if (error) throw error
+    return { data: data || [] }
+  },
+  async create(content) {
+    const userId = await getCurrentUserId()
+    if (!userId) throw new Error('未登录')
+    const { data, error } = await supabase
+      .from('user_quick_replies')
+      .insert({ user_id: userId, content })
+      .select()
+      .single()
+    if (error) throw error
+    return { data }
+  },
+  async update(id, content, sortOrder) {
+    const updates = { updated_at: new Date().toISOString() }
+    if (content !== undefined) updates.content = content
+    if (sortOrder !== undefined) updates.sort_order = sortOrder
+    const { data, error } = await supabase
+      .from('user_quick_replies')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+    if (error) throw error
+    return { data }
+  },
+  async remove(id) {
+    const { error } = await supabase
+      .from('user_quick_replies')
+      .delete()
+      .eq('id', id)
+    if (error) throw error
+    return { success: true }
   }
 }

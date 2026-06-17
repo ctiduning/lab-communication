@@ -38,14 +38,17 @@
     </div>
 
     <el-table :data="filteredCommunications" border stripe v-loading="loading" empty-text="暂无发送记录" v-if="activeFilter !== 'recalled'" @row-click="viewDetail" :row-class-name="getRowClassName">
-      <el-table-column label="状态" width="110" align="center">
+      <el-table-column label="状态" width="140" align="center">
         <template #default="scope">
+          <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:center;">
           <el-tag v-if="scope.row.isRecalled" size="small" type="warning">
             {{ getRecallStatusText(scope.row) }}
           </el-tag>
           <el-tag v-else-if="scope.row.isCompleted" size="small" type="success">已完结</el-tag>
           <el-tag v-else-if="computeReplyStatus(scope.row) === 'replied'" size="small" :type="getReplyTagType(scope.row)">{{ getReplyStatusText(scope.row) }}</el-tag>
           <el-tag v-else size="small" type="danger">未回复</el-tag>
+          <el-tag v-if="!scope.row.isRecalled && !scope.row.isCompleted && isOverdue(scope.row)" size="small" type="danger" effect="dark">超时</el-tag>
+          </div>
         </template>
       </el-table-column>
       <el-table-column label="🚩" width="50" align="center">
@@ -250,10 +253,12 @@
                   <span v-else style="color:#999;">-</span>
                 </template>
               </el-table-column>
-              <el-table-column label="已读" width="72" align="center">
+              <el-table-column label="已读" width="120" align="center">
                 <template #default="scope">
                   <el-tag v-if="scope.row.has_new_reply" size="small" type="warning" style="border:none;">新回复</el-tag>
-                  <el-tag v-else-if="scope.row.is_read" size="small" type="success" style="border:none;">已读</el-tag>
+                  <el-tag v-else-if="scope.row.is_read" size="small" type="success" style="border:none;">
+                    {{ scope.row.read_at ? formatTime(scope.row.read_at).substring(5,16) + ' 已读' : '已读' }}
+                  </el-tag>
                   <el-tag v-else size="small" type="info" style="border:none;">未读</el-tag>
                 </template>
               </el-table-column>
@@ -297,10 +302,12 @@
                   <span v-else style="color:#999;">-</span>
                 </template>
               </el-table-column>
-              <el-table-column label="已读" width="72" align="center">
+              <el-table-column label="已读" width="120" align="center">
                 <template #default="scope">
                   <el-tag v-if="scope.row.has_new_reply" size="small" type="warning" style="border:none;">新回复</el-tag>
-                  <el-tag v-else-if="scope.row.is_read" size="small" type="success" style="border:none;">已读</el-tag>
+                  <el-tag v-else-if="scope.row.is_read" size="small" type="success" style="border:none;">
+                    {{ scope.row.read_at ? formatTime(scope.row.read_at).substring(5,16) + ' 已读' : '已读' }}
+                  </el-tag>
                   <el-tag v-else size="small" type="info" style="border:none;">未读</el-tag>
                 </template>
               </el-table-column>
@@ -540,7 +547,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, Refresh } from '@element-plus/icons-vue'
-import { communicationAPI, getRoleDisplayName, ROLE_OPTIONS } from '../api'
+import { communicationAPI, quickReplyAPI, getRoleDisplayName, ROLE_OPTIONS } from '../api'
 import { supabase } from '../utils/supabase'
 import { buildSearchKeys, filterGroups } from '../utils/pinyinSearch'
 
@@ -583,8 +590,40 @@ const allUsers = ref([])
 const forwardSearchQuery = ref('')
 const forwardRecipientGroups = ref([])
 
-// 快捷回复预设
-const quickReplies = ['收到，已安排', '样品已收到，正在检测', '报告已出具，请查收', '预计 X 个工作日出报告', '数据确认中，稍后回复']
+// 快捷回复（从API加载）
+const quickReplies = ref(['收到，已安排', '样品已收到，正在检测', '报告已出具，请查收', '预计 X 个工作日出报告', '数据确认中，稍后回复'])
+const showQuickReplyManager = ref(false)
+const editingQuickReply = ref('')
+const editingQuickReplyIndex = ref(-1)
+
+async function loadQuickReplies() {
+  try {
+    const { data } = await quickReplyAPI.getMyQuickReplies()
+    if (data && data.length > 0) {
+      quickReplies.value = data.map(q => q.content)
+    }
+  } catch {}
+}
+
+function addQuickReply() {
+  if (!editingQuickReply.value.trim()) return
+  if (editingQuickReplyIndex.value >= 0) {
+    quickReplies.value[editingQuickReplyIndex.value] = editingQuickReply.value.trim()
+  } else {
+    quickReplies.value.push(editingQuickReply.value.trim())
+  }
+  editingQuickReply.value = ''
+  editingQuickReplyIndex.value = -1
+}
+
+function editQuickReply(index) {
+  editingQuickReply.value = quickReplies.value[index]
+  editingQuickReplyIndex.value = index
+}
+
+function deleteQuickReply(index) {
+  quickReplies.value.splice(index, 1)
+}
 
 const typeMap = {
   paid_urgent: '付费加急',
@@ -649,6 +688,15 @@ const getReplyTagType = (comm) => {
   if (statusText.includes('/')) return 'warning'
   if (statusText === '未回复') return 'danger'
   return 'success'
+}
+
+// 沟通时效监控：付费加急超2小时未回复
+const isOverdue = (comm) => {
+  if (comm.isRecalled || comm.isCompleted) return false
+  if (comm.vip !== '付费加急') return false
+  if (!comm.createdAt) return false
+  const elapsed = Date.now() - new Date(comm.createdAt).getTime()
+  return elapsed > 2 * 60 * 60 * 1000
 }
 
 // 获取撤回消息状态文本
@@ -945,6 +993,7 @@ const subscribeMessages = () => {
 onMounted(() => {
   loadCommunications()
   subscribeMessages()
+  loadQuickReplies()
 })
 
 onUnmounted(() => {

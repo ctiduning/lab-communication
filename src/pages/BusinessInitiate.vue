@@ -349,6 +349,7 @@ import { communicationAPI, storageAPI, departmentCardAPI, templateAPI, ROLE_OPTI
 import { supabase } from '../utils/supabase';
 import { buildSearchKeys, filterGroups } from '../utils/pinyinSearch';
 import { getLevel2Options, getLevel3Options, getRoleOptions, isDepartmentCardRole } from '../utils/departmentConfig';
+import { useAutoSave } from '../utils/autoSave';
 
 const router = useRouter();
 
@@ -584,6 +585,10 @@ const form = reactive({
   templateId: null
 });
 
+// 自动保存草稿
+const { startAutoSave, restoreAutoSave, clearAutoSave } = useAutoSave(form, 'biz_auto_draft');
+startAutoSave();
+
 // 部门名片数据
 const departmentCards = ref([]);
 // 当前部门名片映射：{ cardKey: [holderIds] }（用于同步移除）
@@ -805,6 +810,7 @@ const submitForm = async () => {
     const draftIdx = drafts.value.findIndex(d => d.content === form.content && d.sampleCode === form.sampleCode);
     if (draftIdx >= 0) deleteDraft(draftIdx);
     resetForm();
+    clearAutoSave();
     router.push('/');
   } catch (error) {
     ElMessage.error('发送失败：' + (error.message || '未知错误'));
@@ -907,6 +913,9 @@ const pickFilesWithAPI = async () => {
 };
 
 onMounted(() => {
+  // 恢复自动保存草稿
+  restoreAutoSave();
+
   // 加载草稿
   loadDraftsFromStorage();
 
