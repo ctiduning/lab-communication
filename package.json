@@ -10,6 +10,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.107.0",
     "axios": "^1.6.5",
+    "docx": "^9.7.1",
     "element-plus": "^2.5.1",
     "moment": "^2.29.4",
     "pinyin-pro": "^3.28.1",
