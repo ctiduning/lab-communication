@@ -462,8 +462,76 @@
         </div>
         <div v-else class="no-attachment">暂无附件</div>
 
-        <h4 style="margin-top: 20px;">所有接收人状态</h4>
-        <el-table :data="selectedMessage.recipientDetails || []" border size="small">
+        <h4 style="margin-top: 20px;">接收人状态</h4>
+        <div v-if="!selectedMessage?.isRecalled">
+          <div v-for="(group, gIdx) in getAllDeptGroups(selectedMessage)" :key="gIdx" style="margin-bottom: 12px; border: 1px solid #ebeef5; border-radius: 4px; padding: 0;">
+            <div style="background: #f0f5ff; padding: 8px 12px; border-radius: 4px 4px 0 0; font-weight: bold; font-size: 13px; display: flex; align-items: center; gap: 8px;">
+              <span>{{ group.deptName }}</span>
+              <el-tag v-if="group.hasReplied" size="small" type="success">已处理{{ group.repliedByName ? '（' + group.repliedByName + '）' : '' }}</el-tag>
+              <el-tag v-else size="small" type="danger">待处理</el-tag>
+            </div>
+            <div style="padding: 8px;">
+              <el-table :data="group.recipients" border size="small" style="width: 100%;">
+                <el-table-column prop="name" label="姓名" width="80"></el-table-column>
+                <el-table-column label="角色" width="100">
+                  <template #default="scope">
+                    <el-tag size="small" :color="getRoleTagColor(getEffectiveRole(scope.row))" style="color:#fff;border:none;">
+                      {{ getRoleDisplayName(getEffectiveRole(scope.row)) }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column label="回复记录" min-width="220">
+                  <template #default="scope">
+                    <div v-if="getRecipientReplies(scope.row.recipient_id).length > 0">
+                      <div v-for="(reply, idx) in getRecipientReplies(scope.row.recipient_id)" :key="idx">
+                        <div class="recipient-reply-line">
+                          <span :class="getReplyClass(reply)">
+                            <strong>{{ getReceiverDisplayName(reply.senderId) }}</strong>
+                            <span v-if="reply.targetRecipientId"> → {{ getReceiverDisplayName(reply.targetRecipientId) }}</span>
+                            ：{{ reply.content }}
+                          </span>
+                          <span class="reply-time-mini">{{ formatTime(reply.createdAt) }}</span>
+                          <el-button size="small" circle @click.stop="activeReplyId = reply.id; inlineReplyContent = ''" style="flex-shrink:0;padding:0 4px;min-width:auto;height:auto;font-size:13px;border:none;">💬</el-button>
+                        </div>
+                        <div v-if="activeReplyId === reply.id" style="display:flex;gap:4px;margin:4px 0 4px 0;align-items:center;flex-wrap:wrap;">
+                          <el-input v-model="inlineReplyContent" size="small" placeholder="回复..." style="flex:1;" @keyup.enter="submitInlineReply(reply)" />
+                          <el-button size="small" type="primary" @click="submitInlineReply(reply)" :loading="inlineReplyLoading">发送</el-button>
+                          <el-button size="small" @click="cancelInlineReply">取消</el-button>
+                          <div style="width:100%;display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">
+                            <el-tag v-for="(qr, qi) in quickReplies" :key="qi" size="small" style="cursor:pointer;margin:2px;" @click="inlineReplyContent = qr">{{ qr }}</el-tag>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <span v-else style="color:#999;">-</span>
+                  </template>
+                </el-table-column>
+                <el-table-column label="已读" width="72" align="center">
+                  <template #default="scope">
+                    <el-tag v-if="scope.row.has_new_reply" size="small" type="warning" style="border:none;">新回复</el-tag>
+                    <el-tag v-else-if="scope.row.is_read" size="small" type="success" style="border:none;">已读</el-tag>
+                    <el-tag v-else size="small" type="info" style="border:none;">未读</el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column label="红旗" width="50" align="center">
+                  <template #default="scope">
+                    <span v-if="scope.row.is_flagged" style="color:#f56c6c;font-size:14px;">🚩</span>
+                    <span v-else>-</span>
+                  </template>
+                </el-table-column>
+                <el-table-column label="状态" width="72" align="center">
+                  <template #default="scope">
+                    <el-tag v-if="scope.row.is_completed" size="small" type="success">完结</el-tag>
+                    <el-tag v-else-if="scope.row.has_replied" size="small" type="success">已回复</el-tag>
+                    <el-tag v-else size="small" type="danger">未回复</el-tag>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </div>
+          </div>
+        </div>
+        <!-- 已撤回消息显示传统表格 -->
+        <el-table v-else :data="selectedMessage.recipientDetails || []" border size="small" style="width: 100%;">
           <el-table-column prop="name" label="接收人" width="100"></el-table-column>
           <el-table-column prop="department" label="部门" width="120"></el-table-column>
           <el-table-column label="已读" width="70" align="center">
@@ -600,6 +668,78 @@ function toggleCollapsed(recipientId) {
 
 const buildThreads = (comm) => {
   return communicationAPI.buildThreads ? communicationAPI.buildThreads(comm) : { all: comm.replies || [], threads: [] };
+};
+
+// 获取某个接收人的回复
+const getRecipientReplies = (recipientId) => {
+  if (!selectedMessage.value || !selectedMessage.value.replies) return [];
+  return selectedMessage.value.replies.filter(r =>
+    r.senderId === recipientId || r.targetRecipientId === recipientId
+  ).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+};
+
+// 所有接收人按部门分组
+const getAllDeptGroups = (comm) => {
+  if (!comm) return [];
+  const recipients = comm.recipientDetails || [];
+  const groups = {};
+  recipients.forEach(r => {
+    const dept = r.department_level3 || r.department || '未分组';
+    if (!groups[dept]) {
+      groups[dept] = { deptName: dept, recipients: [], hasReplied: false, repliedByName: '' };
+    }
+    groups[dept].recipients.push(r);
+    if (r.has_replied) {
+      groups[dept].hasReplied = true;
+      if (r.replied_by) groups[dept].repliedByName = r.replied_by;
+    }
+  });
+  return Object.values(groups);
+};
+
+// 回复内容样式
+const getReplyClass = (reply) => {
+  if (!reply || !reply.content) return '';
+  if (reply.content === '同意') return 'reply-agree';
+  if (reply.content === '拒绝') return 'reply-reject';
+  if (reply.targetRecipientId) return 'reply-follow-up';
+  return 'reply-normal';
+};
+
+// 在接收人状态卡片中显示名字
+const getReceiverDisplayName = (userId) => {
+  if (!selectedMessage.value) return '未知';
+  const recipient = selectedMessage.value.recipientDetails?.find(r => r.recipient_id === userId);
+  if (recipient) return recipient.name || '未知';
+  if (userId === selectedMessage.value.senderId) return selectedMessage.value.senderName || '发起人';
+  const user = allUsers.value.find(u => u.id === userId);
+  return user ? (user.name || user.username) : '未知';
+};
+
+// 获取有效角色
+const getEffectiveRole = (row) => {
+  if (row.role) return row.role;
+  const user = allUsers.value.find(u => u.id === row.recipient_id);
+  return user?.role || null;
+};
+
+// 角色标签颜色
+const roleTagColors = {
+  business: '#9b59b6',
+  business_assistant: '#d4a574',
+  inspection_leader: '#67c23a',
+  inspection_leader_assistant: '#ff69b4'
+};
+const colorCycle = ['#409eff', '#e6a23c', '#f56c6c', '#00BCD4', '#FF9800', '#795548', '#607D8B', '#E91E63'];
+let roleColorIndex = {};
+
+const getRoleTagColor = (role) => {
+  if (!role) return '#909399';
+  if (roleTagColors[role]) return roleTagColors[role];
+  if (roleColorIndex[role] === undefined) {
+    roleColorIndex[role] = Object.keys(roleColorIndex).length % colorCycle.length;
+  }
+  return colorCycle[roleColorIndex[role]];
 };
 
 const searchKeyword = ref('');
