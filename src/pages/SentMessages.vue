@@ -517,6 +517,7 @@
               placeholder="搜索或选择检测部门（可多选）"
               style="width: 100%;"
               popper-class="dept-card-popper"
+              @change="onForwardDepartmentCardsChange"
               clearable
             >
               <el-option
@@ -1204,6 +1205,38 @@ const removeForwardRecipient = (uid) => {
   forwardRecipients.value = forwardRecipients.value.filter(id => id !== uid)
 }
 
+// 部门名片选择变化（与 BusinessInitiate.vue onDepartmentCardsChange 逻辑一致）
+let forwardDeptCardMap = {}  // { cardKey: [holderId, ...] }
+const onForwardDepartmentCardsChange = (newSelection) => {
+  const prev = { ...forwardDeptCardMap }
+  const current = {}
+  
+  // 新增的卡片 → 加入接收人
+  newSelection.forEach(cardKey => {
+    if (!prev[cardKey]) {
+      const holders = departmentCardAPI.getHolderIds(cardKey, forwardDepartmentCards.value)
+      current[cardKey] = holders
+      holders.forEach(id => {
+        if (!forwardRecipients.value.includes(id)) {
+          forwardRecipients.value.push(id)
+        }
+      })
+    } else {
+      current[cardKey] = prev[cardKey]
+    }
+  })
+  
+  // 移除的卡片 → 移除接收人
+  Object.keys(prev).forEach(cardKey => {
+    if (!newSelection.includes(cardKey)) {
+      const holders = prev[cardKey]
+      forwardRecipients.value = forwardRecipients.value.filter(id => !holders.includes(id))
+    }
+  })
+  
+  forwardDeptCardMap = current
+}
+
 // 打开转发弹窗（加载用户列表和部门名片）
 const openForwardDialog = async (comm) => {
   forwardTarget.value = comm
@@ -1254,6 +1287,7 @@ const confirmForward = async () => {
   }
   forwardLoading.value = true
   try {
+    // 收集部门持有人ID（与发起沟通逻辑一致）
     let deptHolderIds = []
     if (forwardDepartmentCardIds.value.length > 0 && forwardDepartmentCards.value.length > 0) {
       forwardDepartmentCardIds.value.forEach(cardKey => {
@@ -1261,12 +1295,16 @@ const confirmForward = async () => {
         if (card) deptHolderIds.push(...card.holders.map(h => h.id))
       })
     }
+    // 合并个人收件人 + 部门持有人，去重
+    const allRecipientIds = [...new Set([...forwardRecipients.value, ...deptHolderIds])]
+    
     await communicationAPI.forwardMessage(forwardTarget.value.id, {
-      recipientIds: [...forwardRecipients.value, ...deptHolderIds],
-      departmentCardIds: deptHolderIds,
-      note: forwardNote.value
+      recipientIds: allRecipientIds,
+      departmentCardIds: forwardDepartmentCardIds.value,  // 传 level3 keys，不是用户ID
+      note: forwardNote.value,
+      senderRole: forwardTarget.value.senderRole
     })
-    ElMessage.success('转发成功')
+    ElMessage.success(`转发成功（共 ${allRecipientIds.length} 人）`)
     forwardDialogVisible.value = false
     loadCommunications()
   } catch (e) {

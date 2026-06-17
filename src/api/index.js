@@ -1395,7 +1395,8 @@ export const communicationAPI = {
       attachments: original.attachments,
       senderRole: senderRole || original.senderRole,
       forwarded_from: originalCommId,
-      forward_note: note || ''
+      forward_note: note || '',
+      department_card_ids: departmentCardIds || []
     }
 
     const { data: comm, error: commError } = await supabase
@@ -1405,9 +1406,8 @@ export const communicationAPI = {
       .single()
     if (commError) throw commError
 
-    // 创建接收人
-    const allRecipients = [...new Set([...(recipientIds || []), ...(departmentCardIds || [])])]
-    const recipientRows = allRecipients.map(rid => ({
+    // 创建接收人（recipientIds 已包含个人收件人 + 部门持有人ID）
+    const recipientRows = (recipientIds || []).map(rid => ({
       communication_id: comm.id,
       recipient_id: rid
     }))
