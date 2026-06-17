@@ -454,7 +454,7 @@
     </el-dialog>
 
     <!-- 转发弹窗 -->
-    <el-dialog title="转发消息" v-model="forwardDialogVisible" width="600px" :close-on-click-modal="false">
+    <el-dialog title="转发消息" v-model="forwardDialogVisible" width="750px" :close-on-click-modal="false" destroy-on-close>
       <div v-if="forwardTarget">
         <div style="margin-bottom: 16px; padding: 12px; background: #f5f7fa; border-radius: 6px;">
           <div style="font-weight: 600; margin-bottom: 8px;">原消息摘要</div>
@@ -1252,39 +1252,18 @@ const onForwardDepartmentCardsChange = (newSelection) => {
   forwardDeptCardMap = current
 }
 
-// 打开转发弹窗（加载用户列表和部门名片）
+// 打开转发弹窗
 const openForwardDialog = async (comm) => {
   forwardTarget.value = comm
   forwardRecipients.value = []
   forwardDepartmentCardIds.value = []
-  forwardDeptCardMap = {}  // 重置部门名片映射
+  forwardDeptCardMap = {}
   forwardNote.value = ''
   forwardSearchQuery.value = ''
   forwardDialogVisible.value = true
   
-  // 加载用户列表
-  try {
-    const { data: { user: authUser } } = await supabase.auth.getUser()
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('id, name, role, department, department_level1, department_level2, department_level3')
-      .not('id', 'eq', authUser?.id || '')
-      .order('department_level1', { ascending: true })
-    
-    if (error) throw error
-    allUsers.value = data?.map(u => ({
-      ...u,
-      _searchKey: [u.name, u.department, u.department_level1, u.department_level2, u.department_level3, u.role]
-        .filter(Boolean).join(' ').toLowerCase(),
-      _roleName: getRoleDisplayName(u.role)
-    })) || []
-    // 重置搜索并构建分组
-    forwardSearchQuery.value = ''
-    buildForwardGroups()
-  } catch (e) {
-    console.error('加载用户列表失败:', e)
-    allUsers.value = []
-  }
+  // 加载用户列表（复用 loadForwardUsers，它会填充 forwardRecipientGroups）
+  await loadForwardUsers()
   
   // 加载部门名片
   try {
