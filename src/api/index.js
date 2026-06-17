@@ -623,19 +623,38 @@ export const communicationAPI = {
         .eq('id', communicationId)
     }
 
-    // ====== 第七步：非发件人首次回复时，检查同组是否已有人回复 ======
+    // ====== 第七步：非发件人首次回复时的拦截检查 ======
+    // 规则：
+    // - 部门名片持有人：只拦截同组（同 department_level3 且属于 department_card_ids）的重复回复
+    // - 个人名片（非 department_card_ids 成员）：永不拦截，允许独立回复
     if (!isSender && !isFollowUp) {
-      // 检查同组是否已有人回复（防止同组多人重复回复）
-      const { data: repliedRecipients } = await supabase
-        .from('communication_recipients')
-        .select('replied_by')
-        .eq('communication_id', communicationId)
-        .eq('has_replied', true)
-        .limit(1)
-      
-      if (repliedRecipients && repliedRecipients.length > 0) {
-        throw new Error(`此消息已被${repliedRecipients[0].replied_by || '他人'}回复`)
+      const isCardHolder = comm.department_card_ids?.includes(userId)
+
+      if (isCardHolder && replierProfile?.department_level3) {
+        // 部门名片持有人：查出同组已回复的人
+        const { data: sameDeptReplied } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('department_level3', replierProfile.department_level3)
+          .in('id', comm.department_card_ids)
+
+        const sameDeptIds = (sameDeptReplied || []).map(u => u.id)
+
+        if (sameDeptIds.length > 0) {
+          const { data: repliedRecipients } = await supabase
+            .from('communication_recipients')
+            .select('replied_by')
+            .eq('communication_id', communicationId)
+            .eq('has_replied', true)
+            .in('recipient_id', sameDeptIds)
+            .limit(1)
+
+          if (repliedRecipients && repliedRecipients.length > 0) {
+            throw new Error(`同组已有${repliedRecipients[0].replied_by || '他人'}回复，无需重复回复`)
+          }
+        }
       }
+      // 个人名片：不拦截，允许独立回复
     }
 
     const isDeptCardHolder = comm.department_card_ids?.includes(userId)
@@ -693,7 +712,7 @@ export const communicationAPI = {
       // ====== 普通回复：只标记自己 ======
       await supabase
         .from('communication_recipients')
-        .update({ has_replied: true })
+        .update({ has_replied: true, replied_by: replierProfile.name })
         .eq('communication_id', communicationId)
         .eq('recipient_id', userId)
 

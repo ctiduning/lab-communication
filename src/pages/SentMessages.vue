@@ -44,7 +44,7 @@
             {{ getRecallStatusText(scope.row) }}
           </el-tag>
           <el-tag v-else-if="scope.row.isCompleted" size="small" type="success">已完结</el-tag>
-          <el-tag v-else-if="computeReplyStatus(scope.row) === 'replied'" size="small" type="success">已回复</el-tag>
+          <el-tag v-else-if="computeReplyStatus(scope.row) === 'replied'" size="small" :type="getReplyTagType(scope.row)">{{ getReplyStatusText(scope.row) }}</el-tag>
           <el-tag v-else size="small" type="danger">未回复</el-tag>
         </template>
       </el-table-column>
@@ -624,6 +624,31 @@ const computeReplyStatus = (comm) => {
   if (total === 0) return 'replied'
   const repliedCount = recipients.filter(r => r.has_replied).length
   return repliedCount > 0 ? 'replied' : 'unreplied'
+}
+
+// 获取回复状态文字（区分个人名片和部门名片）
+// 个人名片：显示 "n/m 已回复" 或 "已回复"
+// 部门名片：统一显示 "已回复"
+const getReplyStatusText = (comm) => {
+  const recipients = comm.recipientDetails || []
+  const total = recipients.length
+  if (total === 0) return '已回复'
+  const repliedCount = recipients.filter(r => r.has_replied).length
+  if (repliedCount === 0) return '未回复'
+
+  const hasDeptCards = comm.departmentCardIds && comm.departmentCardIds.length > 0
+  if (hasDeptCards) return '已回复'
+  if (repliedCount === total) return '已回复'
+  return `${repliedCount}/${total} 已回复`
+}
+
+// 获取回复状态标签颜色
+// 个人部分回复 → warning（黄色），全部回复或部门卡片 → success（绿色）
+const getReplyTagType = (comm) => {
+  const statusText = getReplyStatusText(comm)
+  if (statusText.includes('/')) return 'warning'
+  if (statusText === '未回复') return 'danger'
+  return 'success'
 }
 
 // 获取撤回消息状态文本
