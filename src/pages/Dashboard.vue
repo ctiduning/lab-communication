@@ -104,15 +104,16 @@
               <div class="urgent-label urgent-free">免费加急</div>
               <div class="urgent-num">{{ urgentStats.freeUrgent }}</div>
             </div>
-            <div class="urgent-box">
-              <div class="urgent-label urgent-normal">普通</div>
-              <div class="urgent-num">{{ urgentStats.normal }}</div>
-            </div>
           </div>
-          <div class="urgent-sub-title">发起加急 TOP5</div>
+          <div class="urgent-sub-title">发起付费加急 TOP5</div>
           <div class="tag-list">
-            <span v-for="item in urgentStats.initiators" :key="item.id" class="tag-item tag-info">{{ item.name }} {{ item.count }}次</span>
-            <span v-if="urgentStats.initiators.length === 0" class="no-data">暂无数据</span>
+            <span v-for="item in urgentStats.initiatorsPaid" :key="item.id" class="tag-item tag-info">{{ item.name }} {{ item.count }}次</span>
+            <span v-if="urgentStats.initiatorsPaid.length === 0" class="no-data">暂无数据</span>
+          </div>
+          <div class="urgent-sub-title">发起免费加急 TOP5</div>
+          <div class="tag-list">
+            <span v-for="item in urgentStats.initiatorsFree" :key="item.id" class="tag-item tag-warning">{{ item.name }} {{ item.count }}次</span>
+            <span v-if="urgentStats.initiatorsFree.length === 0" class="no-data">暂无数据</span>
           </div>
           <div class="urgent-sub-title">同意加急 TOP5</div>
           <div class="tag-list">
@@ -252,7 +253,8 @@ const rankings = computed(() => {
   const avgTimes = Object.entries(userReplyTimes).map(([id, times]) => ({
     id,
     name: userMap[id] || '未知',
-    value: formatDuration(times.reduce((a, b) => a + b, 0) / times.length),
+    replyCount: times.length,
+    value: `${times.length}条, 平均${formatDuration(times.reduce((a, b) => a + b, 0) / times.length)}`,
     raw: times.reduce((a, b) => a + b, 0) / times.length
   })).filter(i => i.name !== '未知').sort((a, b) => a.raw - b.raw)
 
@@ -290,12 +292,26 @@ const rankings = computed(() => {
   }
 })
 
+const typeNameMap = {
+  paid_urgent: '付费加急',
+  free_urgent: '免费加急',
+  sample_test: '样品检测',
+  method_confirm: '方法确认',
+  report_confirm: '报告确认',
+  data_dispute: '数据质疑',
+  data_confirm: '数据确认',
+  follow_up: '跟单',
+  consultation: '咨询',
+  other: '其他'
+}
+
 const typeDistribution = computed(() => {
   if (!rawData.value) return []
   const { communications } = rawData.value
   const typeCount = {}
   communications.forEach(c => {
-    const type = c.type || '未分类'
+    const rawType = c.type || '其他'
+    const type = typeNameMap[rawType] || rawType
     if (!typeCount[type]) typeCount[type] = 0
     typeCount[type]++
   })
@@ -315,28 +331,38 @@ const typeDistribution = computed(() => {
 })
 
 const urgentStats = computed(() => {
-  if (!rawData.value) return { paidUrgent: 0, freeUrgent: 0, normal: 0, initiators: [], approvers: [] }
+  if (!rawData.value) return { paidUrgent: 0, freeUrgent: 0, initiatorsPaid: [], initiatorsFree: [], approvers: [] }
   const { communications, replies, profiles } = rawData.value
   const userMap = buildUserMap(profiles)
 
   const paidUrgent = communications.filter(c => c.vip === '付费加急').length
   const freeUrgent = communications.filter(c => c.vip === '免费加急').length
-  const normal = communications.filter(c => !c.vip || c.vip === '').length
 
-  // 发起加急TOP5：谁发起的加急沟通最多
-  const initiatorCount = {}
-  communications.filter(c => c.vip === '付费加急' || c.vip === '免费加急').forEach(c => {
-    if (!initiatorCount[c.sender_id]) initiatorCount[c.sender_id] = 0
-    initiatorCount[c.sender_id]++
+  // 发起免费加急TOP5
+  const initFreeCount = {}
+  communications.filter(c => c.vip === '免费加急').forEach(c => {
+    if (!initFreeCount[c.sender_id]) initFreeCount[c.sender_id] = 0
+    initFreeCount[c.sender_id]++
   })
-
-  const initiators = Object.entries(initiatorCount)
+  const initiatorsFree = Object.entries(initFreeCount)
     .map(([id, count]) => ({ id, name: userMap[id] || '未知', count }))
     .filter(i => i.name !== '未知')
     .sort((a, b) => b.count - a.count)
     .slice(0, 5)
 
-  // 同意加急TOP5：加急沟通中回复"同意"的人
+  // 发起付费加急TOP5
+  const initPaidCount = {}
+  communications.filter(c => c.vip === '付费加急').forEach(c => {
+    if (!initPaidCount[c.sender_id]) initPaidCount[c.sender_id] = 0
+    initPaidCount[c.sender_id]++
+  })
+  const initiatorsPaid = Object.entries(initPaidCount)
+    .map(([id, count]) => ({ id, name: userMap[id] || '未知', count }))
+    .filter(i => i.name !== '未知')
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5)
+
+  // 同意加急TOP5
   const urgentCommIds = new Set(communications.filter(c => c.vip === '付费加急' || c.vip === '免费加急').map(c => c.id))
   const approverCount = {}
   replies.filter(r => urgentCommIds.has(r.communication_id) && r.content === '同意').forEach(r => {
@@ -350,7 +376,7 @@ const urgentStats = computed(() => {
     .sort((a, b) => b.count - a.count)
     .slice(0, 5)
 
-  return { paidUrgent, freeUrgent, normal, initiators, approvers }
+  return { paidUrgent, freeUrgent, initiatorsPaid, initiatorsFree, approvers }
 })
 
 const trend = computed(() => {

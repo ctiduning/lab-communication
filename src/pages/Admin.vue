@@ -315,7 +315,16 @@
         </div>
       </el-tab-pane>
 
-      <el-tab-pane label="统计" name="stats">
+      <el-tab-pane label="数据看板" name="dashboard">
+        <div style="text-align: center; padding: 60px 20px;">
+          <div style="font-size: 16px; color: #666; margin-bottom: 20px;">点击按钮进入完整数据看板页面</div>
+          <el-button type="primary" size="large" @click="$router.push('/dashboard')" style="padding: 12px 40px; font-size: 16px;">
+            进入数据看板
+          </el-button>
+        </div>
+      </el-tab-pane>
+
+      <el-tab-pane label="存储管理" name="stats">
         <div class="stats-content">
           <!-- 筛选区域 -->
           <div class="stats-filter">
