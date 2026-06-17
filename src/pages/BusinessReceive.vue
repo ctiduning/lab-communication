@@ -831,12 +831,13 @@
               multiple
               filterable
               reserve-keyword
-              placeholder="搜索选择接收人..."
+              :filter-method="filterForwardRecipient"
+              placeholder="输入姓名/拼音/部门搜索..."
               style="width: 100%;"
               :teleported="false"
             >
               <el-option
-                v-for="u in allUsers"
+                v-for="u in filteredForwardUsers"
                 :key="u.id"
                 :label="u.name"
                 :value="u.id"
@@ -848,8 +849,19 @@
               </el-option>
             </el-select>
             <div style="color: #999; font-size: 12px; margin-top: 4px;">
-              已选择 {{ forwardRecipients.length }} 人
+              已选择 {{ forwardRecipients.length }} 人（支持拼音首字母/全拼/部门搜索）
             </div>
+          </el-form-item>
+          <el-form-item label="按部门转发" v-if="forwardDepartmentCards.length > 0">
+            <el-select v-model="forwardDepartmentCardIds" multiple filterable placeholder="搜索或选择检测部门（可多选）" style="width:100%;" clearable>
+              <el-option v-for="card in forwardDepartmentCards" :key="card.departmentLevel3" :label="(card.departmentLevel2 || '') + ' · ' + (card.departmentLevel3 || '')" :value="card.departmentLevel3">
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span style="font-weight:500;">{{ card.departmentLevel3 }}</span>
+                  <span style="color:#999;font-size:12px;">{{ card.leader?.name || '无组长' }}</span>
+                </div>
+              </el-option>
+            </el-select>
+            <div style="font-size:12px;color:#909399;margin-top:4px;">选择部门后，消息将发送给该部门的负责人（组长+组长助理）</div>
           </el-form-item>
         </el-form>
       </div>
@@ -867,6 +879,7 @@ import { ElMessage } from 'element-plus';
 import { Search, CircleCheck, CircleClose, Document } from '@element-plus/icons-vue';
 import { communicationAPI, userAPI, reactionAPI, getRoleDisplayName, ROLE_OPTIONS } from '../api';
 import { supabase } from '../utils/supabase';
+import { buildSearchKeys, matchUser } from '../utils/pinyinSearch';
 
 const activeTab = ref('pending');
 const messages = ref([]);
@@ -893,6 +906,9 @@ const forwardTarget = ref(null);
 const forwardRecipients = ref([]);
 const forwardNote = ref('');
 const forwardLoading = ref(false);
+const forwardDepartmentCards = ref([]);
+const forwardDepartmentCardIds = ref([]);
+const forwardSearchQuery = ref('');
 
 // 快捷回复预设
 const quickReplies = ['收到，已安排', '样品已收到，正在检测', '报告已出具，请查收', '预计 X 个工作日出报告', '数据确认中，稍后回复'];
@@ -1463,7 +1479,15 @@ const showForwardDialog = (comm) => {
   forwardTarget.value = comm;
   forwardRecipients.value = [];
   forwardNote.value = '';
+  forwardDepartmentCardIds.value = [];
   forwardDialogVisible.value = true;
+  // 加载部门名片
+  import('../api').then(({ departmentCardAPI }) => {
+    departmentCardAPI.getDepartmentCards().then(res => {
+      forwardDepartmentCards.value = res.data || [];
+    }).catch(() => {});
+  });
+  // 加载用户列表
   loadForwardUsers();
 };
 
@@ -1481,15 +1505,34 @@ const loadForwardUsers = async () => {
   }
 };
 
+// 转发用户搜索（拼音模糊）
+const filteredForwardUsers = computed(() => {
+  if (!forwardSearchQuery.value) return allUsers.value;
+  return allUsers.value.filter(u => matchUser(forwardSearchQuery.value, buildSearchKeys(u, ROLE_OPTIONS || {})._searchKeys));
+});
+
+const filterForwardRecipient = (query) => {
+  forwardSearchQuery.value = query;
+};
+
 const confirmForward = async () => {
-  if (!forwardTarget.value || forwardRecipients.value.length === 0) {
-    ElMessage.warning('请选择接收人');
+  if (!forwardTarget.value || (forwardRecipients.value.length === 0 && forwardDepartmentCardIds.value.length === 0)) {
+    ElMessage.warning('请选择个人接收人或部门名片');
     return;
   }
   forwardLoading.value = true;
   try {
+    // 获取部门名片持有人ID
+    let deptHolderIds = []
+    if (forwardDepartmentCardIds.value.length > 0 && forwardDepartmentCards.value.length > 0) {
+      forwardDepartmentCardIds.value.forEach(cardKey => {
+        const card = forwardDepartmentCards.value.find(c => c.departmentLevel3 === cardKey)
+        if (card) deptHolderIds.push(...card.holders.map(h => h.id))
+      })
+    }
     await communicationAPI.forwardMessage(forwardTarget.value.id, {
-      recipientIds: forwardRecipients.value,
+      recipientIds: [...forwardRecipients.value, ...deptHolderIds],
+      departmentCardIds: deptHolderIds,
       note: forwardNote.value
     });
     ElMessage.success('转发成功');
