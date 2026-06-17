@@ -201,8 +201,8 @@ const overview = computed(() => {
   if (!rawData.value) return { total: 0, paidUrgent: 0, freeUrgent: 0, avgResponseTime: '-' }
   const { communications, replies } = rawData.value
   const total = communications.length
-  const paidUrgent = communications.filter(c => c.vip === '付费加急').length
-  const freeUrgent = communications.filter(c => c.vip === '免费加急').length
+  const paidUrgent = communications.filter(c => c.type === 'paid_urgent').length
+  const freeUrgent = communications.filter(c => c.type === 'free_urgent').length
 
   // 平均回复时长：每个沟通的第一条回复时间 - 发送时间
   const replyTimes = []
@@ -337,12 +337,12 @@ const urgentStats = computed(() => {
   const { communications, replies, profiles } = rawData.value
   const userMap = buildUserMap(profiles)
 
-  const paidUrgent = communications.filter(c => c.vip === '付费加急').length
-  const freeUrgent = communications.filter(c => c.vip === '免费加急').length
+  const paidUrgent = communications.filter(c => c.type === 'paid_urgent').length
+  const freeUrgent = communications.filter(c => c.type === 'free_urgent').length
 
   // 发起免费加急TOP5
   const initFreeCount = {}
-  communications.filter(c => c.vip === '免费加急').forEach(c => {
+  communications.filter(c => c.type === 'free_urgent').forEach(c => {
     if (!initFreeCount[c.sender_id]) initFreeCount[c.sender_id] = 0
     initFreeCount[c.sender_id]++
   })
@@ -354,7 +354,7 @@ const urgentStats = computed(() => {
 
   // 发起付费加急TOP5
   const initPaidCount = {}
-  communications.filter(c => c.vip === '付费加急').forEach(c => {
+  communications.filter(c => c.type === 'paid_urgent').forEach(c => {
     if (!initPaidCount[c.sender_id]) initPaidCount[c.sender_id] = 0
     initPaidCount[c.sender_id]++
   })
@@ -365,7 +365,7 @@ const urgentStats = computed(() => {
     .slice(0, 5)
 
   // 同意加急TOP5
-  const urgentCommIds = new Set(communications.filter(c => c.vip === '付费加急' || c.vip === '免费加急').map(c => c.id))
+  const urgentCommIds = new Set(communications.filter(c => c.type === 'paid_urgent' || c.type === 'free_urgent').map(c => c.id))
   const approverCount = {}
   replies.filter(r => urgentCommIds.has(r.communication_id) && r.content === '同意').forEach(r => {
     if (!approverCount[r.sender_id]) approverCount[r.sender_id] = 0
@@ -408,7 +408,7 @@ const trend = computed(() => {
     const day = c.created_at.substring(0, 10)
     const dayData = days.find(d => d.dateStr === day)
     if (dayData) {
-      if (c.vip === '付费加急' || c.vip === '免费加急') {
+      if (c.type === 'paid_urgent' || c.type === 'free_urgent') {
         dayData.urgent++
       } else {
         dayData.normal++
