@@ -682,19 +682,11 @@ const handleSend = async () => {
   }
   sending.value = true
   try {
-    // 青岛/非青岛业务需传入 target_regions
-    let targetRegions = null
-    if (form.targetRole === 'qingdao_business') {
-      targetRegions = 'qingdao'
-    } else if (form.targetRole === 'non_qingdao_business') {
-      targetRegions = 'non_qingdao'
-    }
     await announcementAPI.create({
       title: form.title,
       content: form.content,
       attachments: form.attachments,
-      target_role: form.targetRole,
-      target_regions: targetRegions
+      target_role: form.targetRole
     })
     ElMessage.success('发布成功')
     resetForm()

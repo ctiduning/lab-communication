@@ -1473,7 +1473,7 @@ communicationAPI.buildThreads = function(comm) {
 // ==========================================
 export const announcementAPI = {
   // 创建公告（管理员）—— 只写入 announcements 表，不再推通知
-  async create({ title, content, attachments, target_role, target_regions }) {
+  async create({ title, content, attachments, target_role }) {
     const userId = await getCurrentUserId()
     if (!userId) throw new Error('未登录')
 
@@ -1483,7 +1483,6 @@ export const announcementAPI = {
         title,
         content,
         target_role: target_role || 'all',
-        target_regions: target_regions || null,
         sender_id: userId,
         attachments: attachments || []
       }])
