@@ -672,8 +672,95 @@
             {{ myRecipient.is_flagged ? '取消红旗' : '标记红旗' }}
           </el-button>
           <el-button type="primary" v-if="!selectedMessage?.isRecalled" @click="submitReplyFromDetail" :loading="replyLoading">发送回复</el-button>
+          <el-button type="primary" size="small" @click="showForwardDialog(selectedMessage)" v-if="!selectedMessage?.isRecalled">转发</el-button>
           <el-button type="info" plain @click="detailVisible = false">关闭</el-button>
         </div>
+      </template>
+    </el-dialog>
+
+    <!-- 转发弹窗 -->
+    <el-dialog title="转发消息" v-model="forwardDialogVisible" width="750px" :close-on-click-modal="false" destroy-on-close>
+      <div v-if="forwardTarget">
+        <div style="margin-bottom: 16px; padding: 12px; background: #f5f7fa; border-radius: 6px;">
+          <div style="font-weight: 600; margin-bottom: 8px;">原消息摘要</div>
+          <div style="font-size: 13px; color: #606266;">
+            <div>发送人：{{ getSenderName(forwardTarget.senderId) }}</div>
+            <div>类型：{{ getTypeName(forwardTarget.type) }}</div>
+            <div v-if="forwardTarget.content" style="margin-top: 4px;">内容：{{ forwardTarget.content }}</div>
+          </div>
+        </div>
+        <el-form>
+          <el-form-item label="转发附言">
+            <el-input v-model="forwardNote" type="textarea" :rows="2" placeholder="添加转发附言（可选）" />
+          </el-form-item>
+          <el-form-item label="接收人" prop="recipients">
+            <el-select
+              v-model="forwardRecipients"
+              multiple
+              filterable
+              reserve-keyword
+              :filter-method="filterForwardRecipient"
+              placeholder="输入姓名/拼音/部门搜索..."
+              style="width: 100%;"
+              :teleported="false"
+            >
+              <el-option
+                v-for="u in filteredForwardUsers"
+                :key="u.id"
+                :label="u.name"
+                :value="u.id"
+              >
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span style="font-weight:500;">{{ u.name }}</span>
+                  <span style="color:#999;font-size:12px;">{{ u.department || '-' }}</span>
+                </div>
+              </el-option>
+            </el-select>
+            <div style="color: #999; font-size: 12px; margin-top: 4px;">
+              已选择 {{ forwardRecipients.length }} 人（支持拼音首字母/全拼/部门搜索）
+            </div>
+            <!-- 已选人员名片展示 -->
+            <div v-if="forwardRecipients.length > 0" class="forward-recipient-cards">
+              <div v-for="uid in forwardRecipients" :key="uid" class="fwd-recipient-card">
+                <span class="fwd-card-name">{{ getForwardUserName(uid) }}</span>
+                <span class="fwd-card-dept">{{ getForwardUserDept(uid) }}</span>
+                <span class="fwd-card-role">{{ getForwardUserRoleName(uid) }}</span>
+                <span class="fwd-card-remove" @click="removeForwardRecipient(uid)">×</span>
+              </div>
+            </div>
+          </el-form-item>
+          <el-form-item label="按部门转发" v-if="forwardDepartmentCards.length > 0">
+            <el-select v-model="forwardDepartmentCardIds" multiple filterable placeholder="搜索或选择检测部门（可多选）" style="width:100%;" popper-class="dept-card-popper" @change="onForwardDepartmentCardsChange" clearable>
+              <el-option
+                v-for="card in forwardDepartmentCards"
+                :key="card.departmentLevel3"
+                :label="(card.departmentLevel2 || '') + ' · ' + (card.departmentLevel3 || '')"
+                :value="card.departmentLevel3"
+              >
+                <div style="padding: 6px 0;">
+                  <div style="font-weight: 600; font-size: 14px; color: #303133;">
+                    {{ card.departmentLevel2 }} · {{ card.departmentLevel3 }}
+                  </div>
+                  <div style="font-size: 12px; color: #606266; margin-top: 4px; line-height: 1.6;">
+                    <span style="display: inline-flex; align-items: center; gap: 4px;">
+                      🧑 检测组长：{{ card.leader?.name || '-' }}
+                    </span>
+                    <template v-if="card.assistants && card.assistants.length > 0">
+                      <span v-for="(a, i) in card.assistants" :key="a.id" style="margin-left: 12px; display: inline-flex; align-items: center; gap: 4px;">
+                        👤 检测组长助理{{ card.assistants.length > 1 ? (i + 1) : '' }}：{{ a.name }}
+                      </span>
+                    </template>
+                  </div>
+                </div>
+              </el-option>
+            </el-select>
+            <div style="font-size:12px;color:#909399;margin-top:4px;">选择部门后，消息将发送给该部门的负责人（组长+组长助理），同组任意一人回复即为该组已处理</div>
+          </el-form-item>
+        </el-form>
+      </div>
+      <template #footer>
+        <el-button @click="forwardDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="confirmForward" :loading="forwardLoading" :disabled="forwardRecipients.length === 0 && forwardDepartmentCardIds.length === 0">确认转发</el-button>
       </template>
     </el-dialog>
   </div>
@@ -683,8 +770,9 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { ElMessage } from 'element-plus';
 import { Search, CircleCheck, CircleClose, Document } from '@element-plus/icons-vue';
-import { communicationAPI, userAPI, reactionAPI, getRoleDisplayName, ROLE_OPTIONS } from '../api';
+import { communicationAPI, userAPI, reactionAPI, getRoleDisplayName, ROLE_OPTIONS, departmentCardAPI } from '../api';
 import { supabase } from '../utils/supabase';
+import { buildSearchKeys, matchUser } from '../utils/pinyinSearch';
 
 const activeTab = ref('pending');
 const messages = ref([]);
@@ -811,6 +899,77 @@ const quickReplies = ['同意', '拒绝', '等我确认后回复', '已收到，
 const activeReplyId = ref(null);
 const inlineReplyContent = ref('');
 const inlineReplyLoading = ref(false);
+
+// 转发相关
+const forwardDialogVisible = ref(false);
+const forwardTarget = ref(null);
+const forwardRecipients = ref([]);
+const forwardNote = ref('');
+const forwardLoading = ref(false);
+const forwardDepartmentCards = ref([]);
+const forwardDepartmentCardIds = ref([]);
+const forwardSearchQuery = ref('');
+let forwardDeptCardMap = {};  // { cardKey: [holderId, ...] }
+
+// 根据持有人ID查找所属部门名片key
+const findForwardCardKeyByHolderId = (uid) => {
+  for (const [cardKey, holderIds] of Object.entries(forwardDeptCardMap)) {
+    if (holderIds.includes(uid)) return cardKey
+  }
+  return null
+}
+
+// 部门名片选择变化
+const onForwardDepartmentCardsChange = (newSelection) => {
+  const prev = { ...forwardDeptCardMap }
+  const current = {}
+  // 新增的卡片 → 加入接收人
+  newSelection.forEach(cardKey => {
+    if (!prev[cardKey]) {
+      const holders = departmentCardAPI.getHolderIds(cardKey, forwardDepartmentCards.value)
+      current[cardKey] = holders
+      holders.forEach(id => {
+        if (!forwardRecipients.value.includes(id)) {
+          forwardRecipients.value.push(id)
+        }
+      })
+    } else {
+      current[cardKey] = prev[cardKey]
+    }
+  })
+  // 移除的卡片 → 移除接收人
+  Object.keys(prev).forEach(cardKey => {
+    if (!newSelection.includes(cardKey)) {
+      const holders = prev[cardKey]
+      forwardRecipients.value = forwardRecipients.value.filter(id => !holders.includes(id))
+    }
+  })
+  forwardDeptCardMap = current
+}
+
+// 移除转发收件人（同步取消部门名片）
+const removeForwardRecipient = (uid) => {
+  forwardRecipients.value = forwardRecipients.value.filter(id => id !== uid)
+  const cardKey = findForwardCardKeyByHolderId(uid)
+  if (cardKey && forwardDepartmentCardIds.value.includes(cardKey)) {
+    forwardDepartmentCardIds.value = forwardDepartmentCardIds.value.filter(k => k !== cardKey)
+    delete forwardDeptCardMap[cardKey]
+  }
+}
+
+// 转发收件人显示辅助
+const getForwardUserName = (uid) => {
+  const u = allUsers.value.find(u => u.id === uid)
+  return u?.name || uid
+}
+const getForwardUserDept = (uid) => {
+  const u = allUsers.value.find(u => u.id === uid)
+  return u?.department || '-'
+}
+const getForwardUserRoleName = (uid) => {
+  const u = allUsers.value.find(u => u.id === uid)
+  return u?.role ? getRoleDisplayName(u.role) : '-'
+}
 
 const submitInlineReply = async (reply) => {
   const content = inlineReplyContent.value.trim();
@@ -1288,6 +1447,72 @@ const replyFromTable = (msg) => {
   viewDetail(msg);
 };
 
+// ===== 转发功能 =====
+const showForwardDialog = (comm) => {
+  if (!comm) return;
+  forwardTarget.value = comm;
+  forwardRecipients.value = [];
+  forwardNote.value = '';
+  forwardDepartmentCardIds.value = [];
+  forwardDeptCardMap = {};
+  forwardDialogVisible.value = true;
+  // 加载部门名片
+  departmentCardAPI.getDepartmentCards().then(res => {
+    forwardDepartmentCards.value = res.data || [];
+  }).catch(() => {});
+  // 加载用户列表
+  loadForwardUsers();
+};
+
+const loadForwardUsers = async () => {
+  try {
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, name, department, role, department_level1, department_level2, department_level3')
+      .neq('id', authUser?.id || '')
+    if (data) allUsers.value = data;
+  } catch {}
+};
+
+const filteredForwardUsers = computed(() => {
+  if (!forwardSearchQuery.value) return allUsers.value;
+  return allUsers.value.filter(u => matchUser(forwardSearchQuery.value, buildSearchKeys(u, ROLE_OPTIONS || {})._searchKeys));
+});
+
+const filterForwardRecipient = (query) => {
+  forwardSearchQuery.value = query;
+};
+
+const confirmForward = async () => {
+  if (!forwardTarget.value || (forwardRecipients.value.length === 0 && forwardDepartmentCardIds.value.length === 0)) {
+    ElMessage.warning('请选择个人接收人或部门名片');
+    return;
+  }
+  forwardLoading.value = true;
+  try {
+    // 获取部门名片持有人ID
+    let deptHolderIds = []
+    if (forwardDepartmentCardIds.value.length > 0 && forwardDepartmentCards.value.length > 0) {
+      forwardDepartmentCardIds.value.forEach(cardKey => {
+        const card = forwardDepartmentCards.value.find(c => c.departmentLevel3 === cardKey)
+        if (card) deptHolderIds.push(...card.holders.map(h => h.id))
+      })
+    }
+    await communicationAPI.forwardMessage(forwardTarget.value.id, {
+      recipientIds: [...new Set([...forwardRecipients.value, ...deptHolderIds])],
+      departmentCardIds: deptHolderIds,
+      note: forwardNote.value
+    });
+    ElMessage.success('转发成功');
+    forwardDialogVisible.value = false;
+  } catch (e) {
+    ElMessage.error('转发失败：' + (e.message || '未知错误'));
+  } finally {
+    forwardLoading.value = false;
+  }
+};
+
 const submitReplyFromDetail = async () => {
   if (!replyContent.value.trim()) {
     ElMessage.error('请输入回复内容');
@@ -1604,5 +1829,59 @@ onUnmounted(() => {
 }
 .forward-reference-card :deep(.el-descriptions__body) {
   background: transparent;
+}
+
+/* 转发选人器已选人员名片 */
+.forward-recipient-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.fwd-recipient-card {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #ecf5ff;
+  border: 1px solid #d9ecff;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
+.fwd-card-name {
+  font-weight: 600;
+  color: #303133;
+}
+
+.fwd-card-dept {
+  color: #606266;
+  font-size: 11px;
+}
+
+.fwd-card-role {
+  color: #909399;
+  font-size: 11px;
+  background: #f0f0f0;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+.fwd-card-remove {
+  color: #f56c6c;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: bold;
+  margin-left: 4px;
+  line-height: 1;
+}
+
+.fwd-card-remove:hover {
+  color: #c45656;
+}
+
+:deep(.dept-card-popper) {
+  max-width: 400px !important;
 }
 </style>
