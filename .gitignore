@@ -1,3 +1,8 @@
 node_modules
 dist
 .workbuddy
+
+# 环境变量文件（请勿提交真实密钥）
+.env
+.env.local
+.env.*.local

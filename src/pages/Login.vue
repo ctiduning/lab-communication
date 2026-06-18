@@ -67,16 +67,12 @@ const loginForm = reactive({
   password: ''
 });
 
-// 页面加载时检查是否有保存的账号
+// 页面加载时检查是否有保存的邮箱
 onMounted(() => {
   const savedEmail = localStorage.getItem('savedEmail');
-  const savedPassword = localStorage.getItem('savedPassword');
   if (savedEmail) {
     loginForm.email = savedEmail;
     rememberMe.value = true;
-  }
-  if (savedPassword) {
-    loginForm.password = savedPassword;
   }
 });
 
@@ -102,10 +98,9 @@ const handleLogin = async () => {
       ElMessage.warning('首次登录，请先修改密码');
     }
 
-    // 记住我逻辑
+    // 记住我逻辑：只存邮箱，不存密码
     if (rememberMe.value) {
       localStorage.setItem('savedEmail', loginForm.email);
-      localStorage.setItem('savedPassword', loginForm.password);
     } else {
       localStorage.removeItem('savedEmail');
       localStorage.removeItem('savedPassword');
