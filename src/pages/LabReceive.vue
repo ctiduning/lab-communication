@@ -442,7 +442,25 @@
 
     <!-- 详情弹窗 -->
     <el-dialog title="消息详情" v-model="detailVisible" width="750px">
-      <div v-if="selectedMessage">
+      <div v-if="selectedMessage" style="background:#faf6eb; border-radius:8px; padding:16px;">
+        <!-- 转发消息：原消息引用卡片（放在最上方） -->
+        <div v-if="selectedMessage?.forwardedFrom && forwardedOriginalMsg" style="margin-bottom: 20px; border: 4px solid #409eff; border-left: 8px solid #409eff; background: #dceefb; border-radius: 10px; padding: 18px;">
+          <div style="font-size: 16px; color: #409eff; font-weight: 800; margin-bottom: 12px; display:flex;align-items:center;gap:8px;">
+            <span style="background:#409eff;color:#fff;padding:4px 14px;border-radius:6px;font-size:14px;font-weight:700;">转发</span>
+            <span style="font-size:16px;font-weight:700;">以下为 {{ forwardedOriginalMsg.senderName }} 发送的原消息</span>
+          </div>
+          <el-descriptions :column="2" border size="small">
+            <el-descriptions-item label="沟通类型">{{ getTypeName(forwardedOriginalMsg.type) }}</el-descriptions-item>
+            <el-descriptions-item label="客户名称">{{ forwardedOriginalMsg.customerName || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="样品短号">{{ forwardedOriginalMsg.sampleCode || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="发送时间">{{ formatTime(forwardedOriginalMsg.createdAt) }}</el-descriptions-item>
+            <el-descriptions-item v-if="forwardedOriginalMsg.content" label="内容" :span="2">{{ forwardedOriginalMsg.content }}</el-descriptions-item>
+          </el-descriptions>
+          <div style="font-size: 12px; color: #909399; margin-top: 8px;">
+            接收人：{{ (forwardedOriginalMsg.recipientDetails || []).map(r => r.name || '').join('、') || '-' }}
+          </div>
+        </div>
+
         <h4>发送人信息</h4>
         <el-descriptions :column="2" border v-if="senderDetail">
           <el-descriptions-item label="姓名">{{ senderDetail.name }}</el-descriptions-item>
@@ -469,24 +487,6 @@
           <el-descriptions-item label="发送时间">{{ formatTime(selectedMessage.createdAt) }}</el-descriptions-item>
           <el-descriptions-item label="备注" :span="2">{{ selectedMessage.remark || '-' }}</el-descriptions-item>
         </el-descriptions>
-
-        <!-- 转发消息：原消息引用卡片 -->
-        <div v-if="selectedMessage?.forwardedFrom && forwardedOriginalMsg" style="margin-top: 20px; border: 4px solid #409eff; border-left: 8px solid #409eff; background: #dceefb; border-radius: 10px; padding: 18px;">
-          <div style="font-size: 16px; color: #409eff; font-weight: 800; margin-bottom: 12px; display:flex;align-items:center;gap:8px;">
-            <span style="background:#409eff;color:#fff;padding:4px 14px;border-radius:6px;font-size:14px;font-weight:700;">转发</span>
-            <span style="font-size:16px;font-weight:700;">以下为 {{ forwardedOriginalMsg.senderName }} 发送的原消息</span>
-          </div>
-          <el-descriptions :column="2" border size="small">
-            <el-descriptions-item label="沟通类型">{{ getTypeName(forwardedOriginalMsg.type) }}</el-descriptions-item>
-            <el-descriptions-item label="客户名称">{{ forwardedOriginalMsg.customerName || '-' }}</el-descriptions-item>
-            <el-descriptions-item label="样品短号">{{ forwardedOriginalMsg.sampleCode || '-' }}</el-descriptions-item>
-            <el-descriptions-item label="发送时间">{{ formatTime(forwardedOriginalMsg.createdAt) }}</el-descriptions-item>
-            <el-descriptions-item v-if="forwardedOriginalMsg.content" label="内容" :span="2">{{ forwardedOriginalMsg.content }}</el-descriptions-item>
-          </el-descriptions>
-          <div style="font-size: 12px; color: #909399; margin-top: 8px;">
-            接收人：{{ (forwardedOriginalMsg.recipientDetails || []).map(r => r.name || '').join('、') || '-' }}
-          </div>
-        </div>
 
         <!-- 撤回信息（仅撤回消息显示） -->
         <h4 v-if="selectedMessage?.isRecalled" style="margin-top: 20px; color: #e6a23c;">撤回信息</h4>

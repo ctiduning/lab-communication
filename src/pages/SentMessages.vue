@@ -211,22 +211,9 @@
 
     <!-- 沟通详情弹窗 -->
     <el-dialog title="沟通详情" v-model="detailVisible" width="750px" destroy-on-close>
-      <div v-if="selectedComm">
-        <h4>基本信息</h4>
-        <el-descriptions :column="2" border>
-          <el-descriptions-item label="沟通类型">{{ getTypeName(selectedComm.type) }}</el-descriptions-item>
-          <el-descriptions-item label="客户名称">{{ selectedComm.customerName || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="样品短号">{{ selectedComm.sampleCode || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="发送时间">{{ formatTime(selectedComm.createdAt) }}</el-descriptions-item>
-          <el-descriptions-item label="沟通类型标签">
-            <el-tag size="small" :type="getTypeTag(selectedComm.type)" style="border:none;">{{ getTypeName(selectedComm.type) }}</el-tag>
-          </el-descriptions-item>
-          <el-descriptions-item v-if="selectedComm.remark" label="备注" :span="2">{{ selectedComm.remark }}</el-descriptions-item>
-          <el-descriptions-item v-if="selectedComm.content" label="内容" :span="2">{{ selectedComm.content }}</el-descriptions-item>
-        </el-descriptions>
-
-        <!-- 转发消息：原消息引用卡片 -->
-        <div v-if="forwardedOriginalMsg" style="margin-top: 20px; border: 4px solid #409eff; border-left: 8px solid #409eff; background: #dceefb; border-radius: 10px; padding: 18px;">
+      <div v-if="selectedComm" style="background:#faf6eb; border-radius:8px; padding:16px;">
+        <!-- 转发消息：原消息引用卡片（放在最上方） -->
+        <div v-if="forwardedOriginalMsg" style="margin-bottom: 20px; border: 4px solid #409eff; border-left: 8px solid #409eff; background: #dceefb; border-radius: 10px; padding: 18px;">
           <div style="font-size: 16px; color: #409eff; font-weight: 800; margin-bottom: 12px; display:flex;align-items:center;gap:8px;">
             <span style="background:#409eff;color:#fff;padding:4px 14px;border-radius:6px;font-size:14px;font-weight:700;">转发</span>
             <span style="font-size:16px;font-weight:700;">以下为 {{ forwardedOriginalMsg.senderName }} 发送的原消息</span>
@@ -242,6 +229,19 @@
             接收人：{{ (forwardedOriginalMsg.recipientDetails || []).map(r => r.name || '').join('、') || '-' }}
           </div>
         </div>
+
+        <h4>基本信息</h4>
+        <el-descriptions :column="2" border>
+          <el-descriptions-item label="沟通类型">{{ getTypeName(selectedComm.type) }}</el-descriptions-item>
+          <el-descriptions-item label="客户名称">{{ selectedComm.customerName || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="样品短号">{{ selectedComm.sampleCode || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="发送时间">{{ formatTime(selectedComm.createdAt) }}</el-descriptions-item>
+          <el-descriptions-item label="沟通类型标签">
+            <el-tag size="small" :type="getTypeTag(selectedComm.type)" style="border:none;">{{ getTypeName(selectedComm.type) }}</el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item v-if="selectedComm.remark" label="备注" :span="2">{{ selectedComm.remark }}</el-descriptions-item>
+          <el-descriptions-item v-if="selectedComm.content" label="内容" :span="2">{{ selectedComm.content }}</el-descriptions-item>
+        </el-descriptions>
 
         <h4 style="margin-top: 20px;">接收人状态</h4>
         <div v-if="selectedComm.departmentCardIds && selectedComm.departmentCardIds.length > 0">
