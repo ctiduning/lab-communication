@@ -588,14 +588,12 @@
 
     <!-- 详情弹窗 -->
     <el-dialog title="消息详情" v-model="detailVisible" width="750px">
-      <div v-if="selectedMessage" style="background:#faf6eb; border-radius:8px; padding:16px;">
+      <div v-if="selectedMessage" class="detail-content-wrapper" style="background:#faf6eb; border-radius:8px; padding:16px;">
         <!-- 转发消息：原消息引用卡片（放在最上方） -->
-        <div v-if="selectedMessage?.forwardedFrom && forwardedOriginalMsg" style="margin-bottom: 20px; border: 4px solid #409eff; border-left: 8px solid #409eff; background: #dceefb; border-radius: 10px; padding: 18px;">
-          <div style="font-size: 16px; color: #409eff; font-weight: 800; margin-bottom: 12px; display:flex;align-items:center;gap:8px;">
-            <span style="background:#409eff;color:#fff;padding:4px 14px;border-radius:6px;font-size:14px;font-weight:700;">转发</span>
-            <span style="font-size:16px;font-weight:700;">以下为 {{ forwardedOriginalMsg.senderName }} 发送的原消息</span>
-          </div>
-          <el-descriptions :column="2" border size="small">
+        <div v-if="selectedMessage?.forwardedFrom && forwardedOriginalMsg" class="forward-reference-card" style="margin-bottom: 20px; border: 4px solid #409eff; border-left: 8px solid #409eff; background: #dceefb; border-radius: 10px; padding: 18px;">
+          <div class="fwd-badge" style="display:inline-block;background:#409eff;color:#fff;padding:4px 14px;border-radius:6px;font-size:14px;font-weight:700;margin-bottom:10px;">转发</div>
+          <div class="fwd-title" style="font-size:16px;font-weight:700;margin-bottom:12px;">以下为 {{ forwardedOriginalMsg.senderName }} 发送的原消息</div>
+          <el-descriptions :column="2" border size="small" class="fwd-descriptions">
             <el-descriptions-item label="沟通类型">{{ getTypeName(forwardedOriginalMsg.type) }}</el-descriptions-item>
             <el-descriptions-item label="客户名称">{{ forwardedOriginalMsg.customerName || '-' }}</el-descriptions-item>
             <el-descriptions-item label="样品短号">{{ forwardedOriginalMsg.sampleCode || '-' }}</el-descriptions-item>
@@ -650,7 +648,7 @@
         </div>
         <div v-else class="no-attachment">暂无附件</div>
 
-        <h4 style="margin-top: 20px;">接收人状态</h4>
+        <h4 style="margin-top: 20px;">{{ forwardedOriginalMsg ? '原接收人状态' : '接收人状态' }}</h4>
         <!-- 所有接收人按部门分组展示（新旧消息均适用） -->
         <div v-if="!selectedMessage?.isRecalled" style="margin-bottom: 4px;">
           <div v-for="(group, gIdx) in getAllDeptGroups(statusMessage)" :key="gIdx" style="margin-bottom: 12px; border: 1px solid #ebeef5; border-radius: 4px; padding: 0;">
@@ -1111,6 +1109,12 @@ const getReceiverDisplayName = (userId) => {
   if (userId === selectedMessage.value.senderId) return selectedMessage.value.senderName || '发起人';
   const user = allUsers.value.find(u => u.id === userId);
   return user ? (user.name || user.username) : '未知';
+};
+
+// 获取原始消息的接收人名称列表（用于转发引用卡片）
+const getOriginalRecipientNames = (originalMsg) => {
+  if (!originalMsg || !originalMsg.recipientDetails) return '-';
+  return originalMsg.recipientDetails.map(r => r.name).join('、');
 };
 
 // 获取有效角色：如果 row.role 为 null，从 allUsers 中查找
@@ -2044,4 +2048,71 @@ onUnmounted(() => {
 .reply-reject { color: #f56c6c; }
 .reply-follow-up { color: #2b579a; font-style: italic; }
 .reply-normal { color: #333; }
+
+/* ========== 详情弹窗 - 浅棕背景 ========== */
+.detail-content-wrapper {
+  border-radius: 8px;
+  padding: 16px;
+}
+.detail-content-wrapper :deep(.el-descriptions__body) {
+  background: transparent;
+}
+.detail-content-wrapper :deep(.el-descriptions__cell) {
+  background-color: #faf6eb !important;
+}
+.detail-content-wrapper :deep(.el-table__body td) {
+  background-color: #faf6eb !important;
+}
+.detail-content-wrapper :deep(.el-table__body tr) {
+  background-color: #faf6eb !important;
+}
+.detail-content-wrapper :deep(.el-table__header th.el-table__cell) {
+  background-color: #faf6eb !important;
+}
+.detail-content-wrapper :deep(.el-table--striped .el-table__body tr.el-table__row--striped td) {
+  background-color: #f5efe0 !important;
+}
+.detail-content-wrapper :deep(.el-table) {
+  background-color: transparent !important;
+}
+.detail-content-wrapper :deep(.el-table__body) {
+  background-color: transparent !important;
+}
+.detail-content-wrapper :deep(.el-table__header-wrapper) {
+  background-color: transparent !important;
+}
+
+/* ========== 转发引用卡片 ========== */
+.forward-reference-card {
+  background: #dceefb;
+  border-left: 8px solid #409eff;
+  border: 4px solid #409eff;
+  border-left-width: 8px;
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  position: relative;
+}
+.forward-reference-card .fwd-badge {
+  display: inline-block;
+  background: #409eff;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 3px 14px;
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+.forward-reference-card .fwd-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #303133;
+  margin-bottom: 12px;
+}
+.forward-reference-card :deep(.el-descriptions__cell) {
+  background-color: #dceefb !important;
+}
+.forward-reference-card :deep(.el-descriptions__body) {
+  background: transparent;
+}
 </style>
