@@ -194,9 +194,6 @@
       </el-container>
     </el-container>
   </div>
-  <div class="status-bar" v-if="!isMobile">
-    <span>当前视图：{{ roleCategory === 'business' ? '业务端' : roleCategory === 'lab' ? '实验室端' : '管理员' }}</span>
-  </div>
 </template>
 
 <script setup>
@@ -567,7 +564,7 @@ onUnmounted(() => {
 }
 
 .sidebar {
-  background: #1e1b4b;
+  background: #f5f5f5;
 }
 
 .sidebar-mobile {
@@ -580,52 +577,14 @@ onUnmounted(() => {
 .side-menu {
   height: 100%;
   border-right: none;
-  background: transparent;
-}
-
-/* 深色侧边栏菜单样式 */
-.side-menu :deep(.el-menu-item) {
-  color: rgba(255,255,255,0.55) !important;
-  background: transparent !important;
-  border-radius: 6px;
-  margin: 2px 8px;
-  width: auto;
-}
-.side-menu :deep(.el-menu-item:hover) {
-  color: rgba(255,255,255,0.8) !important;
-  background: rgba(255,255,255,0.08) !important;
-}
-.side-menu :deep(.el-menu-item.is-active) {
-  color: #fff !important;
-  background: #378ADD !important;
-}
-.side-menu :deep(.el-menu-item .el-icon) {
-  color: inherit !important;
-}
-.side-menu :deep(.el-menu-item .unread-ann-badge),
-.side-menu :deep(.el-menu-item .pending-msg-badge) {
-  background: rgba(255,255,255,0.15) !important;
-  color: rgba(255,255,255,0.8) !important;
 }
 
 .main-content {
   padding: 20px;
-  background: #f0f2f5;
 }
 
 .main-mobile {
   padding: 10px;
-}
-
-/* 底部状态栏 */
-.status-bar {
-  display: flex;
-  align-items: center;
-  padding: 4px 24px;
-  background: #e8e8e8;
-  font-size: 11px;
-  color: #888;
-  height: 26px;
 }
 
 .unread-ann-badge {
