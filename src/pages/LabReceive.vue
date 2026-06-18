@@ -457,7 +457,7 @@
             <el-descriptions-item v-if="forwardedOriginalMsg.content" label="内容" :span="2">{{ forwardedOriginalMsg.content }}</el-descriptions-item>
           </el-descriptions>
           <div style="font-size: 12px; color: #909399; margin-top: 8px;">
-            接收人：{{ (forwardedOriginalMsg.recipientDetails || []).map(r => r.name || '').join('、') || '-' }}
+            原接收人：{{ (forwardedOriginalMsg.recipientDetails || []).map(r => r.name || '').join('、') || '-' }}
           </div>
         </div>
 
@@ -506,7 +506,7 @@
 
         <h4 style="margin-top: 20px;">接收人状态</h4>
         <div v-if="!selectedMessage?.isRecalled">
-          <div v-for="(group, gIdx) in getAllDeptGroups(selectedMessage)" :key="gIdx" style="margin-bottom: 12px; border: 1px solid #ebeef5; border-radius: 4px; padding: 0;">
+          <div v-for="(group, gIdx) in getAllDeptGroups(statusMessage)" :key="gIdx" style="margin-bottom: 12px; border: 1px solid #ebeef5; border-radius: 4px; padding: 0;">
             <div style="background: #f0f5ff; padding: 8px 12px; border-radius: 4px 4px 0 0; font-weight: bold; font-size: 13px; display: flex; align-items: center; gap: 8px;">
               <span>{{ group.deptName }}</span>
               <el-tag v-if="group.hasReplied" size="small" type="success">已处理{{ group.repliedByName ? '（' + group.repliedByName + '）' : '' }}</el-tag>
@@ -573,7 +573,7 @@
           </div>
         </div>
         <!-- 已撤回消息显示传统表格 -->
-        <el-table v-else :data="selectedMessage.recipientDetails || []" border size="small" style="width: 100%;">
+        <el-table v-else :data="statusMessage.recipientDetails || []" border size="small" style="width: 100%;">
           <el-table-column prop="name" label="接收人" width="100"></el-table-column>
           <el-table-column prop="department" label="部门" width="120"></el-table-column>
           <el-table-column label="已读" width="70" align="center">
@@ -829,6 +829,7 @@ const showFlaggedOnly = ref(false);
 // 点赞/点踩数据
 const reactionStats = ref({});
 const forwardedOriginalMsg = ref(null);
+const statusMessage = computed(() => forwardedOriginalMsg.value || selectedMessage.value);
 let messageChannel = null;
 
 const typeMap = {

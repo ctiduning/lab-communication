@@ -226,7 +226,7 @@
             <el-descriptions-item v-if="forwardedOriginalMsg.content" label="内容" :span="2">{{ forwardedOriginalMsg.content }}</el-descriptions-item>
           </el-descriptions>
           <div style="font-size: 12px; color: #909399; margin-top: 8px;">
-            接收人：{{ (forwardedOriginalMsg.recipientDetails || []).map(r => r.name || '').join('、') || '-' }}
+            原接收人：{{ (forwardedOriginalMsg.recipientDetails || []).map(r => r.name || '').join('、') || '-' }}
           </div>
         </div>
 
@@ -244,9 +244,9 @@
         </el-descriptions>
 
         <h4 style="margin-top: 20px;">接收人状态</h4>
-        <div v-if="selectedComm.departmentCardIds && selectedComm.departmentCardIds.length > 0">
+        <div v-if="statusComm.departmentCardIds && statusComm.departmentCardIds.length > 0">
           <!-- 部门名片分组 -->
-          <div v-for="(group, gIdx) in getDeptCardGroups(selectedComm)" :key="gIdx" style="margin-bottom: 12px; border: 1px solid #ebeef5; border-radius: 4px; padding: 8px;">
+          <div v-for="(group, gIdx) in getDeptCardGroups(statusComm)" :key="gIdx" style="margin-bottom: 12px; border: 1px solid #ebeef5; border-radius: 4px; padding: 8px;">
             <div style="font-weight: bold; margin-bottom: 8px; font-size: 14px;">
               {{ group.deptName }}
               <el-tag v-if="group.hasReplied" size="small" type="success" style="margin-left: 8px;">已处理（{{ group.repliedByName }}）</el-tag>
@@ -303,9 +303,9 @@
             </el-table>
           </div>
           <!-- 非部门名片的普通收件人 -->
-          <div v-if="getNonDeptCardRecipients(selectedComm).length > 0">
+          <div v-if="getNonDeptCardRecipients(statusComm).length > 0">
             <h5 style="margin-bottom: 8px;">其他收件人</h5>
-            <el-table :data="getNonDeptCardRecipients(selectedComm)" border size="small">
+            <el-table :data="getNonDeptCardRecipients(statusComm)" border size="small">
               <el-table-column prop="name" label="姓名" width="80"></el-table-column>
               <el-table-column prop="department" label="部门" width="120"></el-table-column>
               <el-table-column label="回复记录" min-width="250">
@@ -352,7 +352,7 @@
             </el-table>
           </div>
         </div>
-        <el-table v-else :data="selectedComm.recipientDetails || []" border size="small">
+        <el-table v-else :data="statusComm.recipientDetails || []" border size="small">
           <el-table-column prop="name" label="接收人" width="100"></el-table-column>
           <el-table-column prop="department" label="部门" width="120"></el-table-column>
           <el-table-column label="回复记录" min-width="280">
@@ -394,10 +394,10 @@
         </el-table>
 
         <div style="margin-top: 12px; color: #606266; font-size: 13px; padding: 8px 0;">
-          <span v-if="selectedComm.recipientDetails && selectedComm.recipientDetails.length > 0">
-            已读 {{ selectedComm.recipientDetails.filter(r => r.is_read).length }}/{{ selectedComm.recipientDetails.length }}
-            <span v-if="selectedComm.recipientDetails.filter(r => !r.is_read).length > 0" style="color: #e6a23c;">
-              · {{ selectedComm.recipientDetails.filter(r => !r.is_read).length }} 人未读
+          <span v-if="statusComm.recipientDetails && statusComm.recipientDetails.length > 0">
+            已读 {{ statusComm.recipientDetails.filter(r => r.is_read).length }}/{{ statusComm.recipientDetails.length }}
+            <span v-if="statusComm.recipientDetails.filter(r => !r.is_read).length > 0" style="color: #e6a23c;">
+              · {{ statusComm.recipientDetails.filter(r => !r.is_read).length }} 人未读
             </span>
           </span>
         </div>
@@ -777,6 +777,8 @@ const getReplyStatusText = (comm) => {
 
 // 转发消息的原消息引用
 const forwardedOriginalMsg = ref(null)
+// 接收人状态用数据：转发消息时显示原消息的接收人状态
+const statusComm = computed(() => forwardedOriginalMsg.value || selectedComm.value)
 
 // 获取回复状态标签颜色
 const getReplyTagType = (comm) => {
@@ -979,8 +981,9 @@ const cancelInlineReply = () => {
 // 获取某个接收人的最新回复
 // 获取某个接收人的所有回复（按时间倒序）
 const getRecipientReplies = (recipientId) => {
-  if (!selectedComm.value || !selectedComm.value.replies) return []
-  const recipientReplies = selectedComm.value.replies.filter(r =>
+  const comm = statusComm.value
+  if (!comm || !comm.replies) return []
+  const recipientReplies = comm.replies.filter(r =>
     r.senderId === recipientId || r.targetRecipientId === recipientId
   )
   return recipientReplies.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
