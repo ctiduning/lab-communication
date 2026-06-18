@@ -11,7 +11,7 @@
         <div class="table-toolbar">
           <div class="toolbar-left">
             <el-input
-              v-model="searchKeyword"
+              v-model="searchInput"
               placeholder="搜索全部内容（含回复）..."
               clearable
               style="width: 300px;"
@@ -386,7 +386,7 @@
         <div class="table-toolbar">
           <div class="toolbar-left">
             <el-input
-              v-model="searchKeyword"
+              v-model="searchInput"
               placeholder="搜索全部内容（含回复）..."
               clearable
               style="width: 300px;"
@@ -954,9 +954,10 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { ElMessage } from 'element-plus';
 import { Search, CircleCheck, CircleClose, Document } from '@element-plus/icons-vue';
-import { communicationAPI, userAPI, reactionAPI, getRoleDisplayName, ROLE_OPTIONS } from '../api';
+import { communicationAPI, userAPI, reactionAPI, getRoleDisplayName, ROLE_OPTIONS, departmentCardAPI } from '../api';
 import { supabase } from '../utils/supabase';
 import { buildSearchKeys, matchUser } from '../utils/pinyinSearch';
+import { useDebouncedSearch } from '../composables/useDebounce';
 
 const activeTab = ref('pending');
 const messages = ref([]);
@@ -1161,7 +1162,8 @@ const getRoleTagColor = (role) => {
   return colorCycle[roleColorIndex[role]];
 };
 
-const searchKeyword = ref('');
+// 搜索关键词（带 300ms 防抖）
+const { input: searchInput, debouncedValue: searchKeyword } = useDebouncedSearch(300);
 const searchKeywordProcessed = ref('');
 const searchKeywordCompleted = ref('');
 const searchKeywordRecalled = ref('');

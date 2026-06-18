@@ -22,8 +22,9 @@ async function getCurrentUserId() {
 
 // Auth 状态变化时清除缓存
 supabase.auth.onAuthStateChange((event) => {
-  if (event === 'SIGNED_OUT' || event === 'USER_DELETED') {
+  if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_DELETED') {
     cachedUserId = null
+    cachedUserPromise = null
   }
 })
 

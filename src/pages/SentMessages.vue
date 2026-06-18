@@ -30,7 +30,7 @@
     <!-- 搜索栏 -->
     <div class="search-bar">
       <el-input
-        v-model="searchKeyword"
+        v-model="searchInput"
         placeholder="搜索沟通内容、客户名称、样品短号..."
         clearable
         style="width: 300px;"
@@ -633,6 +633,7 @@ import { Search, Refresh } from '@element-plus/icons-vue'
 import { communicationAPI, departmentCardAPI, quickReplyAPI, getRoleDisplayName, ROLE_OPTIONS } from '../api'
 import { supabase } from '../utils/supabase'
 import { buildSearchKeys, filterGroups } from '../utils/pinyinSearch'
+import { useDebouncedSearch } from '../composables/useDebounce'
 
 const communications = ref([])
 const recalledMessages = ref([])
@@ -641,7 +642,8 @@ const loading = ref(false)
 const activeFilter = ref('all')
 const detailVisible = ref(false)
 const selectedComm = ref(null)
-const searchKeyword = ref('')  // 搜索关键词
+// 搜索关键词（带 300ms 防抖）
+const { input: searchInput, debouncedValue: searchKeyword } = useDebouncedSearch(300)
 const refreshTimer = ref(null)  // 自动刷新定时器
 const messageChannel = ref(null)  // Realtime 频道
 
