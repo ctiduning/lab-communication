@@ -210,7 +210,7 @@
     </el-table>
 
     <!-- 沟通详情弹窗 -->
-    <el-dialog title="沟通详情" v-model="detailVisible" width="750px" destroy-on-close>
+    <el-dialog title="沟通详情" v-model="detailVisible" width="1125px" destroy-on-close>
       <div v-if="selectedComm" class="detail-content-wrapper" style="background:#faf6eb; border-radius:8px; padding:16px;">
         <!-- 转发消息：原消息引用卡片（放在最上方） -->
         <div v-if="forwardedOriginalMsg" class="forward-reference-card" style="margin-bottom: 20px; border: 4px solid #409eff; border-left: 8px solid #409eff; background: #dceefb; border-radius: 10px; padding: 18px;">
@@ -811,6 +811,10 @@ const getRowClassName = ({ row }) => {
   }
   if (row.hasNewReply) {
     return 'has-new-reply'
+  }
+  // 根据沟通类型添加背景色
+  if (row.type) {
+    return 'type-' + row.type
   }
   return ''
 }
@@ -1570,6 +1574,16 @@ const filterList = () => {
 .has-new-reply td {
   background-color: #fffef0 !important;
 }
+
+/* 沟通类型行背景色 */
+.type-paid_urgent { background-color: #e1f3d8 !important; }
+.type-paid_urgent td { background-color: #e1f3d8 !important; }
+.type-free_urgent { background-color: #fde2e2 !important; }
+.type-free_urgent td { background-color: #fde2e2 !important; }
+.type-data_dispute { background-color: #fef0f0 !important; }
+.type-data_dispute td { background-color: #fef0f0 !important; }
+.type-follow_up { background-color: #f0e6ff !important; }
+.type-follow_up td { background-color: #f0e6ff !important; }
 
 .reply-count {
   font-size: 12px;

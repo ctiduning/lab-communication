@@ -587,7 +587,7 @@
     </el-tabs>
 
     <!-- 详情弹窗 -->
-    <el-dialog title="消息详情" v-model="detailVisible" width="750px">
+    <el-dialog title="消息详情" v-model="detailVisible" width="1125px">
       <div v-if="selectedMessage" class="detail-content-wrapper" style="background:#faf6eb; border-radius:8px; padding:16px;">
         <!-- 转发消息：原消息引用卡片（放在最上方） -->
         <div v-if="selectedMessage?.forwardedFrom && forwardedOriginalMsg" class="forward-reference-card" style="margin-bottom: 20px; border: 4px solid #409eff; border-left: 8px solid #409eff; background: #dceefb; border-radius: 10px; padding: 18px;">
@@ -1467,6 +1467,8 @@ const flaggedMessages = computed(() => {
 const tableRowClassName = ({ row }) => {
   if (row.isRecalled) return 'recalled-row'
   if (!row.hasReplied && !row.isCompleted) return 'pending-row'
+  // 根据沟通类型添加背景色
+  if (row.type) return 'type-' + row.type
   return ''
 };
 
@@ -1982,6 +1984,16 @@ onUnmounted(() => {
 :deep(.recalled-row:hover) {
   background-color: #ede0ff !important;
 }
+
+/* 沟通类型行背景色 */
+:deep(.type-paid_urgent) { background-color: #e1f3d8 !important; }
+:deep(.type-paid_urgent td) { background-color: #e1f3d8 !important; }
+:deep(.type-free_urgent) { background-color: #fde2e2 !important; }
+:deep(.type-free_urgent td) { background-color: #fde2e2 !important; }
+:deep(.type-data_dispute) { background-color: #fef0f0 !important; }
+:deep(.type-data_dispute td) { background-color: #fef0f0 !important; }
+:deep(.type-follow_up) { background-color: #f0e6ff !important; }
+:deep(.type-follow_up td) { background-color: #f0e6ff !important; }
 
 /* 详情弹窗底部按钮 */
 .detail-footer-btns {
