@@ -442,7 +442,7 @@
 
     <!-- 详情弹窗 -->
     <el-dialog title="消息详情" v-model="detailVisible" width="1125px">
-      <div v-if="selectedMessage" class="detail-content-wrapper" style="background:#faf6eb; border-radius:8px; padding:16px;">
+      <div v-if="selectedMessage" class="detail-content-wrapper" :style="getDetailStyle(selectedMessage.type)">
         <!-- 转发消息：原消息引用卡片（放在最上方） -->
         <div v-if="selectedMessage?.forwardedFrom && forwardedOriginalMsg" class="forward-reference-card" style="margin-bottom: 20px; border: 4px solid #409eff; border-left: 8px solid #409eff; background: #dceefb; border-radius: 10px; padding: 18px;">
           <div class="fwd-badge" style="display:inline-block;background:#409eff;color:#fff;padding:4px 14px;border-radius:6px;font-size:14px;font-weight:700;margin-bottom:10px;">转发</div>
@@ -760,6 +760,24 @@ const getReceiverDisplayName = (userId) => {
 const getOriginalRecipientNames = (originalMsg) => {
   if (!originalMsg || !originalMsg.recipientDetails) return '-';
   return originalMsg.recipientDetails.map(r => r.name).join('、');
+};
+
+// 沟通类型背景色映射
+const typeBgColors = {
+  paid_urgent: '#e1f3d8',   // 付费加急 - 浅绿色
+  free_urgent: '#fde2e2',   // 免费加急 - 浅粉色
+  data_dispute: '#fef0f0',  // 数据质疑 - 浅红色
+  follow_up: '#f0e6ff'      // 跟单 - 淡紫色
+};
+// 获取详情弹窗背景样式（其他类型无特殊背景色）
+const getDetailStyle = (type) => {
+  const bg = typeBgColors[type] || '';
+  return {
+    '--detail-bg': bg,
+    background: bg,
+    borderRadius: '8px',
+    padding: '16px'
+  };
 };
 
 // 获取有效角色
@@ -1521,7 +1539,7 @@ onUnmounted(() => {
   background-color: #ede0ff !important;
 }
 
-/* ========== 详情弹窗 - 浅棕背景 ========== */
+/* ========== 详情弹窗 - 动态沟通类型背景色 ========== */
 .detail-content-wrapper {
   border-radius: 8px;
   padding: 16px;
@@ -1530,19 +1548,19 @@ onUnmounted(() => {
   background: transparent;
 }
 .detail-content-wrapper :deep(.el-descriptions__cell) {
-  background-color: #faf6eb !important;
+  background-color: var(--detail-bg, transparent) !important;
 }
 .detail-content-wrapper :deep(.el-table__body td) {
-  background-color: #faf6eb !important;
+  background-color: var(--detail-bg, transparent) !important;
 }
 .detail-content-wrapper :deep(.el-table__body tr) {
-  background-color: #faf6eb !important;
+  background-color: var(--detail-bg, transparent) !important;
 }
 .detail-content-wrapper :deep(.el-table__header th.el-table__cell) {
-  background-color: #faf6eb !important;
+  background-color: var(--detail-bg, transparent) !important;
 }
 .detail-content-wrapper :deep(.el-table--striped .el-table__body tr.el-table__row--striped td) {
-  background-color: #f5efe0 !important;
+  background-color: var(--detail-bg, transparent) !important;
 }
 .detail-content-wrapper :deep(.el-table) {
   background-color: transparent !important;
