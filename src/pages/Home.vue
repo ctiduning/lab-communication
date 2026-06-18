@@ -37,12 +37,11 @@
       <el-container>
         <!-- 桌面端侧边栏 -->
         <el-aside v-if="!isMobile" width="200px" class="sidebar">
-          <div class="menu-group-label">常用功能</div>
           <el-menu :default-active="activeMenu" mode="vertical" class="side-menu" @select="activeMenu = $event">
             <!-- 通知公告 -->
             <el-menu-item index="announcements">
               <el-icon><Bell /></el-icon>
-              <span>🔔 通知公告</span>
+              <span>通知公告</span>
               <span v-if="unreadAnnCount > 0" class="unread-ann-badge">{{ unreadAnnCount }}条未读</span>
             </el-menu-item>
 
@@ -50,21 +49,21 @@
             <template v-if="roleCategory === 'business'">
               <el-menu-item index="initiate">
                 <el-icon><ChatDotSquare /></el-icon>
-                <span>💬 发起沟通</span>
+                <span>发起沟通</span>
               </el-menu-item>
               <el-menu-item index="receive">
                 <el-icon><ChatDotSquare /></el-icon>
-                <span>📥 接收消息</span>
+                <span>接收消息</span>
                 <span v-if="pendingMsgCount > 0" class="pending-msg-badge">{{ pendingMsgCount }}条待处理</span>
               </el-menu-item>
               <el-menu-item index="sent">
                 <el-icon><Promotion /></el-icon>
-                <span>📤 已发送消息</span>
+                <span>已发送消息</span>
                 <span v-if="sentNewReplyCount > 0" class="pending-msg-badge">{{ sentNewReplyCount }}条新回复</span>
               </el-menu-item>
               <el-menu-item index="organization">
                 <el-icon><OfficeBuilding /></el-icon>
-                <span>📇 通讯录</span>
+                <span>通讯录</span>
               </el-menu-item>
             </template>
             
@@ -72,21 +71,21 @@
             <template v-else-if="roleCategory === 'lab'">
               <el-menu-item index="lab-initiate">
                 <el-icon><ChatDotSquare /></el-icon>
-                <span>💬 发起沟通</span>
+                <span>发起沟通</span>
               </el-menu-item>
               <el-menu-item index="lab-receive">
                 <el-icon><ChatDotSquare /></el-icon>
-                <span>📥 接收消息</span>
+                <span>接收消息</span>
                 <span v-if="pendingMsgCount > 0" class="pending-msg-badge">{{ pendingMsgCount }}条待处理</span>
               </el-menu-item>
               <el-menu-item index="sent">
                 <el-icon><Promotion /></el-icon>
-                <span>📤 已发送消息</span>
+                <span>已发送消息</span>
                 <span v-if="sentNewReplyCount > 0" class="pending-msg-badge">{{ sentNewReplyCount }}条新回复</span>
               </el-menu-item>
               <el-menu-item index="organization">
                 <el-icon><OfficeBuilding /></el-icon>
-                <span>📇 通讯录</span>
+                <span>通讯录</span>
               </el-menu-item>
             </template>
             
@@ -94,24 +93,17 @@
             <template v-else-if="roleCategory === 'admin'">
               <el-menu-item index="admin">
                 <el-icon><Setting /></el-icon>
-                <span>⚙️ 用户管理</span>
+                <span>用户管理</span>
               </el-menu-item>
               <el-menu-item index="organization">
                 <el-icon><OfficeBuilding /></el-icon>
-                <span>📇 通讯录</span>
+                <span>通讯录</span>
               </el-menu-item>
             </template>
             
             <el-menu-item index="profile">
               <el-icon><User /></el-icon>
-              <span>👤 个人设置</span>
-            </el-menu-item>
-            
-            <div class="menu-divider"></div>
-            <div class="menu-group-label">系统管理</div>
-            <el-menu-item index="dashboard">
-              <el-icon><DataAnalysis /></el-icon>
-              <span>📊 数据统计</span>
+              <span>个人设置</span>
             </el-menu-item>
           </el-menu>
         </el-aside>
@@ -129,7 +121,7 @@
             <!-- 通知公告 -->
             <el-menu-item index="announcements">
               <el-icon><Bell /></el-icon>
-              <span>🔔 通知公告</span>
+              <span>通知公告</span>
               <span v-if="unreadAnnCount > 0" class="unread-ann-badge">{{ unreadAnnCount }}条未读</span>
             </el-menu-item>
 
@@ -137,21 +129,21 @@
             <template v-if="roleCategory === 'business'">
               <el-menu-item index="initiate">
                 <el-icon><ChatDotSquare /></el-icon>
-                <span>💬 发起沟通</span>
+                <span>发起沟通</span>
               </el-menu-item>
               <el-menu-item index="receive">
                 <el-icon><ChatDotSquare /></el-icon>
-                <span>📥 接收消息</span>
+                <span>接收消息</span>
                 <span v-if="pendingMsgCount > 0" class="pending-msg-badge">{{ pendingMsgCount }}条待处理</span>
               </el-menu-item>
               <el-menu-item index="sent">
                 <el-icon><Promotion /></el-icon>
-                <span>📤 已发送消息</span>
+                <span>已发送消息</span>
                 <span v-if="sentNewReplyCount > 0" class="pending-msg-badge">{{ sentNewReplyCount }}条新回复</span>
               </el-menu-item>
               <el-menu-item index="organization">
                 <el-icon><OfficeBuilding /></el-icon>
-                <span>📇 通讯录</span>
+                <span>通讯录</span>
               </el-menu-item>
             </template>
             
@@ -159,21 +151,21 @@
             <template v-else-if="roleCategory === 'lab'">
               <el-menu-item index="lab-initiate">
                 <el-icon><ChatDotSquare /></el-icon>
-                <span>💬 发起沟通</span>
+                <span>发起沟通</span>
               </el-menu-item>
               <el-menu-item index="lab-receive">
                 <el-icon><ChatDotSquare /></el-icon>
-                <span>📥 接收消息</span>
+                <span>接收消息</span>
                 <span v-if="pendingMsgCount > 0" class="pending-msg-badge">{{ pendingMsgCount }}条待处理</span>
               </el-menu-item>
               <el-menu-item index="sent">
                 <el-icon><Promotion /></el-icon>
-                <span>📤 已发送消息</span>
+                <span>已发送消息</span>
                 <span v-if="sentNewReplyCount > 0" class="pending-msg-badge">{{ sentNewReplyCount }}条新回复</span>
               </el-menu-item>
               <el-menu-item index="organization">
                 <el-icon><OfficeBuilding /></el-icon>
-                <span>📇 通讯录</span>
+                <span>通讯录</span>
               </el-menu-item>
             </template>
             
@@ -181,17 +173,17 @@
             <template v-else-if="roleCategory === 'admin'">
               <el-menu-item index="admin">
                 <el-icon><Setting /></el-icon>
-                <span>⚙️ 用户管理</span>
+                <span>用户管理</span>
               </el-menu-item>
               <el-menu-item index="organization">
                 <el-icon><OfficeBuilding /></el-icon>
-                <span>📇 通讯录</span>
+                <span>通讯录</span>
               </el-menu-item>
             </template>
             
             <el-menu-item index="profile">
               <el-icon><User /></el-icon>
-              <span>👤 个人设置</span>
+              <span>个人设置</span>
             </el-menu-item>
           </el-menu>
         </el-drawer>
@@ -201,15 +193,12 @@
         </el-main>
       </el-container>
     </el-container>
-    <div class="status-bar" v-if="!isMobile">
-      <span>当前视图：{{ roleCategory === 'business' ? '业务端' : roleCategory === 'lab' ? '实验室端' : '管理员' }} · 角色：{{ user.role || '-' }}</span>
-    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, provide, nextTick, defineAsyncComponent, watch } from 'vue';
-import { ChatDotSquare, Bell, Setting, User, OfficeBuilding, Promotion, ArrowDown, Menu, DataAnalysis } from '@element-plus/icons-vue';
+import { ChatDotSquare, Bell, Setting, User, OfficeBuilding, Promotion, ArrowDown, Menu } from '@element-plus/icons-vue';
 import { supabase } from '../utils/supabase';
 
 import { authAPI, announcementAPI, communicationAPI, userAPI, getRoleCategory } from '../api';
@@ -527,7 +516,7 @@ onUnmounted(() => {
 }
 
 .header {
-  background: linear-gradient(135deg, #2E75B6 0%, #185FA5 100%);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   padding: 0 20px;
 }
@@ -634,30 +623,5 @@ onUnmounted(() => {
   :deep(.el-drawer) {
     width: 80% !important;
   }
-}
-
-/* 侧边栏分组标签 */
-.menu-group-label {
-  font-size: 11px;
-  color: #999;
-  padding: 12px 16px 4px;
-  font-weight: 500;
-}
-.menu-divider {
-  height: 0.5px;
-  background: #eee;
-  margin: 8px 16px;
-}
-/* 底部状态栏 */
-.status-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 4px 24px;
-  background: #f8f8f8;
-  border-top: 0.5px solid #e0e0e0;
-  font-size: 11px;
-  color: #999;
-  height: 28px;
 }
 </style>
