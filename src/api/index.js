@@ -445,12 +445,12 @@ export const communicationAPI = {
         replied_by: r.replied_by,
         has_new_reply: r.has_new_reply || false
       })) || [],
-      isCompleted: c.is_completed || false,  // 沟通记录是否已完结（全局）
-      isRecalled: c.is_recalled || false,
+      isCompleted: !!c.is_completed,  // 沟通记录是否已完结（全局）
+      isRecalled: !!c.is_recalled,
       recallReason: c.recall_reason || '',
       recalledAt: c.recalled_at || null,
       forwardedFrom: c.forwarded_from || null,
-      isAppendForward: c.is_append_forward || false,
+      isAppendForward: !!c.is_append_forward,
       forwardNote: c.forward_note || '',
       replyCount: c.replies?.length || 0,
       hasNewReply: c.has_new_reply || c.communication_recipients?.some(r => r.has_new_reply) || false,
@@ -805,9 +805,10 @@ export const communicationAPI = {
           replied_by: r.replied_by,
           has_new_reply: r.has_new_reply || false
         })) || [],
-        isCompleted: communication.is_completed || false,  // 沟通记录是否已完结（全局）
+        isCompleted: !!communication.is_completed,  // 沟通记录是否已完结（全局）
+        isRecalled: !!communication.is_recalled,
         forwardedFrom: communication.forwarded_from || null,
-        isAppendForward: communication.is_append_forward || false,
+        isAppendForward: !!communication.is_append_forward,
         forwardNote: communication.forward_note || '',
         replyCount: communication.replies?.length || 0,
         hasNewReply: communication.has_new_reply || communication.communication_recipients?.some(r => r.has_new_reply) || false,
@@ -1333,7 +1334,7 @@ export const communicationAPI = {
       content: c.content || '',
       status: c.status || '',
       isFlagged: c.is_flagged || false,
-      isCompleted: c.is_completed || false,
+      isCompleted: !!c.is_completed,
       createdAt: c.created_at,
       recipients: c.communication_recipients?.map(r => r.recipient_id) || [],
       recipientDetails: c.communication_recipients?.map(r => ({
@@ -1347,7 +1348,7 @@ export const communicationAPI = {
         replied_by: r.replied_by,
         has_new_reply: r.has_new_reply || false
       })) || [],
-      isRecalled: c.is_recalled || false,
+      isRecalled: !!c.is_recalled,
       recallReason: c.recall_reason || '',
       recalledAt: c.recalled_at || null,
       departmentCardIds: c.department_card_ids || [],
