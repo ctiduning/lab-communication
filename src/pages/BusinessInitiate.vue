@@ -271,6 +271,7 @@
             placeholder="搜索姓名、部门..."
             clearable
             @input="filterCCSearch"
+            @clear="filterCCSearch('')"
             style="width:100%;"
           />
         </div>
@@ -283,7 +284,7 @@
             :key="cc.cc_user_id"
             closable
             size="small"
-            type="primary"
+            style="background:#409eff;color:#fff;border-color:#409eff;"
             @close="removeCCFav(cc.cc_user_id)"
           >
             {{ cc.profiles?.name || cc.cc_user_id }}
@@ -295,17 +296,21 @@
           <div
             v-for="user in ccSearchResults"
             :key="user.id"
-            :class="{ 'cc-user-row': true, 'cc-user-row-selected': isInCCFav(user.id) }"
-            @click="isInCCFav(user.id) ? removeCCFav(user.id) : addCCFav(user.id)"
-            style="display:flex;align-items:center;gap:8px;padding:8px 6px;border-radius:4px;cursor:pointer;"
+            @click.stop="isInCCFav(user.id) ? removeCCFav(user.id) : addCCFav(user.id)"
+            style="display:flex;align-items:center;gap:8px;padding:8px 6px;border-radius:4px;cursor:pointer;transition:background 0.15s;"
+            @mouseenter="$event.currentTarget.style.background='#f5f7fa'"
+            @mouseleave="$event.currentTarget.style.background=''"
           >
             <span style="font-size:13px;">{{ user.name }}</span>
             <span style="font-size:11px;color:#999;">{{ user.department || '-' }}</span>
             <span style="font-size:11px;color:#999;">{{ user._roleName || '-' }}</span>
             <span style="margin-left:auto;font-size:11px;">
               <span v-if="isInCCFav(user.id)" style="color:#e6a23c;">已选</span>
-              <span v-else style="color:#409eff;">+ 添加</span>
+              <span v-else style="color:#409eff;font-weight:500;">+ 添加</span>
             </span>
+          </div>
+          <div v-if="ccSearchResults.length === 0" style="text-align:center;padding:20px;color:#ccc;font-size:13px;">
+            无匹配的联系人
           </div>
         </div>
         <template #footer>
