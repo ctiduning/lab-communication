@@ -1487,13 +1487,13 @@ export const communicationAPI = {
     const userNote = userContent ? `\n\n【追加消息】\n${userContent}` : '';
     const systemNote = `\n\n—— 发起人对所有人追加发送消息 ——\n此消息为沟通发起人对历史消息的追加回复，所有收件人的回复状态已重置为"待处理"，请重新回复确认。`;
 
-    // 创建新沟通记录（追加转发类型）
+    // 创建新沟通记录（追加转发类型）：content 只存用户输入的追加消息
     const { data: newComm, error: createError } = await supabase
       .from('communications')
       .insert({
         sender_id: userId,
         type: original.type,
-        content: (original.content || '') + userNote + systemNote,
+        content: userContent || '(无消息内容)',
         customer_name: original.customer_name,
         sample_code: original.sample_code,
         sample_matrix: original.sample_matrix,

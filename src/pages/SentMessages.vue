@@ -220,8 +220,44 @@
     <!-- 沟通详情弹窗 -->
     <el-dialog title="沟通详情" v-model="detailVisible" width="1125px" destroy-on-close>
       <div v-if="selectedComm" class="detail-content-wrapper" :style="getDetailStyle(selectedComm.type)">
-        <!-- 转发消息：原消息引用卡片（放在最上方） -->
-        <div v-if="forwardedOriginalMsg" class="forward-reference-card" style="margin-bottom: 20px; border: 4px solid #409eff; border-left: 8px solid #409eff; background: #dceefb; border-radius: 10px; padding: 18px;">
+        <!-- ===== 追加转发消息 ===== -->
+        <template v-if="selectedComm.isAppendForward">
+          <!-- ① 系统通知卡片（最上方） -->
+          <div style="background:#FCEBEB;border:2px solid #A32D2D;border-left:6px solid #A32D2D;border-radius:8px;padding:14px 16px;margin-bottom:16px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+              <span style="background:#A32D2D;color:white;font-size:11px;padding:2px 8px;border-radius:4px;font-weight:500;">系统通知</span>
+              <span style="font-weight:500;font-size:14px;color:#A32D2D;">沟通发起人对所有人追加发送了消息</span>
+            </div>
+            <div style="font-size:13px;color:#791F1F;line-height:1.5;">
+              此消息为沟通发起人对历史消息的追加回复，所有收件人的回复状态已重置为"待处理"，请重新回复确认。
+            </div>
+          </div>
+
+          <!-- ② 追加消息内容展示 -->
+          <div style="background:#FFFBE6;border:1px solid #FFE58F;border-left:4px solid #FAAD14;border-radius:8px;padding:14px 16px;margin-bottom:16px;">
+            <div style="font-size:14px;color:#8C6E00;margin-bottom:8px;">追加对所有人发送的消息：</div>
+            <div style="font-size:14px;font-weight:700;color:#000;line-height:1.6;white-space:pre-wrap;">{{ selectedComm.content }}</div>
+          </div>
+
+          <!-- ③ 原消息引用卡片 -->
+          <div v-if="forwardedOriginalMsg" class="forward-reference-card" style="margin-bottom: 20px; border: 4px solid #409eff; border-left: 8px solid #409eff; background: #dceefb; border-radius: 10px; padding: 18px;">
+            <div class="fwd-badge" style="display:inline-block;background:#409eff;color:#fff;padding:4px 14px;border-radius:6px;font-size:14px;font-weight:700;margin-bottom:10px;">转发</div>
+            <div class="fwd-title" style="font-size:16px;font-weight:700;margin-bottom:12px;">以下为 {{ forwardedOriginalMsg.senderName }} 发送的原消息</div>
+            <el-descriptions :column="2" border size="small" class="fwd-descriptions">
+              <el-descriptions-item label="沟通类型">{{ getTypeName(forwardedOriginalMsg.type) }}</el-descriptions-item>
+              <el-descriptions-item label="客户名称">{{ forwardedOriginalMsg.customerName || '-' }}</el-descriptions-item>
+              <el-descriptions-item label="样品短号">{{ forwardedOriginalMsg.sampleCode || '-' }}</el-descriptions-item>
+              <el-descriptions-item label="发送时间">{{ formatTime(forwardedOriginalMsg.createdAt) }}</el-descriptions-item>
+              <el-descriptions-item v-if="forwardedOriginalMsg.content" label="内容" :span="2">{{ forwardedOriginalMsg.content }}</el-descriptions-item>
+            </el-descriptions>
+            <div style="font-size: 12px; color: #909399; margin-top: 8px;">
+              原接收人：{{ (forwardedOriginalMsg.recipientDetails || []).map(r => r.name || '').join('、') || '-' }}
+            </div>
+          </div>
+        </template>
+
+        <!-- ===== 普通消息：转发引用卡片（非追加转发时显示在顶部） ===== -->
+        <div v-else-if="forwardedOriginalMsg" class="forward-reference-card" style="margin-bottom: 20px; border: 4px solid #409eff; border-left: 8px solid #409eff; background: #dceefb; border-radius: 10px; padding: 18px;">
           <div class="fwd-badge" style="display:inline-block;background:#409eff;color:#fff;padding:4px 14px;border-radius:6px;font-size:14px;font-weight:700;margin-bottom:10px;">转发</div>
           <div class="fwd-title" style="font-size:16px;font-weight:700;margin-bottom:12px;">以下为 {{ forwardedOriginalMsg.senderName }} 发送的原消息</div>
           <el-descriptions :column="2" border size="small" class="fwd-descriptions">
@@ -233,17 +269,6 @@
           </el-descriptions>
           <div style="font-size: 12px; color: #909399; margin-top: 8px;">
             原接收人：{{ (forwardedOriginalMsg.recipientDetails || []).map(r => r.name || '').join('、') || '-' }}
-          </div>
-        </div>
-
-        <!-- 追加转发系统通知卡片 -->
-        <div v-if="selectedComm.isAppendForward" style="background:#FCEBEB;border:2px solid #A32D2D;border-left:6px solid #A32D2D;border-radius:8px;padding:14px 16px;margin-bottom:12px;">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-            <span style="background:#A32D2D;color:white;font-size:11px;padding:2px 8px;border-radius:4px;font-weight:500;">系统通知</span>
-            <span style="font-weight:500;font-size:14px;color:#A32D2D;">沟通发起人对所有人追加发送了消息</span>
-          </div>
-          <div style="font-size:13px;color:#791F1F;line-height:1.5;">
-            此消息为沟通发起人对历史消息的追加回复，所有收件人的回复状态已重置为"待处理"，请重新回复确认。
           </div>
         </div>
 
