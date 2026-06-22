@@ -821,6 +821,8 @@ export const communicationAPI = {
         content: communication.content,
         isFlagged: safeBoolean(communication.is_flagged),
         createdAt: communication.created_at,
+        departmentCardIds: communication.department_card_ids || [],
+        attachments: communication.attachments || [],
         recipientDetails: communication.communication_recipients?.map(r => ({
           ...r.recipient,
           recipient_id: r.recipient_id,
@@ -835,6 +837,8 @@ export const communicationAPI = {
         })) || [],
         isCompleted: safeBoolean(communication.is_completed),  // 沟通记录是否已完结（全局）
         isRecalled: safeBoolean(communication.is_recalled),
+        recallReason: communication.recall_reason || '',
+        recalledAt: communication.recalled_at || null,
         forwardedFrom: communication.forwarded_from || null,
         isAppendForward: safeBoolean(communication.is_append_forward),
         forwardNote: communication.forward_note || '',
