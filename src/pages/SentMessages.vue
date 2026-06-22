@@ -981,13 +981,19 @@ const toggleFlagFromDetail = async () => {
 // 追加对所有人发送消息
 const handleAppendResend = async (comm) => {
   try {
-    await ElMessageBox.confirm(
-      '确定要对所有人追加发送消息？所有收件人的回复状态将重置为"待处理"。',
-      '确认追加发送',
-      { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
+    const { value: appendContent } = await ElMessageBox.prompt(
+      '请输入要追加发送的消息内容，收件人的回复状态将重置为"待处理"。',
+      '追加对所有人发送消息',
+      {
+        confirmButtonText: '发送',
+        cancelButtonText: '取消',
+        inputType: 'textarea',
+        inputPlaceholder: '请输入消息内容...',
+        inputValidator: (val) => val && val.trim() ? true : '请输入消息内容'
+      }
     )
     const loadingMsg = ElMessage.info('正在发送...')
-    await communicationAPI.appendResend(comm.id)
+    await communicationAPI.appendResend(comm.id, appendContent.trim())
     loadingMsg.close()
     ElMessage.success('追加发送成功，收件人状态已重置')
     detailVisible.value = false
@@ -1142,7 +1148,7 @@ const loadCommunications = async () => {
         // 计算 hasFlagged：发送人视角，取 communications 表级 is_flagged
         return {
           ...c,
-          hasFlagged: !!c.is_flagged
+          hasFlagged: !!c.isFlagged
         }
       })
       communications.value = mine
