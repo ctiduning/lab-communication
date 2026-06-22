@@ -153,6 +153,64 @@
         </div>
       </el-form-item>
 
+      <!-- 抄送人选择 -->
+      <el-form-item label="抄送人（不影响消息进度）">
+        <el-select
+          v-model="form.ccRecipients"
+          multiple
+          filterable
+          reserve-keyword
+          :filter-method="filterCCRecipient"
+          placeholder="输入姓名/拼音/部门搜索..."
+          style="width: 100%; min-width: 600px;"
+          :teleported="false"
+          :popper-append-to-body="false"
+          :max-collapse-tags="0"
+          class="recipient-select"
+        >
+          <el-option-group v-for="group in filteredCCGroups" :key="group.label" :label="group.label">
+            <el-option
+              v-for="u in group.users"
+              :key="u.id"
+              :label="u.name"
+              :value="u.id"
+            >
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-weight:500;">{{ u.name }}</span>
+                <span style="color:#999;font-size:12px;">{{ u.departmentLevel3 || u.departmentLevel2 || u.departmentLevel1 || '-' }} · {{ u._roleName || '-' }}</span>
+              </div>
+            </el-option>
+          </el-option-group>
+        </el-select>
+        <div style="color: #999; font-size: 12px; margin-top: 4px;">
+          已选择 {{ form.ccRecipients.length }} 人
+        </div>
+        <!-- 已选抄送人名片展示 -->
+        <div v-if="form.ccRecipients.length > 0" class="selected-recipient-cards">
+          <div v-for="uid in form.ccRecipients" :key="uid" class="recipient-card" style="background:#f0f9eb;border-color:#b7eb8f;">
+            <span style="background:#52c41a;color:#fff;font-size:10px;padding:0 5px;border-radius:3px;margin-right:4px;">抄送</span>
+            <span class="recipient-card-name">{{ getCCUserName(uid) }}</span>
+            <span class="recipient-card-dept">{{ getCCUserDept(uid) }}</span>
+            <span class="recipient-card-role">{{ getCCUserRoleName(uid) }}</span>
+            <span class="recipient-card-remove" @click="removeCCRecipient(uid)">×</span>
+          </div>
+        </div>
+        <!-- 常用抄送人 -->
+        <div v-if="frequentCCUsers.length > 0" style="margin-top:8px;">
+          <span style="font-size:12px;color:#999;margin-right:8px;">常用抄送人：</span>
+          <el-tag
+            v-for="cc in frequentCCUsers"
+            :key="cc.cc_user_id"
+            size="small"
+            style="cursor:pointer;margin:2px;"
+            :type="form.ccRecipients.includes(cc.cc_user_id) ? 'success' : 'info'"
+            @click="toggleFrequentCC(cc.cc_user_id)"
+          >
+            {{ cc.profiles?.name || cc.cc_user_id }}
+          </el-tag>
+        </div>
+      </el-form-item>
+
       <el-form-item>
         <el-button type="primary" @click="submitForm">发送</el-button>
         <el-button @click="saveDraft">保存草稿</el-button>
@@ -369,6 +427,7 @@ const form = reactive({
   sampleCode: '',
   content: '',
   recipients: [],
+  ccRecipients: [],
   departmentCards: [],
   attachments: [],
   templateId: null
@@ -517,13 +576,22 @@ const previewImageUrl = ref('');
 const allUsers = ref([]);
 const recipientGroups = ref([]);
 const searchQuery = ref('');
+const ccSearchQuery = ref('');
+const frequentCCUsers = ref([]);
 
 const filteredGroups = computed(() => {
   return filterGroups(searchQuery.value, recipientGroups.value);
 });
 
+const filteredCCGroups = computed(() => {
+  return filterGroups(ccSearchQuery.value, recipientGroups.value);
+});
+
 const filterRecipient = (query) => {
   searchQuery.value = query;
+};
+const filterCCRecipient = (query) => {
+  ccSearchQuery.value = query;
 };
 
 const previewImage = (url) => {
@@ -585,7 +653,8 @@ const submitForm = async () => {
     const payload = {
       ...form,
       senderRole: 'lab',
-      attachments: form.attachments
+      attachments: form.attachments,
+      cc_recipients: form.ccRecipients
     };
     if (form.departmentCards.length > 0) {
       const allCardIds = []
@@ -616,6 +685,7 @@ const resetForm = () => {
   form.sampleCode = '';
   form.content = '';
   form.recipients = [];
+  form.ccRecipients = [];
   form.departmentCards = [];
   form.attachments = [];
   form.templateId = null;
@@ -641,6 +711,36 @@ const getUserDept = (uid) => {
   return u.departmentLevel3 || u.departmentLevel2 || u.departmentLevel1 || '-';
 };
 const getUserRoleName = (uid) => findUserById(uid)?._roleName || '-';
+
+// 抄送人辅助方法
+const getCCUserName = (uid) => findUserById(uid)?.name || uid;
+const getCCUserDept = (uid) => {
+  const u = findUserById(uid);
+  if (!u) return '-';
+  return u.departmentLevel3 || u.departmentLevel2 || u.departmentLevel1 || '-';
+};
+const getCCUserRoleName = (uid) => findUserById(uid)?._roleName || '-';
+
+const removeCCRecipient = (uid) => {
+  form.ccRecipients = form.ccRecipients.filter(id => id !== uid);
+};
+const toggleFrequentCC = (uid) => {
+  const idx = form.ccRecipients.indexOf(uid);
+  if (idx >= 0) {
+    form.ccRecipients.splice(idx, 1);
+  } else {
+    form.ccRecipients.push(uid);
+  }
+};
+
+const loadFrequentCC = async () => {
+  try {
+    const { data } = await communicationAPI.getCCFrequencies();
+    frequentCCUsers.value = data || [];
+  } catch (e) {
+    console.warn('加载常用抄送人失败:', e);
+  }
+};
 
 const removeRecipient = (uid) => {
   form.recipients = form.recipients.filter(id => id !== uid);
@@ -700,6 +800,7 @@ onMounted(() => {
 
   loadDraftsFromStorage();
   loadMyTemplates();
+  loadFrequentCC();
   
   // 获取当前用户角色
   supabase.auth.getUser().then(({ data: { user } }) => {

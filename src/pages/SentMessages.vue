@@ -101,15 +101,17 @@
             <!-- 非部门名片的普通收件人 -->
             <div v-for="(r, idx) in getNonDeptCardRecipients(scope.row)" :key="'r'+idx" class="recipient-row">
               <span class="recipient-name">{{ r.name || '-' }}</span>
-              <el-tag v-if="r.has_replied" size="small" type="success" style="margin-left:4px;">已回复</el-tag>
-              <el-tag v-else size="small" type="info" style="margin-left:4px;">未回复</el-tag>
+              <el-tag v-if="r.is_cc" size="small" type="info" style="margin-left:4px;">抄送</el-tag>
+              <el-tag v-if="!r.is_cc && r.has_replied" size="small" type="success" style="margin-left:4px;">已回复</el-tag>
+              <el-tag v-if="!r.is_cc && !r.has_replied" size="small" type="danger" style="margin-left:4px;">未回复</el-tag>
             </div>
           </template>
           <template v-else>
             <div v-for="(r, idx) in (scope.row.recipientDetails || [])" :key="idx" class="recipient-row">
               <span class="recipient-name">{{ r.name || '-' }}</span>
-              <el-tag v-if="r.has_replied" size="small" type="success" style="margin-left:4px;">已回复</el-tag>
-              <el-tag v-else size="small" type="danger" style="margin-left:4px;">未回复</el-tag>
+              <el-tag v-if="r.is_cc" size="small" type="info" style="margin-left:4px;">抄送</el-tag>
+              <el-tag v-if="!r.is_cc && r.has_replied" size="small" type="success" style="margin-left:4px;">已回复</el-tag>
+              <el-tag v-if="!r.is_cc && !r.has_replied" size="small" type="danger" style="margin-left:4px;">未回复</el-tag>
             </div>
           </template>
         </template>
@@ -394,7 +396,7 @@
             </el-table>
           </div>
         </div>
-        <el-table v-else :data="statusComm.recipientDetails || []" border size="small">
+        <el-table v-else :data="(statusComm.recipientDetails || []).filter(r => !r.is_cc)" border size="small">
           <el-table-column prop="name" :label="forwardedOriginalMsg ? '原接收人' : '接收人'" width="100"></el-table-column>
           <el-table-column prop="department" label="部门" width="120"></el-table-column>
           <el-table-column label="回复记录" min-width="280">
@@ -435,10 +437,21 @@
           </el-table-column>
         </el-table>
 
+        <!-- 抄送人展示区 -->
+        <template v-if="statusComm.recipientDetails && statusComm.recipientDetails.filter(r => r.is_cc).length > 0">
+          <h4 style="margin-top: 20px;">抄送人</h4>
+          <div style="margin-bottom: 12px;">
+            <div v-for="(r, idx) in statusComm.recipientDetails.filter(r => r.is_cc)" :key="idx" style="display:flex;align-items:center;gap:8px;padding:4px 0;">
+              <el-tag size="small" type="info" style="flex-shrink:0;">抄送</el-tag>
+              <span style="font-weight:500;">{{ r.name || '-' }}</span>
+              <span style="color:#999;font-size:12px;">{{ r.department || '-' }}</span>
+            </div>
+          </div>
+        </template>
+
         <div style="margin-top: 12px; color: #606266; font-size: 13px; padding: 8px 0;">
           <span v-if="statusComm.recipientDetails && statusComm.recipientDetails.length > 0">
-            已读 {{ statusComm.recipientDetails.filter(r => r.is_read).length }}/{{ statusComm.recipientDetails.length }}
-            <span v-if="statusComm.recipientDetails.filter(r => !r.is_read).length > 0" style="color: #e6a23c;">
+            已读 {{ statusComm.recipientDetails.filter(r => r.is_read).length }}/{{ statusComm.recipientDetails.length }}<span v-if="statusComm.recipientDetails.filter(r => !r.is_read).length > 0" style="color: #e6a23c;">
               · {{ statusComm.recipientDetails.filter(r => !r.is_read).length }} 人未读
             </span>
           </span>
@@ -804,10 +817,10 @@ const formatTime = (t) => {
   return new Date(t).toLocaleString('zh-CN')
 }
 
-// 计算回复状态（发件人视角）
+// 计算回复状态（发件人视角），只统计非抄送人
 // 已完结由 isCompleted 字段单独控制
 const computeReplyStatus = (comm) => {
-  const recipients = comm.recipientDetails || []
+  const recipients = (comm.recipientDetails || []).filter(r => !r.is_cc)
   const total = recipients.length
   if (total === 0) return 'all_replied'
   const repliedCount = recipients.filter(r => r.has_replied).length
@@ -816,9 +829,9 @@ const computeReplyStatus = (comm) => {
   return 'partial_replied'
 }
 
-// 获取回复状态文字
+// 获取回复状态文字，只统计非抄送人
 const getReplyStatusText = (comm) => {
-  const recipients = comm.recipientDetails || []
+  const recipients = (comm.recipientDetails || []).filter(r => !r.is_cc)
   const total = recipients.length
   if (total === 0) return '已回复'
   const repliedCount = recipients.filter(r => r.has_replied).length
@@ -851,7 +864,7 @@ const isOverdue = (comm) => {
 
 // 获取撤回消息状态文本
 const getRecallStatusText = (comm) => {
-  const recipients = comm.recipientDetails || []
+  const recipients = (comm.recipientDetails || []).filter(r => !r.is_cc)
   const repliedCount = recipients.filter(r => r.has_replied).length
   const total = recipients.length
   if (repliedCount === 0) return '已撤回'
@@ -1086,12 +1099,12 @@ const getUserDisplayName = (userId) => {
   return '未知'
 }
 
-// 按 department_level3 分组部门名片持有人
+// 按 department_level3 分组部门名片持有人（排除抄送人）
 const getDeptCardGroups = (comm) => {
   const deptCardIds = comm.departmentCardIds || []
   if (deptCardIds.length === 0) return []
 
-  const recipients = comm.recipientDetails || []
+  const recipients = (comm.recipientDetails || []).filter(r => !r.is_cc)
   const deptCardRecipients = recipients.filter(r => deptCardIds.includes(r.recipient_id))
 
   // 按 department_level3 分组
@@ -1118,11 +1131,10 @@ const getDeptCardGroups = (comm) => {
   return Object.values(groups)
 }
 
-// 获取非部门名片的普通收件人
+// 获取非部门名片的普通收件人（排除抄送人）
 const getNonDeptCardRecipients = (comm) => {
   const deptCardIds = comm.departmentCardIds || []
-  if (deptCardIds.length === 0) return comm.recipientDetails || []
-  return (comm.recipientDetails || []).filter(r => !deptCardIds.includes(r.recipient_id))
+  const nonDept = (comm.recipientDetails || []).filter(r => !deptCardIds.includes(r.recipient_id) && !r.is_cc)
 }
 
 const getLatestReply = (recipientId) => {

@@ -376,6 +376,7 @@ export const communicationAPI = {
           has_replied,
           replied_by,
           has_new_reply,
+          is_cc,
           recipient:recipient_id(id, name, department, department_level3, role)
         ),
         replies(
@@ -450,7 +451,8 @@ export const communicationAPI = {
         is_completed: safeBoolean(r.is_completed),
         has_replied: safeBoolean(r.has_replied),
         replied_by: r.replied_by,
-        has_new_reply: safeBoolean(r.has_new_reply)
+        has_new_reply: safeBoolean(r.has_new_reply),
+        is_cc: safeBoolean(r.is_cc)
       })) || [],
       isCompleted: safeBoolean(c.is_completed),  // 沟通记录是否已完结（全局）
       isRecalled: safeBoolean(c.is_recalled),
@@ -481,7 +483,7 @@ export const communicationAPI = {
     const {
       type, vip, customerName, sampleCode, sampleMatrix,
       sampleCount, testItems, sampleDate, requestedCycle,
-      chargeStatus, urgentFee, remark, content, recipients, attachments, department_card_ids
+      chargeStatus, urgentFee, remark, content, recipients, cc_recipients, attachments, department_card_ids
     } = data
 
     // 获取当前登录用户ID
@@ -524,6 +526,24 @@ export const communicationAPI = {
         .insert(recipientRecords)
 
       if (recipientError) throw recipientError
+    }
+
+    // 插入抄送人记录
+    if (cc_recipients && cc_recipients.length > 0) {
+      const ccRecords = cc_recipients.map(ccUserId => ({
+        communication_id: communication.id,
+        recipient_id: ccUserId,
+        is_cc: true
+      }))
+
+      const { error: ccError } = await supabase
+        .from('communication_recipients')
+        .insert(ccRecords)
+
+      if (ccError) throw ccError
+
+      // 更新抄送频率
+      await this.updateCCFrequency(cc_recipients)
     }
 
     if (recipients && recipients.length > 0) {
@@ -764,6 +784,7 @@ export const communicationAPI = {
           has_replied,
           replied_by,
           has_new_reply,
+          is_cc,
           recipient:recipient_id(id, name, department, department_level3, region)
         ),
         replies(
@@ -810,7 +831,8 @@ export const communicationAPI = {
           is_completed: safeBoolean(r.is_completed),
           has_replied: safeBoolean(r.has_replied),
           replied_by: r.replied_by,
-          has_new_reply: safeBoolean(r.has_new_reply)
+          has_new_reply: safeBoolean(r.has_new_reply),
+          is_cc: safeBoolean(r.is_cc)
         })) || [],
         isCompleted: safeBoolean(communication.is_completed),  // 沟通记录是否已完结（全局）
         isRecalled: safeBoolean(communication.is_recalled),
@@ -1300,6 +1322,7 @@ export const communicationAPI = {
           is_completed,
           has_replied,
           replied_by,
+          is_cc,
           recipient:recipient_id(id, name, department, department_level3, role)
         ),
         replies(
@@ -1353,7 +1376,8 @@ export const communicationAPI = {
         is_completed: safeBoolean(r.is_completed),
         has_replied: safeBoolean(r.has_replied),
         replied_by: r.replied_by,
-        has_new_reply: safeBoolean(r.has_new_reply)
+        has_new_reply: safeBoolean(r.has_new_reply),
+        is_cc: safeBoolean(r.is_cc)
       })) || [],
       isRecalled: safeBoolean(c.is_recalled),
       recallReason: c.recall_reason || '',
@@ -1549,6 +1573,42 @@ export const communicationAPI = {
     }
 
     return { data: newComm };
+  },
+
+  // ==================== 抄送人功能 ====================
+  // 获取当前用户的常用抄送人TOP5
+  async getCCFrequencies() {
+    const userId = await getCurrentUserId();
+    if (!userId) return { data: [] };
+    const { data } = await supabase
+      .from('cc_frequencies')
+      .select('cc_user_id, count, profiles!cc_frequencies_cc_user_id_fkey(name, department, role)')
+      .eq('user_id', userId)
+      .order('count', { ascending: false })
+      .limit(5);
+    return { data: data || [] };
+  },
+
+  // 更新抄送频率
+  async updateCCFrequency(ccUserIds) {
+    const userId = await getCurrentUserId();
+    if (!userId || !ccUserIds || ccUserIds.length === 0) return;
+    for (const ccUserId of ccUserIds) {
+      const { data: existing } = await supabase
+        .from('cc_frequencies')
+        .select('id, count')
+        .eq('user_id', userId)
+        .eq('cc_user_id', ccUserId)
+        .maybeSingle();
+      if (existing) {
+        await supabase.from('cc_frequencies')
+          .update({ count: existing.count + 1, updated_at: new Date() })
+          .eq('id', existing.id);
+      } else {
+        await supabase.from('cc_frequencies')
+          .insert({ user_id: userId, cc_user_id: ccUserId, count: 1 });
+      }
+    }
   }
 }
 

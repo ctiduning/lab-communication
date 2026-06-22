@@ -25,12 +25,17 @@
 
         <el-table :data="pendingMessages" border stripe v-loading="loading" :row-class-name="tableRowClassName" @row-click="viewDetail">
           <!-- 状态列 - 移到最前面 -->
-          <el-table-column label="状态" width="100" align="center" fixed="left">
+          <el-table-column label="状态" width="120" align="center" fixed="left">
             <template #default="scope">
-              <el-tag v-if="scope.row.myCompleted || scope.row.isCompleted" size="small" type="info">已完结</el-tag>
-              <el-tag v-if="scope.row.isRecalled" size="small" type="warning">已撤回</el-tag>
-              <el-tag v-else-if="scope.row.hasReplied" size="small" type="success">已回复</el-tag>
-              <el-tag v-else size="small" type="warning">待处理</el-tag>
+              <template v-if="scope.row.isCC">
+                <el-tag size="small" type="info">抄送</el-tag>
+              </template>
+              <template v-else>
+                <el-tag v-if="scope.row.myCompleted || scope.row.isCompleted" size="small" type="info">已完结</el-tag>
+                <el-tag v-if="scope.row.isRecalled" size="small" type="warning">已撤回</el-tag>
+                <el-tag v-else-if="scope.row.hasReplied" size="small" type="success">已回复</el-tag>
+                <el-tag v-else size="small" type="warning">待处理</el-tag>
+              </template>
             </template>
           </el-table-column>
 
@@ -130,12 +135,17 @@
 
         <el-table :data="processedMessages" border stripe v-loading="loading" :row-class-name="tableRowClassName" @row-click="viewDetail">
           <!-- 状态列 - 移到最前面 -->
-          <el-table-column label="状态" width="100" align="center" fixed="left">
+          <el-table-column label="状态" width="120" align="center" fixed="left">
             <template #default="scope">
-              <el-tag v-if="scope.row.myCompleted || scope.row.isCompleted" size="small" type="info">已完结</el-tag>
-              <el-tag v-if="scope.row.isRecalled" size="small" type="warning">已撤回</el-tag>
-              <el-tag v-else-if="scope.row.hasReplied" size="small" type="success">已回复</el-tag>
-              <el-tag v-else size="small" type="warning">待处理</el-tag>
+              <template v-if="scope.row.isCC">
+                <el-tag size="small" type="info">抄送</el-tag>
+              </template>
+              <template v-else>
+                <el-tag v-if="scope.row.myCompleted || scope.row.isCompleted" size="small" type="info">已完结</el-tag>
+                <el-tag v-if="scope.row.isRecalled" size="small" type="warning">已撤回</el-tag>
+                <el-tag v-else-if="scope.row.hasReplied" size="small" type="success">已回复</el-tag>
+                <el-tag v-else size="small" type="warning">待处理</el-tag>
+              </template>
             </template>
           </el-table-column>
 
@@ -217,9 +227,14 @@
 
         <el-table :data="completedMessages" border stripe v-loading="loading" :row-class-name="tableRowClassName" @row-click="viewDetail">
           <!-- 状态列 - 移到最前面 -->
-          <el-table-column label="状态" width="90" align="center" fixed="left">
+          <el-table-column label="状态" width="120" align="center" fixed="left">
             <template #default="scope">
-              <el-tag size="small" type="info">已完结</el-tag>
+              <template v-if="scope.row.isCC">
+                <el-tag size="small" type="info">抄送</el-tag>
+              </template>
+              <template v-else>
+                <el-tag size="small" type="info">已完结</el-tag>
+              </template>
             </template>
           </el-table-column>
 
@@ -362,12 +377,17 @@
         </div>
 
         <el-table :data="allMessages" border stripe v-loading="loading" :row-class-name="tableRowClassName" @row-click="viewDetail">
-          <el-table-column label="状态" width="100" align="center" fixed="left">
+          <el-table-column label="状态" width="120" align="center" fixed="left">
             <template #default="scope">
-              <el-tag v-if="scope.row.myCompleted || scope.row.isCompleted" size="small" type="info">已完结</el-tag>
-              <el-tag v-if="scope.row.isRecalled" size="small" type="warning">已撤回</el-tag>
-              <el-tag v-else-if="scope.row.hasReplied" size="small" type="success">已回复</el-tag>
-              <el-tag v-else size="small" type="warning">待处理</el-tag>
+              <template v-if="scope.row.isCC">
+                <el-tag size="small" type="info">抄送</el-tag>
+              </template>
+              <template v-else>
+                <el-tag v-if="scope.row.myCompleted || scope.row.isCompleted" size="small" type="info">已完结</el-tag>
+                <el-tag v-if="scope.row.isRecalled" size="small" type="warning">已撤回</el-tag>
+                <el-tag v-else-if="scope.row.hasReplied" size="small" type="success">已回复</el-tag>
+                <el-tag v-else size="small" type="warning">待处理</el-tag>
+              </template>
             </template>
           </el-table-column>
 
@@ -636,6 +656,18 @@
           </el-table-column>
         </el-table>
         
+        <!-- 抄送人展示区 -->
+        <template v-if="statusMessage.recipientDetails && statusMessage.recipientDetails.filter(r => r.is_cc).length > 0">
+          <h4 style="margin-top: 20px;">抄送人</h4>
+          <div style="margin-bottom: 12px;">
+            <div v-for="(r, idx) in statusMessage.recipientDetails.filter(r => r.is_cc)" :key="idx" style="display:flex;align-items:center;gap:8px;padding:4px 0;">
+              <el-tag size="small" type="info" style="flex-shrink:0;">抄送</el-tag>
+              <span style="font-weight:500;">{{ r.name || '-' }}</span>
+              <span style="color:#999;font-size:12px;">{{ r.department || '-' }}</span>
+            </div>
+          </div>
+        </template>
+
         <h4 v-if="!selectedMessage?.isRecalled" style="margin-top: 20px;">回复记录</h4>
         <div v-if="!selectedMessage?.isRecalled && selectedMessage.replies && selectedMessage.replies.length > 0">
           <!-- 回复全部的 Thread -->
@@ -843,10 +875,10 @@ const getRecipientReplies = (recipientId) => {
   ).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 };
 
-// 所有接收人按部门分组
+// 所有接收人按部门分组（排除抄送人）
 const getAllDeptGroups = (comm) => {
   if (!comm) return [];
-  const recipients = comm.recipientDetails || [];
+  const recipients = (comm.recipientDetails || []).filter(r => !r.is_cc);
   const groups = {};
   recipients.forEach(r => {
     const dept = r.department_level3 || r.department_level2 || r.department || '未分组';
@@ -1173,6 +1205,7 @@ const loadMessages = async () => {
           myCompleted: myRec?.is_completed || false,  // 我个人已完结
           isCompleted: c.isCompleted || false,  // 沟通记录已完结（全局）
           hasFlagged: myRec?.is_flagged || false,
+          isCC: myRec?.is_cc || false,
           replyCount: c.replies?.length || 0,
           allRecipientsCompleted: recipients.every(r => r.is_completed)  // 所有人都已完结
         };
