@@ -119,9 +119,17 @@
           {{ formatTime(scope.row.createdAt) }}
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="520" align="center">
+      <el-table-column label="操作" min-width="520" align="center">
         <template #default="scope">
           <el-button size="small" @click.stop="viewDetail(scope.row)">查看</el-button>
+          <el-button 
+            v-if="!scope.row.isRecalled"
+            size="small" 
+            style="background:#E1F5EE;color:#000;border-color:#B2DFDB;margin-left:4px;font-weight:500;"
+            @click.stop="handleAppendResend(scope.row)"
+          >
+            追加对所有人发送消息
+          </el-button>
           <el-button 
             v-if="canFollowUp(scope.row)" 
             size="small" 
@@ -147,14 +155,6 @@
             style="margin-left: 4px;"
           >
             {{ scope.row.hasFlagged ? '取消红旗' : '红旗' }}
-          </el-button>
-          <el-button 
-            v-if="!scope.row.isRecalled && !scope.row.isCompleted"
-            size="small" 
-            style="background:#E1F5EE;color:#000;border-color:#B2DFDB;margin-left:4px;"
-            @click.stop="handleAppendResend(scope.row)"
-          >
-            追加对所有人发送消息
           </el-button>
         </template>
       </el-table-column>
@@ -456,9 +456,9 @@
             转发
           </el-button>
           <el-button
-            v-if="!selectedComm.isRecalled && !selectedComm.isCompleted"
+            v-if="!selectedComm.isRecalled"
             size="small"
-            style="background:#E1F5EE;color:#000;border-color:#B2DFDB;margin-left:8px;"
+            style="background:#E1F5EE;color:#000;border-color:#B2DFDB;margin-left:8px;font-weight:500;"
             @click="handleAppendResend(selectedComm)"
           >
             追加对所有人发送消息
@@ -994,7 +994,13 @@ const handleAppendResend = async (comm) => {
     await loadCommunications()
   } catch (error) {
     if (error !== 'cancel') {
-      ElMessage.error('发送失败：' + (error.message || '未知错误'))
+      const msg = error.message || '未知错误'
+      // 检测常见的数据库错误
+      if (msg.includes('is_append_forward')) {
+        ElMessage.error('数据库字段缺失：请在 Supabase SQL Editor 中运行 ALTER TABLE communications ADD COLUMN IF NOT EXISTS is_append_forward BOOLEAN DEFAULT FALSE;')
+      } else {
+        ElMessage.error('发送失败：' + msg)
+      }
     }
   }
 }
