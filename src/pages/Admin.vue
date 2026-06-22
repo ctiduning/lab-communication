@@ -1072,6 +1072,7 @@ const handleExcelImport = async (file) => {
         '客服组长助理': 'cs_leader_assistant',
         '制样组组长': 'sample_prep_leader',
         '报告组组长': 'report_leader',
+        '报告组长助理': 'report_leader_assistant',
         '数据二审': 'data_review',
         '报告编制': 'report_compiler',
         '技术支持': 'tech_support',

@@ -497,6 +497,8 @@ const ROLE_MAP = {
   '制样组组长': '制样组组长',
   report_leader: '报告组组长',
   '报告组组长': '报告组组长',
+  report_leader_assistant: '报告组长助理',
+  '报告组长助理': '报告组长助理',
   data_review: '数据二审',
   '数据二审': '数据二审',
   report_compiler: '报告编制',
@@ -521,6 +523,7 @@ const getRoleTagClass = (role) => {
     report_leader: 'tag-blue', '报告组组长': 'tag-blue',
     cs_leader_assistant: 'tag-light-blue', '客服组长助理': 'tag-light-blue',
     inspection_leader_assistant: 'tag-light-blue', '检测组长助理': 'tag-light-blue',
+    report_leader_assistant: 'tag-amber', '报告组长助理': 'tag-amber',
     inspection_engineer: 'tag-light-green', '检测工程师': 'tag-light-green',
     data_review: 'tag-light-green', '数据二审': 'tag-light-green',
     report_compiler: 'tag-light-green', '报告编制': 'tag-light-green',
@@ -543,6 +546,7 @@ const getAvatarClass = (role) => {
     report_leader: 'avatar-blue', '报告组组长': 'avatar-blue',
     cs_leader_assistant: 'avatar-light-blue', '客服组长助理': 'avatar-light-blue',
     inspection_leader_assistant: 'avatar-light-blue', '检测组长助理': 'avatar-light-blue',
+    report_leader_assistant: 'avatar-amber', '报告组长助理': 'avatar-amber',
     inspection_engineer: 'avatar-light-green', '检测工程师': 'avatar-light-green',
     data_review: 'avatar-light-green', '数据二审': 'avatar-light-green',
     report_compiler: 'avatar-light-green', '报告编制': 'avatar-light-green',
@@ -1255,6 +1259,10 @@ onMounted(() => {
   background: linear-gradient(135deg, #9370DB, #B19CD9);
   color: #fff;
 }
+.avatar-amber {
+  background: linear-gradient(135deg, #FF8F00, #FFB300);
+  color: #fff;
+}
 .avatar-red {
   background: linear-gradient(135deg, #DC143C, #FF6B6B);
   color: #fff;
@@ -1345,6 +1353,11 @@ onMounted(() => {
 .tag-purple {
   background: #f0e6ff;
   color: #722ed1;
+}
+.tag-amber {
+  background: #FFF3E0;
+  color: #E65100;
+  border: 1px solid #FFB74D;
 }
 .tag-red {
   background: #ffe6e6;

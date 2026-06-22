@@ -52,7 +52,11 @@ export const LAB_ROLES = [
   { value: 'supervisor_assistant', label: '实验室主管助理' },
   { value: 'inspection_leader', label: '检测组长' },
   { value: 'inspection_leader_assistant', label: '检测组长助理' },
-  { value: 'inspection_engineer', label: '检测工程师' }
+  { value: 'inspection_engineer', label: '检测工程师' },
+  { value: 'report_leader', label: '报告组长' },
+  { value: 'report_leader_assistant', label: '报告组长助理' },
+  { value: 'data_review', label: '数据二审' },
+  { value: 'report_compiler', label: '报告编制' }
 ]
 
 // 获取二级部门选项

@@ -450,6 +450,7 @@ export const communicationAPI = {
       recallReason: c.recall_reason || '',
       recalledAt: c.recalled_at || null,
       forwardedFrom: c.forwarded_from || null,
+      isAppendForward: c.is_append_forward || false,
       forwardNote: c.forward_note || '',
       replyCount: c.replies?.length || 0,
       hasNewReply: c.has_new_reply || c.communication_recipients?.some(r => r.has_new_reply) || false,
@@ -806,6 +807,7 @@ export const communicationAPI = {
         })) || [],
         isCompleted: communication.is_completed || false,  // 沟通记录是否已完结（全局）
         forwardedFrom: communication.forwarded_from || null,
+        isAppendForward: communication.is_append_forward || false,
         forwardNote: communication.forward_note || '',
         replyCount: communication.replies?.length || 0,
         hasNewReply: communication.has_new_reply || communication.communication_recipients?.some(r => r.has_new_reply) || false,
@@ -1454,6 +1456,90 @@ export const communicationAPI = {
 
     if (error) throw error;
     return { data: { message: '消息已更新' } };
+  },
+
+  // 追加对所有人发送消息（重置所有收件人状态）
+  async appendResend(communicationId) {
+    const userId = await getCurrentUserId();
+    if (!userId) throw new Error('未登录');
+
+    // 获取原沟通记录及收件人
+    const { data: original, error: origError } = await supabase
+      .from('communications')
+      .select(`
+        *,
+        communication_recipients(recipient_id, has_replied, is_completed)
+      `)
+      .eq('id', communicationId)
+      .single();
+    if (origError) throw origError;
+    if (!original) throw new Error('沟通记录不存在');
+
+    // 构建系统通知内容
+    const systemNote = `\n\n—— 发起人对所有人追加发送消息 ——\n此消息为沟通发起人对历史消息的追加回复，所有收件人的回复状态已重置为"待处理"，请重新回复确认。`;
+
+    // 创建新沟通记录（追加转发类型）
+    const { data: newComm, error: createError } = await supabase
+      .from('communications')
+      .insert({
+        sender_id: userId,
+        type: original.type,
+        content: (original.content || '') + systemNote,
+        customer_name: original.customer_name,
+        sample_code: original.sample_code,
+        sample_matrix: original.sample_matrix,
+        sample_count: original.sample_count,
+        test_items: original.test_items,
+        sample_date: original.sample_date,
+        requested_cycle: original.requested_cycle,
+        charge_status: original.charge_status,
+        urgent_fee: original.urgent_fee,
+        remark: original.remark,
+        vip: original.vip,
+        attachments: original.attachments || [],
+        department_card_ids: original.department_card_ids || [],
+        is_append_forward: true,
+        forwarded_from: communicationId
+      })
+      .select()
+      .single();
+    if (createError) throw createError;
+
+    // 获取所有原收件人
+    const originalRecipients = original.communication_recipients || [];
+    const recipientIds = originalRecipients.map(r => r.recipient_id);
+
+    // 创建新的收件人记录（状态全部重置）
+    if (recipientIds.length > 0) {
+      const newRecipients = recipientIds.map(rid => ({
+        communication_id: newComm.id,
+        recipient_id: rid,
+        has_replied: false,
+        is_completed: false,
+        is_read: false,
+        has_new_reply: false
+      }));
+      const { error: recError } = await supabase
+        .from('communication_recipients')
+        .insert(newRecipients);
+      if (recError) throw recError;
+    }
+
+    // 创建通知
+    if (recipientIds.length > 0) {
+      const notifications = recipientIds.map(rid => ({
+        user_id: rid,
+        communication_id: newComm.id,
+        type: 'communication',
+        content: `有新的沟通请求（追加回复）：${getTypeLabel(original.type)}`
+      }));
+      const { error: notifError } = await supabase
+        .from('notifications')
+        .insert(notifications);
+      if (notifError) throw notifError;
+    }
+
+    return { data: newComm };
   }
 }
 
@@ -2053,6 +2139,7 @@ export const ROLE_OPTIONS = [
   { value: 'inspection_engineer', label: '检测工程师', dept: 'lab' },
   { value: 'sample_prep_leader', label: '制样组组长', dept: 'lab' },
   { value: 'report_leader', label: '报告组组长', dept: 'lab' },
+  { value: 'report_leader_assistant', label: '报告组长助理', dept: 'lab' },
   { value: 'data_review', label: '数据二审', dept: 'lab' },
   { value: 'report_compiler', label: '报告编制', dept: 'lab' },
   { value: 'tech_support', label: '技术支持', dept: 'lab' },
@@ -2113,6 +2200,7 @@ export function getRoleCardColor(role) {
     // 组长助理：浅蓝色系
     cs_leader_assistant: { bg: '#87CEEB', text: '#333' },   // 浅蓝色
     inspection_leader_assistant: { bg: '#87CEEB', text: '#333' }, // 浅蓝色
+    report_leader_assistant: { bg: '#DAA520', text: '#fff' }, // 黄褐色（报告组长助理）
     // 浅绿色系
     inspection_engineer: { bg: '#90EE90', text: '#333' },   // 浅绿色
     data_review: { bg: '#90EE90', text: '#333' },           // 浅绿色
@@ -2138,6 +2226,7 @@ export function getRoleTagClass(role) {
     report_leader: 'tag-blue',
     cs_leader_assistant: 'tag-light-blue',
     inspection_leader_assistant: 'tag-light-blue',
+    report_leader_assistant: 'tag-amber',
     inspection_engineer: 'tag-light-green',
     data_review: 'tag-light-green',
     report_compiler: 'tag-light-green',

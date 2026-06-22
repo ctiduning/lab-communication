@@ -119,7 +119,7 @@
           {{ formatTime(scope.row.createdAt) }}
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="320" align="center">
+      <el-table-column label="操作" width="420" align="center">
         <template #default="scope">
           <el-button size="small" @click.stop="viewDetail(scope.row)">查看</el-button>
           <el-button 
@@ -147,6 +147,14 @@
             style="margin-left: 4px;"
           >
             {{ scope.row.hasFlagged ? '取消红旗' : '红旗' }}
+          </el-button>
+          <el-button 
+            v-if="!scope.row.isRecalled && !scope.row.isCompleted"
+            size="small" 
+            style="background:#E1F5EE;color:#000;border-color:#B2DFDB;margin-left:4px;"
+            @click.stop="handleAppendResend(scope.row)"
+          >
+            追加对所有人发送消息
           </el-button>
         </template>
       </el-table-column>
@@ -225,6 +233,17 @@
           </el-descriptions>
           <div style="font-size: 12px; color: #909399; margin-top: 8px;">
             原接收人：{{ (forwardedOriginalMsg.recipientDetails || []).map(r => r.name || '').join('、') || '-' }}
+          </div>
+        </div>
+
+        <!-- 追加转发系统通知卡片 -->
+        <div v-if="selectedComm.isAppendForward" style="background:#FCEBEB;border:2px solid #A32D2D;border-left:6px solid #A32D2D;border-radius:8px;padding:14px 16px;margin-bottom:12px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+            <span style="background:#A32D2D;color:white;font-size:11px;padding:2px 8px;border-radius:4px;font-weight:500;">系统通知</span>
+            <span style="font-weight:500;font-size:14px;color:#A32D2D;">沟通发起人对所有人追加发送了消息</span>
+          </div>
+          <div style="font-size:13px;color:#791F1F;line-height:1.5;">
+            此消息为沟通发起人对历史消息的追加回复，所有收件人的回复状态已重置为"待处理"，请重新回复确认。
           </div>
         </div>
 
@@ -435,6 +454,14 @@
             style="margin-left: 8px;"
           >
             转发
+          </el-button>
+          <el-button
+            v-if="!selectedComm.isRecalled && !selectedComm.isCompleted"
+            size="small"
+            style="background:#E1F5EE;color:#000;border-color:#B2DFDB;margin-left:8px;"
+            @click="handleAppendResend(selectedComm)"
+          >
+            追加对所有人发送消息
           </el-button>
         </div>
       </div>
@@ -948,6 +975,27 @@ const toggleFlagFromDetail = async () => {
     ElMessage.success(newVal ? '已标记红旗' : '已取消红旗')
   } catch (e) {
     ElMessage.error('操作失败')
+  }
+}
+
+// 追加对所有人发送消息
+const handleAppendResend = async (comm) => {
+  try {
+    await ElMessageBox.confirm(
+      '确定要对所有人追加发送消息？所有收件人的回复状态将重置为"待处理"。',
+      '确认追加发送',
+      { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
+    )
+    const loadingMsg = ElMessage.info('正在发送...')
+    await communicationAPI.appendResend(comm.id)
+    loadingMsg.close()
+    ElMessage.success('追加发送成功，收件人状态已重置')
+    detailVisible.value = false
+    await loadCommunications()
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error('发送失败：' + (error.message || '未知错误'))
+    }
   }
 }
 

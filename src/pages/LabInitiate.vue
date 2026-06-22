@@ -2,6 +2,12 @@
   <div class="lab-initiate">
     <h2 class="page-title">发起沟通</h2>
     
+    <!-- 撤回编辑提示横幅 -->
+    <div v-if="isRecalledEditMode" style="background:#FFF8E1;border:1px solid #FFD54F;border-left:4px solid #FF8F00;border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;">
+      <span style="font-size:14px;font-weight:500;color:#795548;">编辑已撤回消息 — 修改后重新发送</span>
+      <el-button size="small" type="danger" @click="exitRecalledEdit">退出编辑</el-button>
+    </div>
+    
     <el-form :model="form" label-width="120px" class="communication-form">
       <el-form-item label="沟通类型" prop="type">
         <el-select v-model="form.type" placeholder="请选择沟通类型">
@@ -140,8 +146,10 @@
             </div>
           </el-option>
         </el-select>
-        <div style="font-size: 12px; color: #909399; margin-top: 4px;">
-          选择部门后，消息将发送给该部门的负责人（组长+组长助理），同组任意一人回复即为该组已处理
+        <div style="font-size:12px;font-weight:500;color:#A32D2D;line-height:1.6;margin-top:4px;">
+          <span style="background:#FCEBEB;padding:1px 6px;border-radius:3px;">注意</span>
+          选择部门后，消息将发送给该部门的负责人（检测组长+检测组长助理），同组任意一人回复即为该组已处理。
+          <span style="font-weight:500;">报告组和客服组请直接选择个人名片，不要选择部门名片。</span>
         </div>
       </el-form-item>
 
@@ -369,6 +377,21 @@ const form = reactive({
 // 自动保存草稿
 const { startAutoSave, restoreAutoSave, clearAutoSave } = useAutoSave(form, 'lab_auto_draft');
 startAutoSave();
+
+// 撤回编辑模式标志
+const isRecalledEditMode = ref(false);
+
+// 退出撤回编辑模式
+const exitRecalledEdit = () => {
+  localStorage.removeItem('recalledMessageEdit');
+  isRecalledEditMode.value = false;
+  resetForm();
+  clearAutoSave();
+  // 清除自动保存的草稿
+  try { localStorage.removeItem('lab_auto_draft'); } catch {}
+  // 跳转到已发送消息页面
+  window.dispatchEvent(new CustomEvent('switch-to-sent'))
+};
 
 // 部门名片数据
 const departmentCards = ref([]);
@@ -726,6 +749,7 @@ onMounted(() => {
     // 检查是否有已撤回消息需要编辑重发
     const recalledEditData = localStorage.getItem('recalledMessageEdit');
     if (recalledEditData) {
+      isRecalledEditMode.value = true;
       try {
         const editData = JSON.parse(recalledEditData);
         form.type = editData.type || '';

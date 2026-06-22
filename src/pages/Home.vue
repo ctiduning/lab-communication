@@ -468,6 +468,11 @@ const handleSwitchToInitiate = () => {
       else activeMenu.value = 'initiate';
     } catch (e) { console.error('解析预选中用户失败:', e); }
   }
+}
+
+// 切换到已发送消息视图
+const handleSwitchToSent = () => {
+  activeMenu.value = 'sent';
 };
 
 const subscribeAnnouncements = () => {
@@ -495,6 +500,7 @@ onMounted(async () => {
   }, 5 * 60 * 1000);
 
   window.addEventListener('switch-to-initiate', handleSwitchToInitiate);
+  window.addEventListener('switch-to-sent', handleSwitchToSent);
   supabase.auth.onAuthStateChange((event, session) => {
     if (event === 'SIGNED_OUT' || !session) router.push('/login');
     else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') loadUser();
@@ -506,6 +512,7 @@ onUnmounted(() => {
   if (messageChannel) supabase.removeChannel(messageChannel);
   if (activeTimer) { clearInterval(activeTimer); activeTimer = null; }
   window.removeEventListener('switch-to-initiate', handleSwitchToInitiate);
+  window.removeEventListener('switch-to-sent', handleSwitchToSent);
   window.removeEventListener('resize', checkMobile);
 });
 </script>
