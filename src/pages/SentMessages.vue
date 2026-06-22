@@ -119,7 +119,7 @@
           {{ formatTime(scope.row.createdAt) }}
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="420" align="center">
+      <el-table-column label="操作" width="520" align="center">
         <template #default="scope">
           <el-button size="small" @click.stop="viewDetail(scope.row)">查看</el-button>
           <el-button 
@@ -1446,13 +1446,8 @@ const editAndResend = (msg) => {
   }
   
   localStorage.setItem('recalledMessageEdit', JSON.stringify(editData))
-  // 跳转到发起沟通页面（根据消息的 senderRole 判断是商务还是实验室）
-  const senderRole = msg.senderRole || ''
-  if (senderRole === 'lab') {
-    window.location.href = '#/lab-initiate'
-  } else {
-    window.location.href = '#/business-initiate'
-  }
+  // 通过自定义事件通知 Home.vue 切换到发起沟通页面
+  window.dispatchEvent(new CustomEvent('switch-to-initiate'))
 }
 
 // 删除已撤回的消息

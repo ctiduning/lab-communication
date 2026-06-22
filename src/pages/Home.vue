@@ -464,10 +464,10 @@ const handleSwitchToInitiate = () => {
         preselectDeptCards.value = JSON.parse(preselectDept);
         sessionStorage.removeItem('preselectDeptCards');
       }
-      if (viewRole.value === 'lab') activeMenu.value = 'lab-initiate';
-      else activeMenu.value = 'initiate';
     } catch (e) { console.error('解析预选中用户失败:', e); }
   }
+  if (viewRole.value === 'lab') activeMenu.value = 'lab-initiate';
+  else activeMenu.value = 'initiate';
 }
 
 // 切换到已发送消息视图
