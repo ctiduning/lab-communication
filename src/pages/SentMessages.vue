@@ -949,36 +949,28 @@ const filteredCommunications = computed(() => {
 })
 
   // 查看详情
-  const viewDetail = async (comm) => {
-    try {
-      selectedComm.value = comm
-      forwardedOriginalMsg.value = null
-      detailVisible.value = true
+  const viewDetail = (comm) => {
+    selectedComm.value = comm
+    forwardedOriginalMsg.value = null
+    detailVisible.value = true
 
-      if (comm.forwardedFrom) {
-        try {
-          const res = await communicationAPI.getById(comm.forwardedFrom)
-          forwardedOriginalMsg.value = res.data
-        } catch (e) {
-          console.error('加载原消息失败:', e)
-        }
-      }
+    if (comm.forwardedFrom) {
+      communicationAPI.getById(comm.forwardedFrom).then(res => {
+        forwardedOriginalMsg.value = res.data
+      }).catch(e => {
+        console.error('加载原消息失败:', e)
+      })
+    }
 
-      if (comm.hasNewReply) {
-        try {
-          await supabase
-            .from('communications')
-            .update({ has_new_reply: false })
-            .eq('id', comm.id)
+    if (comm.hasNewReply) {
+      supabase.from('communications')
+        .update({ has_new_reply: false })
+        .eq('id', comm.id)
+        .then(() => {
           comm.hasNewReply = false
-        } catch (e) {
+        }).catch(e => {
           console.error('清除新回复标记失败:', e)
-        }
-      }
-    } catch (e) {
-      console.error('打开消息详情失败:', e)
-      detailVisible.value = false
-      ElMessage.error('打开消息详情失败：' + (e.message || '未知错误'))
+        })
     }
   }
 

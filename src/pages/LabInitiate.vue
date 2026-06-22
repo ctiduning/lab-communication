@@ -238,7 +238,7 @@
             :key="cc.cc_user_id"
             closable
             size="small"
-            style="background:#409eff;color:#fff;border-color:#409eff;"
+            style="background:#1890ff !important;color:#ffffff !important;border-color:#1890ff !important;"
             @close="removeCCFav(cc.cc_user_id)"
           >
             {{ cc.profiles?.name || cc.cc_user_id }}
@@ -806,8 +806,11 @@ const loadFrequentCC = async () => {
 };
 
 // 常用抄送人管理
-const openCCManagement = () => {
+const openCCManagement = async () => {
   ccSearchQuery.value = '';
+  if (!allUsers.value || allUsers.value.length === 0) {
+    await loadAllUsers();
+  }
   ccSearchResults.value = allUsers.value || [];
   ccDialogVisible.value = true;
 };
