@@ -197,7 +197,10 @@
         </div>
         <!-- 常用抄送人 -->
         <div v-if="frequentCCUsers.length > 0" style="margin-top:8px;">
-          <span style="font-size:12px;color:#999;margin-right:8px;">常用抄送人：</span>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+            <span style="font-size:12px;color:#999;">常用抄送人</span>
+            <el-button size="small" text type="primary" @click="openCCManagement" style="font-size:11px;">管理</el-button>
+          </div>
           <el-tag
             v-for="cc in frequentCCUsers"
             :key="cc.cc_user_id"
@@ -209,7 +212,59 @@
             {{ cc.profiles?.name || cc.cc_user_id }}
           </el-tag>
         </div>
+        <div v-else style="margin-top:8px;">
+          <el-button size="small" text type="primary" @click="openCCManagement">设置常用抄送人</el-button>
+        </div>
       </el-form-item>
+
+      <!-- 常用抄送人管理弹窗 -->
+      <el-dialog title="管理常用抄送人" v-model="ccDialogVisible" width="500px" destroy-on-close>
+        <div style="margin-bottom:16px;">
+          <el-input
+            v-model="ccSearchQuery"
+            placeholder="搜索姓名、部门..."
+            clearable
+            @input="filterCCSearch"
+            style="width:100%;"
+          />
+        </div>
+        <div style="margin-bottom:12px;font-size:12px;color:#999;">
+          已选（点击移除）
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;min-height:32px;">
+          <el-tag
+            v-for="cc in frequentCCUsers"
+            :key="cc.cc_user_id"
+            closable
+            size="small"
+            type="primary"
+            @close="removeCCFav(cc.cc_user_id)"
+          >
+            {{ cc.profiles?.name || cc.cc_user_id }}
+          </el-tag>
+          <span v-if="frequentCCUsers.length === 0" style="font-size:12px;color:#ccc;">暂无，从下方添加</span>
+        </div>
+        <div style="margin-bottom:8px;font-size:12px;color:#999;">可选的联系人</div>
+        <div style="max-height:250px;overflow-y:auto;">
+          <div
+            v-for="user in ccSearchResults"
+            :key="user.id"
+            @click="isInCCFav(user.id) ? removeCCFav(user.id) : addCCFav(user.id)"
+            style="display:flex;align-items:center;gap:8px;padding:8px 6px;border-radius:4px;cursor:pointer;"
+          >
+            <span style="font-size:13px;">{{ user.name }}</span>
+            <span style="font-size:11px;color:#999;">{{ user.department || '-' }}</span>
+            <span style="font-size:11px;color:#999;">{{ user._roleName || '-' }}</span>
+            <span style="margin-left:auto;font-size:11px;">
+              <span v-if="isInCCFav(user.id)" style="color:#e6a23c;">已选</span>
+              <span v-else style="color:#409eff;">+ 添加</span>
+            </span>
+          </div>
+        </div>
+        <template #footer>
+          <el-button @click="ccDialogVisible = false">关闭</el-button>
+        </template>
+      </el-dialog>
 
       <el-form-item>
         <el-button type="primary" @click="submitForm">发送</el-button>
@@ -578,6 +633,8 @@ const recipientGroups = ref([]);
 const searchQuery = ref('');
 const ccSearchQuery = ref('');
 const frequentCCUsers = ref([]);
+const ccDialogVisible = ref(false);
+const ccSearchResults = ref([]);
 
 const filteredGroups = computed(() => {
   return filterGroups(searchQuery.value, recipientGroups.value);
@@ -735,11 +792,55 @@ const toggleFrequentCC = (uid) => {
 
 const loadFrequentCC = async () => {
   try {
-    const { data } = await communicationAPI.getCCFrequencies();
+    const { data } = await communicationAPI.getCCFavorites();
     frequentCCUsers.value = data || [];
   } catch (e) {
     console.warn('加载常用抄送人失败:', e);
   }
+};
+
+// 常用抄送人管理
+const openCCManagement = () => {
+  ccSearchQuery.value = '';
+  ccSearchResults.value = allUsers.value || [];
+  ccDialogVisible.value = true;
+};
+
+const addCCFav = async (userId) => {
+  try {
+    await communicationAPI.addCCFavorite(userId);
+    await loadFrequentCC();
+  } catch (e) {
+    console.warn('添加常用抄送人失败:', e);
+  }
+};
+
+const removeCCFav = async (userId) => {
+  try {
+    await communicationAPI.removeCCFavorite(userId);
+    await loadFrequentCC();
+  } catch (e) {
+    console.warn('移除常用抄送人失败:', e);
+  }
+};
+
+const filterCCSearch = (query) => {
+  ccSearchQuery.value = query;
+  if (!query) {
+    ccSearchResults.value = allUsers.value || [];
+    return;
+  }
+  const kw = query.toLowerCase();
+  ccSearchResults.value = (allUsers.value || []).filter(u => {
+    const nameMatch = u.name && u.name.toLowerCase().includes(kw);
+    const deptMatch = u.department && u.department.toLowerCase().includes(kw);
+    const pinyinMatch = u._pinyin && u._pinyin.includes(kw);
+    return nameMatch || deptMatch || pinyinMatch;
+  });
+};
+
+const isInCCFav = (userId) => {
+  return frequentCCUsers.value.some(f => f.cc_user_id === userId);
 };
 
 const removeRecipient = (uid) => {

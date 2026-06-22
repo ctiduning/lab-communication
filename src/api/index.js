@@ -542,8 +542,7 @@ export const communicationAPI = {
 
       if (ccError) throw ccError
 
-      // 更新抄送频率
-      await this.updateCCFrequency(cc_recipients)
+      // 更新抄送频率已废弃，改为手动管理常用抄送人
     }
 
     if (recipients && recipients.length > 0) {
@@ -1575,40 +1574,36 @@ export const communicationAPI = {
     return { data: newComm };
   },
 
-  // ==================== 抄送人功能 ====================
-  // 获取当前用户的常用抄送人TOP5
-  async getCCFrequencies() {
+  // ==================== 抄送人功能（手动管理） ====================
+  // 获取当前用户的常用抄送人列表
+  async getCCFavorites() {
     const userId = await getCurrentUserId();
     if (!userId) return { data: [] };
     const { data } = await supabase
-      .from('cc_frequencies')
-      .select('cc_user_id, count, profiles!cc_frequencies_cc_user_id_fkey(name, department, role)')
+      .from('user_cc_favorites')
+      .select('cc_user_id, profiles!user_cc_favorites_cc_user_id_fkey(id, name, department, role)')
       .eq('user_id', userId)
-      .order('count', { ascending: false })
-      .limit(5);
+      .order('created_at', { ascending: false });
     return { data: data || [] };
   },
 
-  // 更新抄送频率
-  async updateCCFrequency(ccUserIds) {
+  // 添加常用抄送人
+  async addCCFavorite(ccUserId) {
     const userId = await getCurrentUserId();
-    if (!userId || !ccUserIds || ccUserIds.length === 0) return;
-    for (const ccUserId of ccUserIds) {
-      const { data: existing } = await supabase
-        .from('cc_frequencies')
-        .select('id, count')
-        .eq('user_id', userId)
-        .eq('cc_user_id', ccUserId)
-        .maybeSingle();
-      if (existing) {
-        await supabase.from('cc_frequencies')
-          .update({ count: existing.count + 1, updated_at: new Date() })
-          .eq('id', existing.id);
-      } else {
-        await supabase.from('cc_frequencies')
-          .insert({ user_id: userId, cc_user_id: ccUserId, count: 1 });
-      }
-    }
+    if (!userId || !ccUserId) return;
+    await supabase.from('user_cc_favorites')
+      .insert({ user_id: userId, cc_user_id: ccUserId })
+      .maybeSingle();
+  },
+
+  // 移除常用抄送人
+  async removeCCFavorite(ccUserId) {
+    const userId = await getCurrentUserId();
+    if (!userId || !ccUserId) return;
+    await supabase.from('user_cc_favorites')
+      .delete()
+      .eq('user_id', userId)
+      .eq('cc_user_id', ccUserId);
   }
 }
 
