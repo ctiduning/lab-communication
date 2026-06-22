@@ -1,4 +1,4 @@
-const CACHE_NAME = 'qdcti-cache-v1';
+const CACHE_NAME = 'qdcti-cache-v2';
 
 const PRECACHE_URLS = [
   '/lab-communication/',

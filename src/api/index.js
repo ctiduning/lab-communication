@@ -1,6 +1,13 @@
 import { supabase } from '../utils/supabase'
 
 // ==========================================
+// 安全布尔值转换：处理数据库可能返回字符串 "true"/"false" 的情况
+// ==========================================
+function safeBoolean(val) {
+  return val === true || val === 'true'
+}
+
+// ==========================================
 // Auth 缓存：避免重复调用 supabase.auth.getUser()
 // ==========================================
 let cachedUserId = null
@@ -430,31 +437,31 @@ export const communicationAPI = {
       remark: c.remark,
       content: c.content,
       status: c.status,
-      isFlagged: c.is_flagged || false,
+      isFlagged: safeBoolean(c.is_flagged),
       createdAt: c.created_at,
       departmentCardIds: c.department_card_ids || [],
       recipients: c.communication_recipients?.map(r => r.recipient_id) || [],
       recipientDetails: c.communication_recipients?.map(r => ({
         ...r.recipient,
         recipient_id: r.recipient_id,
-        is_read: r.is_read,
+        is_read: safeBoolean(r.is_read),
         read_at: r.read_at || null,
-        is_flagged: r.is_flagged,
-        is_completed: r.is_completed,
-        has_replied: r.has_replied,
+        is_flagged: safeBoolean(r.is_flagged),
+        is_completed: safeBoolean(r.is_completed),
+        has_replied: safeBoolean(r.has_replied),
         replied_by: r.replied_by,
-        has_new_reply: r.has_new_reply || false
+        has_new_reply: safeBoolean(r.has_new_reply)
       })) || [],
-      isCompleted: !!c.is_completed,  // 沟通记录是否已完结（全局）
-      isRecalled: !!c.is_recalled,
+      isCompleted: safeBoolean(c.is_completed),  // 沟通记录是否已完结（全局）
+      isRecalled: safeBoolean(c.is_recalled),
       recallReason: c.recall_reason || '',
       recalledAt: c.recalled_at || null,
       forwardedFrom: c.forwarded_from || null,
-      isAppendForward: !!c.is_append_forward,
+      isAppendForward: safeBoolean(c.is_append_forward),
       forwardNote: c.forward_note || '',
       replyCount: c.replies?.length || 0,
-      hasNewReply: c.has_new_reply || c.communication_recipients?.some(r => r.has_new_reply) || false,
-      newReplyCount: c.communication_recipients?.filter(r => r.has_new_reply).length || 0,
+      hasNewReply: safeBoolean(c.has_new_reply) || c.communication_recipients?.some(r => safeBoolean(r.has_new_reply)) || false,
+      newReplyCount: c.communication_recipients?.filter(r => safeBoolean(r.has_new_reply)).length || 0,
       attachments: c.attachments || [],
       replies: c.replies?.map(r => ({
         id: r.id,
@@ -607,7 +614,7 @@ export const communicationAPI = {
     // 1. 收件人已回复后再次回复
     // 2. 发件人追加回复（发件人不在 communication_recipients 中）
     const isSender = comm.sender_id === userId
-    const isFollowUp = isSender || (existingRecipient?.has_replied || false)
+    const isFollowUp = isSender || safeBoolean(existingRecipient?.has_replied)
 
     // ====== 第六步：如果是追加回复，重置对方状态 ======
     if (isFollowUp) {
@@ -792,27 +799,27 @@ export const communicationAPI = {
         urgentFee: communication.urgent_fee,
         remark: communication.remark,
         content: communication.content,
-        isFlagged: communication.is_flagged || false,
+        isFlagged: safeBoolean(communication.is_flagged),
         createdAt: communication.created_at,
         recipientDetails: communication.communication_recipients?.map(r => ({
           ...r.recipient,
           recipient_id: r.recipient_id,
-          is_read: r.is_read,
+          is_read: safeBoolean(r.is_read),
           read_at: r.read_at || null,
-          is_flagged: r.is_flagged,
-          is_completed: r.is_completed,
-          has_replied: r.has_replied,
+          is_flagged: safeBoolean(r.is_flagged),
+          is_completed: safeBoolean(r.is_completed),
+          has_replied: safeBoolean(r.has_replied),
           replied_by: r.replied_by,
-          has_new_reply: r.has_new_reply || false
+          has_new_reply: safeBoolean(r.has_new_reply)
         })) || [],
-        isCompleted: !!communication.is_completed,  // 沟通记录是否已完结（全局）
-        isRecalled: !!communication.is_recalled,
+        isCompleted: safeBoolean(communication.is_completed),  // 沟通记录是否已完结（全局）
+        isRecalled: safeBoolean(communication.is_recalled),
         forwardedFrom: communication.forwarded_from || null,
-        isAppendForward: !!communication.is_append_forward,
+        isAppendForward: safeBoolean(communication.is_append_forward),
         forwardNote: communication.forward_note || '',
         replyCount: communication.replies?.length || 0,
-        hasNewReply: communication.has_new_reply || communication.communication_recipients?.some(r => r.has_new_reply) || false,
-        newReplyCount: communication.communication_recipients?.filter(r => r.has_new_reply).length || 0,
+        hasNewReply: safeBoolean(communication.has_new_reply) || communication.communication_recipients?.some(r => safeBoolean(r.has_new_reply)) || false,
+        newReplyCount: communication.communication_recipients?.filter(r => safeBoolean(r.has_new_reply)).length || 0,
         replies: communication.replies?.map(r => ({
           id: r.id,
           senderId: r.sender_id,
@@ -1333,22 +1340,22 @@ export const communicationAPI = {
       remark: c.remark || '',
       content: c.content || '',
       status: c.status || '',
-      isFlagged: c.is_flagged || false,
-      isCompleted: !!c.is_completed,
+      isFlagged: safeBoolean(c.is_flagged),
+      isCompleted: safeBoolean(c.is_completed),
       createdAt: c.created_at,
       recipients: c.communication_recipients?.map(r => r.recipient_id) || [],
       recipientDetails: c.communication_recipients?.map(r => ({
         ...r.recipient,
         recipient_id: r.recipient_id,
-        is_read: r.is_read,
+        is_read: safeBoolean(r.is_read),
         read_at: r.read_at || null,
-        is_flagged: r.is_flagged,
-        is_completed: r.is_completed,
-        has_replied: r.has_replied,
+        is_flagged: safeBoolean(r.is_flagged),
+        is_completed: safeBoolean(r.is_completed),
+        has_replied: safeBoolean(r.has_replied),
         replied_by: r.replied_by,
-        has_new_reply: r.has_new_reply || false
+        has_new_reply: safeBoolean(r.has_new_reply)
       })) || [],
-      isRecalled: !!c.is_recalled,
+      isRecalled: safeBoolean(c.is_recalled),
       recallReason: c.recall_reason || '',
       recalledAt: c.recalled_at || null,
       departmentCardIds: c.department_card_ids || [],
@@ -1639,7 +1646,7 @@ export const announcementAPI = {
     }
 
     const readMap = {}
-    reads.forEach(r => { readMap[r.announcement_id] = { readAt: r.read_at, isFlagged: r.is_flagged || false } })
+    reads.forEach(r => { readMap[r.announcement_id] = { readAt: r.read_at, isFlagged: safeBoolean(r.is_flagged) } })
 
     return {
       data: (announcements || []).map(a => {
