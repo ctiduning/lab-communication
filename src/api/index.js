@@ -1584,11 +1584,9 @@ export const communicationAPI = {
     const userId = await getCurrentUserId();
     if (!userId) return { data: { ccUserIds: [], ccDeptCardIds: [] } };
     const { data, error } = await supabase
-      .from('user_cc_presets')
-      .select('cc_user_ids, cc_dept_card_ids')
-      .eq('user_id', userId)
+      .rpc('get_cc_presets')
       .maybeSingle();
-    if (error && error.code !== 'PGRST116') throw error;
+    if (error) throw error;
     return {
       data: {
         ccUserIds: data?.cc_user_ids || [],
@@ -1604,13 +1602,10 @@ export const communicationAPI = {
     const total = (ccUserIds?.length || 0) + (ccDeptCardIds?.length || 0);
     if (total > 5) throw new Error('最多预设5个抄送人');
     const { error } = await supabase
-      .from('user_cc_presets')
-      .upsert({
-        user_id: userId,
-        cc_user_ids: ccUserIds || [],
-        cc_dept_card_ids: ccDeptCardIds || [],
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'user_id' });
+      .rpc('save_cc_presets', {
+        p_cc_user_ids: ccUserIds || [],
+        p_cc_dept_card_ids: ccDeptCardIds || []
+      });
     if (error) throw error;
     return { data: { message: '预设已保存' } };
   }
