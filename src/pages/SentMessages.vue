@@ -1129,7 +1129,7 @@ const getDeptCardGroups = (comm) => {
 // 获取非部门名片的普通收件人（排除抄送人）
 const getNonDeptCardRecipients = (comm) => {
   const deptCardIds = comm.departmentCardIds || []
-  const nonDept = (comm.recipientDetails || []).filter(r => !deptCardIds.includes(r.recipient_id) && !r.is_cc)
+  return (comm.recipientDetails || []).filter(r => !deptCardIds.includes(r.recipient_id) && !r.is_cc)
 }
 
 const getLatestReply = (recipientId) => {
