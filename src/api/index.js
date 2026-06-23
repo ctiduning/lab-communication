@@ -1584,29 +1584,37 @@ export const communicationAPI = {
     const userId = await getCurrentUserId();
     if (!userId) return { data: { ccUserIds: [], ccDeptCardIds: [] } };
     const { data, error } = await supabase
-      .rpc('get_cc_presets')
-      .maybeSingle();
+      .from('user_cc_favorites')
+      .select('cc_user_id')
+      .eq('user_id', userId);
     if (error) throw error;
     return {
       data: {
-        ccUserIds: data?.cc_user_ids || [],
-        ccDeptCardIds: data?.cc_dept_card_ids || []
+        ccUserIds: (data || []).map(r => r.cc_user_id),
+        ccDeptCardIds: []
       }
     };
   },
 
-  // 保存抄送人预设（一次性 upsert 整个列表，最多5个）
+  // 保存抄送人预设（一次性替换整个列表，最多5个）
   async saveCCPresets(ccUserIds, ccDeptCardIds) {
     const userId = await getCurrentUserId();
     if (!userId) throw new Error('未登录');
     const total = (ccUserIds?.length || 0) + (ccDeptCardIds?.length || 0);
     if (total > 5) throw new Error('最多预设5个抄送人');
-    const { error } = await supabase
-      .rpc('save_cc_presets', {
-        p_cc_user_ids: ccUserIds || [],
-        p_cc_dept_card_ids: ccDeptCardIds || []
-      });
-    if (error) throw error;
+    // 先删除该用户的所有预设，再批量插入
+    const { error: delErr } = await supabase
+      .from('user_cc_favorites')
+      .delete()
+      .eq('user_id', userId);
+    if (delErr) throw delErr;
+    if (ccUserIds?.length) {
+      const records = ccUserIds.map(id => ({ user_id: userId, cc_user_id: id }));
+      const { error: insErr } = await supabase
+        .from('user_cc_favorites')
+        .insert(records);
+      if (insErr) throw insErr;
+    }
     return { data: { message: '预设已保存' } };
   }
 }

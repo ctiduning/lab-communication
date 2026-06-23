@@ -199,7 +199,7 @@
         <div v-if="ccPresetUserIds.length > 0" style="margin-top:8px;">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
             <span style="font-size:12px;color:#999;">常用抄送人</span>
-            <el-button size="small" text type="primary" @click="openCCManagement" style="font-size:11px;">管理</el-button>
+            <el-button size="small" type="primary" plain @click="openCCManagement" style="font-size:11px;padding:2px 8px;">管理</el-button>
           </div>
           <el-tag
             v-for="uid in ccPresetUserIds"
@@ -213,7 +213,7 @@
           </el-tag>
         </div>
         <div v-else style="margin-top:8px;">
-          <el-button size="small" text type="primary" @click="openCCManagement">设置常用抄送人</el-button>
+          <el-button size="small" type="primary" plain @click="openCCManagement" style="padding:2px 8px;">设置常用抄送人</el-button>
         </div>
       </el-form-item>
 

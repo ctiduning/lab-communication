@@ -93,17 +93,17 @@ describe('Bug 1: 管理员搜索 - email/phone 字段模糊匹配', () => {
     expect(result).toHaveLength(1)
   })
 
-  it('Admin.vue 中 filteredUsers 应包含 email 和 phone 字段', () => {
+  it('Admin.vue 中 filteredUsers 应使用 buildSearchKeys + matchUser 实现模糊搜索', () => {
     const source = readSource('pages/Admin.vue')
     // 提取 filteredUsers 计算属性内容
     const match = source.match(/const filteredUsers[\s\S]*?return users\.value\.filter[\s\S]*?\);/)
     expect(match).not.toBeNull()
 
     const computedBody = match[0]
-    // 应包含 email 字段 (fuzzyMatch 已处理 null 安全)
-    expect(computedBody).toContain('u.email')
-    // 应包含 phone 字段
-    expect(computedBody).toContain('u.phone')
+    // V2 重构为 buildSearchKeys + matchUser 模式（pinyinSearch.js 已覆盖 email/phone）
+    expect(computedBody).toContain('buildSearchKeys')
+    expect(computedBody).toContain('matchUser')
+    expect(computedBody).toContain('_searchKeys')
   })
 })
 
