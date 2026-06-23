@@ -238,7 +238,7 @@
             :key="uid"
             closable
             size="small"
-            style="--el-tag-bg-color:#1890ff;--el-tag-text-color:#ffffff;--el-tag-border-color:#1890ff;"
+            style="--el-tag-bg-color:#1890ff;--el-tag-text-color:#fff;--el-tag-border-color:#1890ff;color:#fff;"
             @close="removeCCPreset(uid)"
           >
             {{ ccUserName(uid) }}
