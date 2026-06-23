@@ -1,0 +1,1 @@
+import{d as e,k as u}from"./vendor-vue-DaSLIAdm.js";function t(t=300){const o=u(""),n=u("");let r=null;return e(o,e=>{clearTimeout(r),r=setTimeout(()=>{n.value=e},t)}),{input:o,debouncedValue:n}}export{t as u};
