@@ -196,20 +196,20 @@
           </div>
         </div>
         <!-- 常用抄送人 -->
-        <div v-if="frequentCCUsers.length > 0" style="margin-top:8px;">
+        <div v-if="ccPresetUserIds.length > 0" style="margin-top:8px;">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
             <span style="font-size:12px;color:#999;">常用抄送人</span>
             <el-button size="small" text type="primary" @click="openCCManagement" style="font-size:11px;">管理</el-button>
           </div>
           <el-tag
-            v-for="cc in frequentCCUsers"
-            :key="cc.cc_user_id"
+            v-for="uid in ccPresetUserIds"
+            :key="uid"
             size="small"
             style="cursor:pointer;margin:2px;"
-            :type="form.ccRecipients.includes(cc.cc_user_id) ? 'success' : 'info'"
-            @click="toggleFrequentCC(cc.cc_user_id)"
+            :type="form.ccRecipients.includes(uid) ? 'success' : 'info'"
+            @click="toggleFrequentCC(uid)"
           >
-            {{ cc.profiles?.name || cc.cc_user_id }}
+            {{ ccUserName(uid) }}
           </el-tag>
         </div>
         <div v-else style="margin-top:8px;">
@@ -234,23 +234,23 @@
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;min-height:32px;">
           <el-tag
-            v-for="cc in frequentCCUsers"
-            :key="cc.cc_user_id"
+            v-for="uid in ccPresetUserIds"
+            :key="uid"
             closable
             size="small"
             style="background:#1890ff !important;color:#ffffff !important;border-color:#1890ff !important;"
-            @close="removeCCFav(cc.cc_user_id)"
+            @close="removeCCPreset(uid)"
           >
-            {{ cc.profiles?.name || cc.cc_user_id }}
+            {{ ccUserName(uid) }}
           </el-tag>
-          <span v-if="frequentCCUsers.length === 0" style="font-size:12px;color:#ccc;">暂无，从下方添加</span>
+          <span v-if="ccPresetUserIds.length === 0" style="font-size:12px;color:#ccc;">暂无，从下方添加</span>
         </div>
         <div style="margin-bottom:8px;font-size:12px;color:#999;">可选的联系人</div>
         <div style="max-height:250px;overflow-y:auto;">
           <div
             v-for="user in ccSearchResults"
             :key="user.id"
-            @click.stop="isInCCFav(user.id) ? removeCCFav(user.id) : addCCFav(user.id)"
+            @click.stop="isCCPreset(user.id) ? removeCCPreset(user.id) : addCCPreset(user.id)"
             style="display:flex;align-items:center;gap:8px;padding:8px 6px;border-radius:4px;cursor:pointer;transition:background 0.15s;"
             @mouseenter="$event.currentTarget.style.background='#f5f7fa'"
             @mouseleave="$event.currentTarget.style.background=''"
@@ -259,7 +259,7 @@
             <span style="font-size:11px;color:#999;">{{ user.department || '-' }}</span>
             <span style="font-size:11px;color:#999;">{{ user._roleName || '-' }}</span>
             <span style="margin-left:auto;font-size:11px;">
-              <span v-if="isInCCFav(user.id)" style="color:#e6a23c;">已选</span>
+              <span v-if="isCCPreset(user.id)" style="color:#e6a23c;">已选</span>
               <span v-else style="color:#409eff;font-weight:500;">+ 添加</span>
             </span>
           </div>
@@ -638,7 +638,7 @@ const allUsers = ref([]);
 const recipientGroups = ref([]);
 const searchQuery = ref('');
 const ccSearchQuery = ref('');
-const frequentCCUsers = ref([]);
+const ccPresetUserIds = ref([]);
 const ccDialogVisible = ref(false);
 const ccSearchResults = ref([]);
 
@@ -796,12 +796,20 @@ const toggleFrequentCC = (uid) => {
   }
 };
 
-const loadFrequentCC = async () => {
+const loadCCPresets = async () => {
   try {
-    const { data } = await communicationAPI.getCCFavorites();
-    frequentCCUsers.value = data || [];
+    const { data } = await communicationAPI.getCCPresets();
+    ccPresetUserIds.value = data?.ccUserIds || [];
   } catch (e) {
-    console.warn('加载常用抄送人失败:', e);
+    console.warn('加载抄送人预设失败:', e);
+  }
+};
+
+const saveCCPresets = async () => {
+  try {
+    await communicationAPI.saveCCPresets(ccPresetUserIds.value, []);
+  } catch (e) {
+    ElMessage.error('保存预设失败: ' + (e.message || ''));
   }
 };
 
@@ -815,22 +823,20 @@ const openCCManagement = async () => {
   ccDialogVisible.value = true;
 };
 
-const addCCFav = async (userId) => {
-  try {
-    await communicationAPI.addCCFavorite(userId);
-    await loadFrequentCC();
-  } catch (e) {
-    console.warn('添加常用抄送人失败:', e);
+const addCCPreset = async (userId) => {
+  if (ccPresetUserIds.value.length >= 5) {
+    ElMessage.warning('最多预设5个抄送人');
+    return;
+  }
+  if (!ccPresetUserIds.value.includes(userId)) {
+    ccPresetUserIds.value.push(userId);
+    await saveCCPresets();
   }
 };
 
-const removeCCFav = async (userId) => {
-  try {
-    await communicationAPI.removeCCFavorite(userId);
-    await loadFrequentCC();
-  } catch (e) {
-    console.warn('移除常用抄送人失败:', e);
-  }
+const removeCCPreset = async (userId) => {
+  ccPresetUserIds.value = ccPresetUserIds.value.filter(id => id !== userId);
+  await saveCCPresets();
 };
 
 const filterCCSearch = (query) => {
@@ -848,8 +854,8 @@ const filterCCSearch = (query) => {
   });
 };
 
-const isInCCFav = (userId) => {
-  return frequentCCUsers.value.some(f => f.cc_user_id === userId);
+const isCCPreset = (userId) => {
+  return ccPresetUserIds.value.includes(userId);
 };
 
 const removeRecipient = (uid) => {
@@ -910,7 +916,7 @@ onMounted(() => {
 
   loadDraftsFromStorage();
   loadMyTemplates();
-  loadFrequentCC();
+  loadCCPresets();
   
   // 获取当前用户角色
   supabase.auth.getUser().then(({ data: { user } }) => {

@@ -1578,36 +1578,41 @@ export const communicationAPI = {
     return { data: newComm };
   },
 
-  // ==================== 抄送人功能（手动管理） ====================
-  // 获取当前用户的常用抄送人列表
-  async getCCFavorites() {
+  // ==================== 抄送人功能（预设管理） ====================
+  // 获取当前用户的抄送人预设
+  async getCCPresets() {
     const userId = await getCurrentUserId();
-    if (!userId) return { data: [] };
-    const { data } = await supabase
-      .from('user_cc_favorites')
-      .select('cc_user_id, profiles!user_cc_favorites_cc_user_id_fkey(id, name, department, role)')
+    if (!userId) return { data: { ccUserIds: [], ccDeptCardIds: [] } };
+    const { data, error } = await supabase
+      .from('user_cc_presets')
+      .select('cc_user_ids, cc_dept_card_ids')
       .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-    return { data: data || [] };
-  },
-
-  // 添加常用抄送人
-  async addCCFavorite(ccUserId) {
-    const userId = await getCurrentUserId();
-    if (!userId || !ccUserId) return;
-    await supabase.from('user_cc_favorites')
-      .insert({ user_id: userId, cc_user_id: ccUserId })
       .maybeSingle();
+    if (error && error.code !== 'PGRST116') throw error;
+    return {
+      data: {
+        ccUserIds: data?.cc_user_ids || [],
+        ccDeptCardIds: data?.cc_dept_card_ids || []
+      }
+    };
   },
 
-  // 移除常用抄送人
-  async removeCCFavorite(ccUserId) {
+  // 保存抄送人预设（一次性 upsert 整个列表，最多5个）
+  async saveCCPresets(ccUserIds, ccDeptCardIds) {
     const userId = await getCurrentUserId();
-    if (!userId || !ccUserId) return;
-    await supabase.from('user_cc_favorites')
-      .delete()
-      .eq('user_id', userId)
-      .eq('cc_user_id', ccUserId);
+    if (!userId) throw new Error('未登录');
+    const total = (ccUserIds?.length || 0) + (ccDeptCardIds?.length || 0);
+    if (total > 5) throw new Error('最多预设5个抄送人');
+    const { error } = await supabase
+      .from('user_cc_presets')
+      .upsert({
+        user_id: userId,
+        cc_user_ids: ccUserIds || [],
+        cc_dept_card_ids: ccDeptCardIds || [],
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'user_id' });
+    if (error) throw error;
+    return { data: { message: '预设已保存' } };
   }
 }
 
