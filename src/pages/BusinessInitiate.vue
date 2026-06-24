@@ -200,7 +200,7 @@
       </el-form-item>
 
       <!-- 抄送人选择 -->
-      <el-form-item label="抄送人（不影响消息进度）">
+      <el-form-item label="抄送人">
         <el-select
           v-model="form.ccRecipients"
           multiple
@@ -245,7 +245,7 @@
         <div v-if="ccPresetUserIds.length > 0" style="margin-top:8px;">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
             <span style="font-size:12px;color:#999;">常用抄送人</span>
-            <el-button size="small" type="primary" plain @click="openCCManagement" style="font-size:11px;padding:2px 8px;">管理</el-button>
+            <el-button size="small" type="danger" plain @click="openCCManagement" style="font-size:11px;padding:2px 8px;">管理</el-button>
           </div>
           <el-tag
             v-for="uid in ccPresetUserIds"
@@ -262,6 +262,11 @@
           <el-button size="small" type="primary" plain @click="openCCManagement" style="padding:2px 8px;">设置常用抄送人</el-button>
         </div>
       </el-form-item>
+
+      <!-- 抄送人说明 -->
+      <div style="color:#f56c6c;font-size:12px;margin:-8px 0 16px 120px;line-height:1.5;">
+        主要供业务助理抄送业务使用，不管业务是否回复，都不影响消息的状态。
+      </div>
 
       <!-- 常用抄送人管理弹窗 -->
       <el-dialog title="管理常用抄送人" v-model="ccDialogVisible" width="500px" destroy-on-close>
