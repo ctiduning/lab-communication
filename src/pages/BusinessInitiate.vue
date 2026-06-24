@@ -923,6 +923,7 @@ const getUserRoleName = (uid) => findUserById(uid)?._roleName || '-';
 const getCCUserName = (uid) => findUserById(uid)?.name || uid;
 const getCCUserDept = (uid) => findUserById(uid)?.department || '-';
 const getCCUserRoleName = (uid) => findUserById(uid)?._roleName || '-';
+const ccUserName = (uid) => getCCUserName(uid);
 
 const removeCCRecipient = (uid) => {
   form.ccRecipients = form.ccRecipients.filter(id => id !== uid);
@@ -990,7 +991,10 @@ const filterCCSearch = (query) => {
   ccSearchResults.value = (allUsers.value || []).filter(u => {
     const nameMatch = u.name && u.name.toLowerCase().includes(kw);
     const deptMatch = u.department && u.department.toLowerCase().includes(kw);
-    const pinyinMatch = u._pinyin && u._pinyin.includes(kw);
+    const pinyinMatch = u._searchKeys && (
+      u._searchKeys.pinyinFull.includes(kw) ||
+      u._searchKeys.pinyinInitial.includes(kw)
+    );
     return nameMatch || deptMatch || pinyinMatch;
   });
 };

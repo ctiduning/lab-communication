@@ -765,16 +765,16 @@ function openAddQuickReply() {
 
 function saveQuickReply() {
   if (!editingQuickReply.value.trim()) return
+  const content = editingQuickReply.value.trim()
   if (editingQuickReplyIndex.value >= 0) {
-    quickReplies.value[editingQuickReplyIndex.value] = editingQuickReply.value.trim()
+    quickReplies.value[editingQuickReplyIndex.value] = content
   } else {
-    quickReplies.value.push(editingQuickReply.value.trim())
+    quickReplies.value.push(content)
   }
   editingQuickReply.value = ''
   editingQuickReplyIndex.value = -1
   showQuickReplyManager.value = false
-  // 保存到服务器
-  quickReplyAPI.create(editingQuickReply.value.trim()).catch(() => {})
+  quickReplyAPI.create(content).catch(() => {})
 }
 
 function editQuickReply(index) {

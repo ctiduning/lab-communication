@@ -545,8 +545,9 @@ export const communicationAPI = {
       // 更新抄送频率已废弃，改为手动管理常用抄送人
     }
 
-    if (recipients && recipients.length > 0) {
-      const notifications = recipients.map(recipientId => ({
+    const allNotifRecipients = [...(recipients || []), ...(cc_recipients || [])]
+    if (allNotifRecipients.length > 0) {
+      const notifications = allNotifRecipients.map(recipientId => ({
         user_id: recipientId,
         communication_id: communication.id,
         type: 'communication',
@@ -1535,15 +1536,21 @@ export const communicationAPI = {
         attachments: original.attachments || [],
         department_card_ids: original.department_card_ids || [],
         is_append_forward: true,
-        forwarded_from: communicationId
+        forwarded_from: communicationId,
+        forward_note: userContent || ''
       })
       .select()
       .single();
     if (createError) throw createError;
 
-    // 获取所有原收件人
+    // 区分普通收件人和抄送人
     const originalRecipients = original.communication_recipients || [];
-    const recipientIds = originalRecipients.map(r => r.recipient_id);
+    const recipientIds = originalRecipients
+      .filter(r => !r.is_cc)
+      .map(r => r.recipient_id);
+    const ccRecipientIds = originalRecipients
+      .filter(r => r.is_cc)
+      .map(r => r.recipient_id);
 
     // 创建新的收件人记录（状态全部重置）
     if (recipientIds.length > 0) {
@@ -1561,9 +1568,27 @@ export const communicationAPI = {
       if (recError) throw recError;
     }
 
-    // 创建通知
-    if (recipientIds.length > 0) {
-      const notifications = recipientIds.map(rid => ({
+    // 创建抄送人记录
+    if (ccRecipientIds.length > 0) {
+      const ccRecipients = ccRecipientIds.map(rid => ({
+        communication_id: newComm.id,
+        recipient_id: rid,
+        is_cc: true,
+        has_replied: false,
+        is_completed: false,
+        is_read: false,
+        has_new_reply: false
+      }));
+      const { error: recError } = await supabase
+        .from('communication_recipients')
+        .insert(ccRecipients);
+      if (recError) throw recError;
+    }
+
+    // 创建通知（包含普通收件人和抄送人）
+    const allNotifIds = [...recipientIds, ...ccRecipientIds];
+    if (allNotifIds.length > 0) {
+      const notifications = allNotifIds.map(rid => ({
         user_id: rid,
         communication_id: newComm.id,
         type: 'communication',

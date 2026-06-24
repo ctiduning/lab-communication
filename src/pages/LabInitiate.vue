@@ -783,6 +783,7 @@ const getCCUserDept = (uid) => {
   return u.departmentLevel3 || u.departmentLevel2 || u.departmentLevel1 || '-';
 };
 const getCCUserRoleName = (uid) => findUserById(uid)?._roleName || '-';
+const ccUserName = (uid) => getCCUserName(uid);
 
 const removeCCRecipient = (uid) => {
   form.ccRecipients = form.ccRecipients.filter(id => id !== uid);
@@ -849,7 +850,10 @@ const filterCCSearch = (query) => {
   ccSearchResults.value = (allUsers.value || []).filter(u => {
     const nameMatch = u.name && u.name.toLowerCase().includes(kw);
     const deptMatch = u.department && u.department.toLowerCase().includes(kw);
-    const pinyinMatch = u._pinyin && u._pinyin.includes(kw);
+    const pinyinMatch = u._searchKeys && (
+      u._searchKeys.pinyinFull.includes(kw) ||
+      u._searchKeys.pinyinInitial.includes(kw)
+    );
     return nameMatch || deptMatch || pinyinMatch;
   });
 };
