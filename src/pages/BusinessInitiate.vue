@@ -259,7 +259,7 @@
           </el-tag>
         </div>
         <div v-else style="margin-top:8px;">
-          <el-button size="small" type="primary" plain @click="openCCManagement" style="padding:2px 8px;">设置常用抄送人</el-button>
+          <el-button size="small" type="primary" @click="openCCManagement" style="padding:2px 8px;">设置常用抄送人</el-button>
         </div>
       </el-form-item>
 
