@@ -324,7 +324,7 @@
       </el-dialog>
 
       <el-form-item>
-        <el-button type="primary" @click="submitForm">发送</el-button>
+        <el-button type="primary" @click="submitForm" :loading="sending" :disabled="sending">发送</el-button>
         <el-button @click="saveDraft">保存草稿</el-button>
         <el-button @click="resetForm">重置</el-button>
         <el-button v-if="drafts.length > 0" type="info" @click="showDraftBox = !showDraftBox">
@@ -1020,7 +1020,10 @@ const removeRecipient = (uid) => {
   }
 };
 
+const sending = ref(false)
+
 const submitForm = async () => {
+  if (sending.value) return
   if (!form.type) {
     ElMessage.error('请选择沟通类型');
     return;
@@ -1031,6 +1034,7 @@ const submitForm = async () => {
   }
   
   try {
+    sending.value = true
     const payload = {
       ...form,
       senderRole: 'business',
@@ -1059,6 +1063,8 @@ const submitForm = async () => {
     router.push('/');
   } catch (error) {
     ElMessage.error('发送失败：' + (error.message || '未知错误'));
+  } finally {
+    sending.value = false
   }
 };
 
