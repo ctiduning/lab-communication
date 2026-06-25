@@ -113,11 +113,11 @@
             </template>
           </el-table-column>
         </el-table>
+        </template>
 
         <div v-if="pendingMessages.length === 0 && !loading" class="empty-state">
           暂无待处理消息
         </div>
-        </template>
       </el-tab-pane>
 
       <!-- 已处理标签页 -->
@@ -209,11 +209,11 @@
             </template>
           </el-table-column>
         </el-table>
+        </template>
 
         <div v-if="processedMessages.length === 0 && !loading" class="empty-state">
           暂无已处理消息
         </div>
-        </template>
       </el-tab-pane>
 
       <!-- 已完结标签页 -->
@@ -295,11 +295,11 @@
             </template>
           </el-table-column>
         </el-table>
+        </template>
 
         <div v-if="completedMessages.length === 0 && !loading" class="empty-state">
           暂无已完结消息
         </div>
-        </template>
       </el-tab-pane>
 
       <!-- 已被撤回标签页 -->
@@ -365,11 +365,11 @@
             </template>
           </el-table-column>
         </el-table>
+        </template>
 
         <div v-if="recalledMessages.length === 0 && !loading" class="empty-state">
           暂无已被撤回的消息
         </div>
-        </template>
       </el-tab-pane>
       <!-- 全部 -->
       <el-tab-pane name="all">
@@ -471,10 +471,10 @@
             </template>
           </el-table-column>
         </el-table>
+        </template>
         <div v-if="allMessages.length === 0 && !loading" class="empty-tip">
           {{ showFlaggedOnly ? '暂无带红旗的消息' : '暂无消息' }}
         </div>
-        </template>
       </el-tab-pane>
     </el-tabs>
 

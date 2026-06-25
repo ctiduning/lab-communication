@@ -413,8 +413,7 @@ const subscribeMessages = () => {
   messageChannel = supabase
     .channel('messages-pending-count')
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'communications' }, async (payload) => {
-      loadPendingMsgCount();
-      loadSentNewReplyCount();
+      await Promise.all([loadPendingMsgCount(), loadSentNewReplyCount()]);
       // 更新标题未读角标
       const unread = pendingMsgCount.value + (sentNewReplyCount.value || 0);
       document.title = unread > 0 ? `(${unread}) 实验室沟通系统` : '实验室沟通系统';
@@ -443,13 +442,13 @@ const subscribeMessages = () => {
         }
       }
     })
-    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'communication_recipients' }, () => {
-      loadPendingMsgCount();
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'communication_recipients' }, async () => {
+      await loadPendingMsgCount();
       const unread = pendingMsgCount.value + (sentNewReplyCount.value || 0);
       document.title = unread > 0 ? `(${unread}) 实验室沟通系统` : '实验室沟通系统';
     })
-    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'communications' }, () => {
-      loadSentNewReplyCount();
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'communications' }, async () => {
+      await loadSentNewReplyCount();
       const unread = pendingMsgCount.value + (sentNewReplyCount.value || 0);
       document.title = unread > 0 ? `(${unread}) 实验室沟通系统` : '实验室沟通系统';
     })
