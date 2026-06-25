@@ -23,7 +23,7 @@
           </div>
         </div>
 
-        <el-table :data="pendingMessages" border stripe v-loading="loading" :row-class-name="tableRowClassName" @row-click="viewDetail">
+        <template v-for="(msgs, label) in groupedPendingMessages" :key="label"><div class="date-group-header">{{ label }}</div><el-table :data="msgs" border stripe v-loading="loading" :row-class-name="tableRowClassName" @row-click="viewDetail">
           <!-- 状态列 - 移到最前面 -->
           <el-table-column label="状态" width="120" align="center" fixed="left">
             <template #default="scope">
@@ -78,6 +78,7 @@
             <template #default="scope">
               <div class="row-op-btns">
                 <el-button size="small" @click.stop="viewDetail(scope.row)">查看</el-button>
+                <el-button size="small" @click.stop="$router.push('/sample-timeline?sampleCode='+scope.row.sampleCode)">时间线</el-button>
                 <el-button 
                   v-if="!scope.row.myCompleted && !scope.row.isCompleted && !scope.row.isRecalled"
                   size="small" 
@@ -119,6 +120,7 @@
             {{ loadingMore ? '加载中...' : '加载更多' }}
           </el-button>
         </div>
+        </template>
       </el-tab-pane>
 
       <!-- 已处理标签页 -->
@@ -138,7 +140,7 @@
           </div>
         </div>
 
-        <el-table :data="processedMessages" border stripe v-loading="loading" :row-class-name="tableRowClassName" @row-click="viewDetail">
+        <template v-for="(msgs, label) in groupedProcessedMessages" :key="label"><div class="date-group-header">{{ label }}</div><el-table :data="msgs" border stripe v-loading="loading" :row-class-name="tableRowClassName" @row-click="viewDetail">
           <!-- 状态列 - 移到最前面 -->
           <el-table-column label="状态" width="120" align="center" fixed="left">
             <template #default="scope">
@@ -193,6 +195,7 @@
             <template #default="scope">
               <div class="row-op-btns">
                 <el-button size="small" @click.stop="viewDetail(scope.row)">查看</el-button>
+                <el-button size="small" @click.stop="$router.push('/sample-timeline?sampleCode='+scope.row.sampleCode)">时间线</el-button>
                 <el-button 
                   v-if="!scope.row.myCompleted && !scope.row.isCompleted && !scope.row.isRecalled"
                   size="small" 
@@ -234,6 +237,7 @@
             {{ loadingMore ? '加载中...' : '加载更多' }}
           </el-button>
         </div>
+        </template>
       </el-tab-pane>
 
       <!-- 已完结标签页 -->
@@ -253,7 +257,7 @@
           </div>
         </div>
 
-        <el-table :data="completedMessages" border stripe v-loading="loading" :row-class-name="tableRowClassName" @row-click="viewDetail">
+        <template v-for="(msgs, label) in groupedCompletedMessages" :key="label"><div class="date-group-header">{{ label }}</div><el-table :data="msgs" border stripe v-loading="loading" :row-class-name="tableRowClassName" @row-click="viewDetail">
           <!-- 状态列 - 移到最前面 -->
           <el-table-column label="状态" width="120" align="center" fixed="left">
             <template #default="scope">
@@ -305,6 +309,7 @@
             <template #default="scope">
               <div class="row-op-btns">
                 <el-button size="small" @click.stop="viewDetail(scope.row)">查看</el-button>
+                <el-button size="small" @click.stop="$router.push('/sample-timeline?sampleCode='+scope.row.sampleCode)">时间线</el-button>
                 <el-button 
                   size="small" 
                   :type="scope.row.hasFlagged ? 'warning' : 'default'"
@@ -325,6 +330,7 @@
             {{ loadingMore ? '加载中...' : '加载更多' }}
           </el-button>
         </div>
+        </template>
       </el-tab-pane>
 
       <!-- 已被撤回标签页 -->
@@ -344,7 +350,7 @@
           </div>
         </div>
 
-        <el-table :data="recalledMessages" border stripe v-loading="loading" @row-click="viewDetail">
+        <template v-for="(msgs, label) in groupedRecalledMessages" :key="label"><div class="date-group-header">{{ label }}</div><el-table :data="msgs" border stripe v-loading="loading" @row-click="viewDetail">
           <el-table-column label="撤回原因" min-width="150" show-overflow-tooltip>
             <template #default="scope">
               {{ scope.row.recallReason || '-' }}
@@ -378,6 +384,7 @@
           <el-table-column label="操作" width="150" align="center">
             <template #default="scope">
               <el-button size="small" @click.stop="viewDetail(scope.row)">查看</el-button>
+              <el-button size="small" @click.stop="$router.push('/sample-timeline?sampleCode='+scope.row.sampleCode)">时间线</el-button>
               <el-button 
                 size="small" 
                 :type="scope.row.hasFlagged ? 'warning' : 'default'"
@@ -392,6 +399,7 @@
         <div v-if="recalledMessages.length === 0 && !loading" class="empty-state">
           暂无已被撤回的消息
         </div>
+        </template>
       </el-tab-pane>
       <!-- 全部 -->
       <el-tab-pane name="all">
@@ -413,7 +421,7 @@
           </div>
         </div>
 
-        <el-table :data="allMessages" border stripe v-loading="loading" :row-class-name="tableRowClassName" @row-click="viewDetail">
+        <template v-for="(msgs, label) in groupedAllMessages" :key="label"><div class="date-group-header">{{ label }}</div><el-table :data="msgs" border stripe v-loading="loading" :row-class-name="tableRowClassName" @row-click="viewDetail">
           <el-table-column label="状态" width="120" align="center" fixed="left">
             <template #default="scope">
               <template v-if="scope.row.isCC">
@@ -467,6 +475,7 @@
             <template #default="scope">
               <div class="row-op-btns">
                 <el-button size="small" @click="viewDetail(scope.row)">查看</el-button>
+                <el-button size="small" @click.stop="$router.push('/sample-timeline?sampleCode='+scope.row.sampleCode)">时间线</el-button>
                 <el-button 
                   v-if="!scope.row.myCompleted && !scope.row.isCompleted && !scope.row.isRecalled"
                   size="small" 
@@ -494,6 +503,7 @@
         <div v-if="allMessages.length === 0 && !loading" class="empty-tip">
           {{ showFlaggedOnly ? '暂无带红旗的消息' : '暂无消息' }}
         </div>
+        </template>
       </el-tab-pane>
 
       <!-- 红旗标签页 -->
@@ -513,7 +523,7 @@
           </div>
         </div>
 
-        <el-table :data="flaggedMessages" border stripe v-loading="loading" :row-class-name="tableRowClassName" @row-click="viewDetail">
+        <template v-for="(msgs, label) in groupedFlaggedMessages" :key="label"><div class="date-group-header">{{ label }}</div><el-table :data="msgs" border stripe v-loading="loading" :row-class-name="tableRowClassName" @row-click="viewDetail">
           <el-table-column label="状态" width="120" align="center" fixed="left">
             <template #default="scope">
               <template v-if="scope.row.isCC">
@@ -567,6 +577,7 @@
             <template #default="scope">
               <div class="row-op-btns">
                 <el-button size="small" @click.stop="viewDetail(scope.row)">查看</el-button>
+                <el-button size="small" @click.stop="$router.push('/sample-timeline?sampleCode='+scope.row.sampleCode)">时间线</el-button>
                 <el-button 
                   v-if="!scope.row.myCompleted && !scope.row.isCompleted && !scope.row.isRecalled"
                   size="small" 
@@ -608,6 +619,7 @@
             {{ loadingMore ? '加载中...' : '加载更多' }}
           </el-button>
         </div>
+        </template>
       </el-tab-pane>
     </el-tabs>
 
@@ -1420,10 +1432,15 @@ const allMessages = computed(() => {
   const kw = searchKeyword.value.trim().toLowerCase();
   if (kw) {
     result = result.filter(r => {
-      const senderName = (getSenderName(r.senderId) || '').toLowerCase();
-      return (r.content || '').toLowerCase().includes(kw) ||
-             senderName.includes(kw) ||
-             (r.type || '').toLowerCase().includes(kw);
+      const replyTexts = (r.replies || []).map(rp => rp.content || '').join(' ');
+      const fields = [
+        r.customerName, r.sampleCode, r.sampleMatrix,
+        r.testItems, r.content, r.remark,
+        getTypeName(r.type), getSenderName(r.senderId),
+        r.requestedCycle, r.chargeStatus,
+        r.urgentFee, replyTexts
+      ].map(f => (f || '').toLowerCase());
+      return fields.some(f => f.includes(kw));
     });
   }
 
@@ -1556,6 +1573,27 @@ const flaggedMessages = computed(() => {
 
   return result.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 });
+
+// 消息按天分组辅助函数
+const groupMessagesByDate = (msgs) => {
+  const groups = {};
+  const today = new Date().toDateString();
+  const yesterday = new Date(Date.now() - 86400000).toDateString();
+  msgs.forEach(m => {
+    const d = new Date(m.createdAt).toDateString();
+    const label = d === today ? '今天' : d === yesterday ? '昨天' : d;
+    if (!groups[label]) groups[label] = [];
+    groups[label].push(m);
+  });
+  return groups;
+};
+
+const groupedPendingMessages = computed(() => groupMessagesByDate(pendingMessages.value));
+const groupedProcessedMessages = computed(() => groupMessagesByDate(processedMessages.value));
+const groupedCompletedMessages = computed(() => groupMessagesByDate(completedMessages.value));
+const groupedRecalledMessages = computed(() => groupMessagesByDate(recalledMessages.value));
+const groupedAllMessages = computed(() => groupMessagesByDate(allMessages.value));
+const groupedFlaggedMessages = computed(() => groupMessagesByDate(flaggedMessages.value));
 
 // 表格行样式：待处理消息显示淡蓝色底色
 const tableRowClassName = ({ row }) => {
@@ -1915,6 +1953,14 @@ const handleNewMessage = async (newComm) => {
     };
     messages.value.unshift(formatted);
     ElMessage.info('收到新消息');
+    // 桌面通知
+    if ('Notification' in window && Notification.permission === 'granted') {
+      const senderName = getSenderName(newComm.sender_id) || '系统';
+      const n = new Notification('新消息', { body: `来自 ${senderName}` });
+      n.onclick = () => { window.focus(); location.href = '/#/home?tab=receive'; };
+    } else if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
   }
 };
 
@@ -1977,6 +2023,17 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.date-group-header {
+  font-size: 14px;
+  font-weight: 600;
+  color: #409eff;
+  background: #ecf5ff;
+  padding: 8px 16px;
+  margin: 16px 0 8px 0;
+  border-radius: 4px;
+  border-left: 4px solid #409eff;
 }
 
 .reply-item {

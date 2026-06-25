@@ -38,7 +38,10 @@
       />
     </div>
 
-    <el-table :data="filteredCommunications" border stripe v-loading="loading" empty-text="暂无发送记录" v-if="activeFilter !== 'recalled'" @row-click="viewDetail" :row-class-name="getRowClassName">
+    <template v-if="activeFilter !== 'recalled'">
+      <template v-for="(msgs, label) in groupedCommunications" :key="label">
+        <div class="date-group-header">{{ label }}</div>
+        <el-table :data="msgs" border stripe v-loading="loading" @row-click="viewDetail" :row-class-name="getRowClassName">
       <el-table-column label="状态" width="140" align="center">
         <template #default="scope">
           <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:center;">
@@ -161,6 +164,9 @@
         </template>
       </el-table-column>
     </el-table>
+      </template>
+      <div v-if="Object.keys(groupedCommunications).length === 0 && !loading" style="text-align:center;color:#999;padding:60px 20px;">暂无发送记录</div>
+    </template>
 
     <!-- 已撤回消息表格 -->
     <el-table 
@@ -907,6 +913,20 @@ const applySearchFilter = (data) => {
 // 先过滤已撤回的消息，再应用搜索过滤，确保计数和显示一一对应
 const searchFilteredComms = computed(() => applySearchFilter(communications.value))
 
+// 消息按天分组
+const groupedCommunications = computed(() => {
+  const groups = {};
+  const today = new Date().toDateString();
+  const yesterday = new Date(Date.now() - 86400000).toDateString();
+  filteredCommunications.value.forEach(m => {
+    const d = new Date(m.createdAt).toDateString();
+    const label = d === today ? '今天' : d === yesterday ? '昨天' : d;
+    if (!groups[label]) groups[label] = [];
+    groups[label].push(m);
+  });
+  return groups;
+})
+
 const unrepliedCount = computed(() => searchFilteredComms.value.filter(c => !c.isRecalled && computeReplyStatus(c) === 'unreplied' && !c.isCompleted).length)
 const partialRepliedCount = computed(() => searchFilteredComms.value.filter(c => computeReplyStatus(c) === 'partial_replied' && !c.isCompleted).length)
 const allRepliedCount = computed(() => searchFilteredComms.value.filter(c => computeReplyStatus(c) === 'all_replied' && !c.isCompleted).length)
@@ -1201,6 +1221,22 @@ const subscribeMessages = () => {
   }
   messageChannel.value = supabase
     .channel('sent-messages-realtime')
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'communications' },
+      (payload) => {
+        supabase.auth.getUser().then(({ data }) => {
+          if (data?.user && payload.new.sender_id === data.user.id) {
+            loadCommunications();
+            // 桌面通知：发件人追加转发等场景
+            if ('Notification' in window && Notification.permission === 'granted') {
+              const n = new Notification('新消息提醒', { body: (payload.new.content || '').substring(0, 60) });
+              n.onclick = () => { window.focus(); location.href = '/#/home?tab=sent'; };
+            }
+          }
+        }).catch(() => {})
+      }
+    )
     .on(
       'postgres_changes',
       { event: 'UPDATE', schema: 'public', table: 'communications' },
@@ -1627,6 +1663,17 @@ const filterList = () => {
 
 .search-bar {
   margin-bottom: 16px;
+}
+
+.date-group-header {
+  font-size: 14px;
+  font-weight: 600;
+  color: #409eff;
+  background: #ecf5ff;
+  padding: 8px 16px;
+  margin: 16px 0 8px 0;
+  border-radius: 4px;
+  border-left: 4px solid #409eff;
 }
 
 .recipient-row {

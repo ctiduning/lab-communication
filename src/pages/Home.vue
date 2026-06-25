@@ -415,6 +415,9 @@ const subscribeMessages = () => {
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'communications' }, async (payload) => {
       loadPendingMsgCount();
       loadSentNewReplyCount();
+      // 更新标题未读角标
+      const unread = pendingMsgCount.value + (sentNewReplyCount.value || 0);
+      document.title = unread > 0 ? `(${unread}) 实验室沟通系统` : '实验室沟通系统';
       // 桌面通知：检查是否是新消息发给当前用户
       if (payload.new && user.value && user.value.id && payload.new.sender_id !== user.value.id) {
         try {
@@ -440,8 +443,16 @@ const subscribeMessages = () => {
         }
       }
     })
-    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'communication_recipients' }, () => loadPendingMsgCount())
-    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'communications' }, () => loadSentNewReplyCount())
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'communication_recipients' }, () => {
+      loadPendingMsgCount();
+      const unread = pendingMsgCount.value + (sentNewReplyCount.value || 0);
+      document.title = unread > 0 ? `(${unread}) 实验室沟通系统` : '实验室沟通系统';
+    })
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'communications' }, () => {
+      loadSentNewReplyCount();
+      const unread = pendingMsgCount.value + (sentNewReplyCount.value || 0);
+      document.title = unread > 0 ? `(${unread}) 实验室沟通系统` : '实验室沟通系统';
+    })
     .subscribe();
 };
 
@@ -493,6 +504,11 @@ onMounted(async () => {
 
   checkMobile();
   window.addEventListener('resize', checkMobile);
+
+  // 用户切回页面时恢复标题
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) document.title = '实验室沟通系统';
+  });
 
   try { await userAPI.updateLastActive(); } catch (e) {}
   activeTimer = setInterval(async () => {

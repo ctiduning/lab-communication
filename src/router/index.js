@@ -55,6 +55,12 @@ const routes = [
     component: () => import('../pages/LabInitiate.vue'),
     meta: { requiresAuth: true }
   },
+  {
+    path: '/sample-timeline',
+    name: 'SampleTimeline',
+    component: () => import('../pages/SampleTimeline.vue'),
+    meta: { requiresAuth: true }
+  },
   // 兜底：其他路径重定向到首页
   {
     path: '/:pathMatch(.*)*',
