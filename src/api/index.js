@@ -529,10 +529,11 @@ export const communicationAPI = {
       if (recipientError) throw recipientError
     }
 
-    // 插入抄送人记录
+    // 插入抄送人记录（过滤掉已经在收件人中的用户）
     if (cc_recipients && cc_recipients.length > 0) {
       const uniqueCC = [...new Set(cc_recipients)]
-      const ccRecords = uniqueCC.map(ccUserId => ({
+      const filteredCC = uniqueCC.filter(id => !(recipients || []).includes(id))
+      const ccRecords = filteredCC.map(ccUserId => ({
         communication_id: communication.id,
         recipient_id: ccUserId,
         is_cc: true
@@ -547,7 +548,7 @@ export const communicationAPI = {
       // 更新抄送频率已废弃，改为手动管理常用抄送人
     }
 
-    const allNotifRecipients = [...(recipients || []), ...(cc_recipients || [])]
+    const allNotifRecipients = [...new Set([...(recipients || []), ...(cc_recipients || [])])]
     if (allNotifRecipients.length > 0) {
       const notifications = allNotifRecipients.map(recipientId => ({
         user_id: recipientId,
@@ -2837,57 +2838,5 @@ export const quickReplyAPI = {
       .eq('id', id)
     if (error) throw error
     return { success: true }
-  }
-}
-
-// ==========================================
-// 草稿箱 API (服务端存储，跨设备同步)
-// ==========================================
-export const draftAPI = {
-  async getMyDrafts(draftType) {
-    const userId = await getCurrentUserId()
-    if (!userId) return { data: [] }
-    let query = supabase
-      .from('user_drafts')
-      .select('*')
-      .eq('user_id', userId)
-      .order('updated_at', { ascending: false })
-    if (draftType) {
-      query = query.eq('draft_type', draftType)
-    }
-    const { data, error } = await query
-    if (error) throw error
-    return { data: data || [] }
-  },
-
-  async save(draftType, content) {
-    const userId = await getCurrentUserId()
-    if (!userId) throw new Error('未登录')
-    const { data, error } = await supabase
-      .from('user_drafts')
-      .insert({ user_id: userId, draft_type: draftType, content })
-      .select()
-      .single()
-    if (error) throw error
-    return { data }
-  },
-
-  async update(id, content) {
-    const { data, error } = await supabase
-      .from('user_drafts')
-      .update({ content, updated_at: new Date().toISOString() })
-      .eq('id', id)
-      .select()
-      .single()
-    if (error) throw error
-    return { data }
-  },
-
-  async remove(id) {
-    const { error } = await supabase
-      .from('user_drafts')
-      .delete()
-      .eq('id', id)
-    if (error) throw error
   }
 }

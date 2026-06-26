@@ -719,6 +719,11 @@ const submitForm = async () => {
     ElMessage.error('请选择沟通类型并填写沟通内容');
     return;
   }
+  // 检查接收人和抄送人是否重复
+  if (form.recipients.some(r => form.ccRecipients.includes(r))) {
+    ElMessage.warning('同一人员不可以既是消息接收人又是被抄送人');
+    return;
+  }
   
   try {
     sending.value = true
