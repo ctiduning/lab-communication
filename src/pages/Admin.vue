@@ -222,7 +222,7 @@
             <span class="record-count">共 {{ communications.length }} 条记录</span>
             <el-input v-model="commSearchKeyword" placeholder="搜索内容、客户、发起人..." clearable style="width: 250px; margin-left: auto;" />
           </div>
-          <el-table :data="filteredCommunications" border stripe max-height="600">
+          <el-table :data="filteredCommunications" border stripe max-height="600" @row-click="openCommDetail" style="cursor:pointer;">
             <el-table-column label="时间" width="160">
               <template #default="scope">
                 {{ formatTime(scope.row.createdAt) }}
@@ -271,6 +271,49 @@
           </div>
         </div>
       </el-tab-pane>
+
+      <!-- 沟通记录查看弹窗（只读） -->
+      <el-dialog v-model="commDetailVisible" title="沟通记录详情" width="680px" top="5vh" :close-on-click-modal="true" destroy-on-close>
+        <div v-if="commDetailLoading" style="text-align:center;padding:40px;color:#909399;">加载中...</div>
+        <template v-else-if="commDetail">
+          <div style="margin-bottom:12px;">
+            <el-tag size="small">{{ getTypeLabel(commDetail.type) }}</el-tag>
+            <el-tag v-if="commDetail.is_recalled" type="warning" size="small" style="margin-left:6px;">已撤回</el-tag>
+            <el-tag v-else-if="commDetail.replyCount > 0" type="success" size="small" style="margin-left:6px;">有回复</el-tag>
+            <el-tag v-else type="warning" size="small" style="margin-left:6px;">待回复</el-tag>
+          </div>
+          <el-descriptions :column="2" border>
+            <el-descriptions-item label="发起人">{{ commDetail.senderName }}</el-descriptions-item>
+            <el-descriptions-item label="发送时间">{{ formatTime(commDetail.createdAt) }}</el-descriptions-item>
+            <el-descriptions-item v-if="commDetail.customerName" label="客户名称">{{ commDetail.customerName }}</el-descriptions-item>
+            <el-descriptions-item v-if="commDetail.sampleCode" label="样品编号">{{ commDetail.sampleCode }}</el-descriptions-item>
+          </el-descriptions>
+          <div style="margin-top:14px;">
+            <h4 style="margin:0 0 6px;font-size:14px;color:#606266;">沟通内容</h4>
+            <div style="background:#f5f7fa;padding:12px;border-radius:8px;white-space:pre-wrap;line-height:1.6;">{{ commDetail.content || '（无内容）' }}</div>
+          </div>
+          <div style="margin-top:14px;">
+            <h4 style="margin:0 0 6px;font-size:14px;color:#606266;">接收人（{{ commRecipients.length }} 人）</h4>
+            <div v-if="commRecipients.length" style="display:flex;flex-wrap:wrap;gap:6px;">
+              <el-tag v-for="r in commRecipients" :key="r.recipient_id" :type="r.is_cc ? 'info' : ''" size="small">{{ r.name }}<span v-if="r.is_cc" style="margin-left:3px;font-size:10px;">（抄送）</span></el-tag>
+            </div>
+            <span v-else style="color:#909399;font-size:13px;">无</span>
+          </div>
+          <div style="margin-top:14px;">
+            <h4 style="margin:0 0 6px;font-size:14px;color:#606266;">回复（{{ commReplies.length }} 条）</h4>
+            <div v-if="!commReplies.length" style="color:#909399;font-size:13px;">暂无回复</div>
+            <div v-else>
+              <div v-for="reply in commReplies" :key="reply.id" style="background:#f5f7fa;padding:10px 12px;border-radius:8px;margin-bottom:8px;">
+                <div style="display:flex;justify-content:space-between;font-size:12px;color:#909399;margin-bottom:4px;"><span>{{ reply.senderName }}</span><span>{{ formatTime(reply.createdAt) }}</span></div>
+                <div style="white-space:pre-wrap;line-height:1.5;">{{ reply.content }}</div>
+              </div>
+            </div>
+          </div>
+        </template>
+        <template #footer>
+          <el-button @click="commDetailVisible = false">关闭</el-button>
+        </template>
+      </el-dialog>
 
       <el-tab-pane label="通知管理" name="notifications">
         <div class="tab-content">
@@ -676,6 +719,7 @@ import { supabase } from '../utils/supabase';
 import { buildSearchKeys, matchUser } from '../utils/pinyinSearch';
 import * as XLSX from 'xlsx';
 import { getLevel2Options, getLevel3Options, getRoleOptions, isLevel3ManualInput } from '../utils/departmentConfig';
+import { Loading } from '@element-plus/icons-vue';
 
 const activeTab = ref('users');
 const users = ref([]);
@@ -692,6 +736,11 @@ const showCreateModal = ref(false);
 const saving = ref(false);
 const exportLoading = ref(false);
 const backupLoading = ref(false);
+const commDetailVisible = ref(false);
+const commDetailLoading = ref(false);
+const commDetail = ref(null);
+const commRecipients = ref([]);
+const commReplies = ref([]);
 
 // ==================== 存储管理 ====================
 const storageStatus = ref(null);
@@ -1285,6 +1334,29 @@ const loadCommunications = async (page = commPage.value) => {
   } catch (error) {
     console.error('加载沟通记录失败:', error);
   }
+};
+
+const openCommDetail = async (row) => {
+  commDetailVisible.value = true;
+  commDetailLoading.value = true;
+  commDetail.value = null;
+  commRecipients.value = [];
+  commReplies.value = [];
+  try {
+    const { data, error } = await supabase
+      .from('communications')
+      .select(`*, sender:sender_id(id, name), communication_recipients(recipient_id, is_cc, recipient:recipient_id(name)), replies(id, content, created_at, sender:sender_id(name))`)
+      .eq('id', row.id).single();
+    if (error) throw error;
+    if (!data) { ElMessage.error('记录不存在'); commDetailVisible.value = false; return; }
+    commDetail.value = { id: data.id, type: data.type, content: data.content, customerName: data.customer_name, sampleCode: data.sample_code, senderName: data.sender?.name || '-', createdAt: data.created_at, is_recalled: data.is_recalled || false, replyCount: (data.replies || []).length };
+    commRecipients.value = (data.communication_recipients || []).map(r => ({ recipient_id: r.recipient_id, name: r.recipient?.name || '-', is_cc: r.is_cc || false }));
+    commReplies.value = (data.replies || []).map(r => ({ id: r.id, content: r.content, senderName: r.sender?.name || '-', createdAt: r.created_at }));
+  } catch (error) {
+    console.error('加载沟通详情失败:', error);
+    ElMessage.error('加载详情失败');
+    commDetailVisible.value = false;
+  } finally { commDetailLoading.value = false; }
 };
 
 const loadNotifications = async (page = notifPage.value) => {
