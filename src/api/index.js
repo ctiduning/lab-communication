@@ -352,7 +352,35 @@ export const userAPI = {
       throw error;
     }
     return { data: { message: '已更新活跃时间' } }
-  }
+  },
+
+  // 管理员编辑用户资料（比上面的 update 更简单，不返回格式化数据）
+  async adminUpdate(id, data) {
+    const { error } = await supabase.from('profiles').update(data).eq('id', id)
+    if (error) throw error
+    return { data: { message: '已更新' } }
+  },
+
+  // 批量禁用
+  async batchDisable(ids) {
+    const { error } = await supabase.from('profiles').update({ is_disabled: true }).in('id', ids)
+    if (error) throw error
+    return { data: { message: `已禁用 ${ids.length} 人` } }
+  },
+
+  // 批量启用
+  async batchEnable(ids) {
+    const { error } = await supabase.from('profiles').update({ is_disabled: false }).in('id', ids)
+    if (error) throw error
+    return { data: { message: `已启用 ${ids.length} 人` } }
+  },
+
+  // 批量更新（改部门/角色）
+  async batchUpdate(ids, data) {
+    const { error } = await supabase.from('profiles').update(data).in('id', ids)
+    if (error) throw error
+    return { data: { message: `已更新 ${ids.length} 人` } }
+  },
 }
 
 // ==========================================
@@ -2366,7 +2394,7 @@ export const adminLogAPI = {
   async getAll(limit = 200) {
     const { data, error } = await supabase
       .from('admin_logs')
-      .select('id, action, admin_id, admin_name, target_type, target_id, detail, created_at')
+      .select('id, action, admin_id, admin_name, target_type, target_id, target_user_name, detail, created_at')
       .order('created_at', { ascending: false })
       .limit(limit);
     if (error) throw error;

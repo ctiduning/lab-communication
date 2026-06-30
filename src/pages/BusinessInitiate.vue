@@ -116,11 +116,11 @@
       
       <!-- 直接显示消息接收人选择（去掉部门筛选） -->
       <el-form-item label="消息接收人" prop="recipients">
-        <el-select
+        <el-select-v2
           v-model="form.recipients"
+          :options="filteredSelectOptions"
           multiple
           filterable
-          reserve-keyword
           :filter-method="filterRecipient"
           placeholder="输入姓名/拼音/部门/角色搜索..."
           style="width: 100%; min-width: 600px;"
@@ -128,21 +128,15 @@
           :popper-append-to-body="false"
           :max-collapse-tags="0"
           class="recipient-select"
+          :height="320"
         >
-          <el-option-group v-for="group in filteredGroups" :key="group.label" :label="group.label">
-            <el-option
-              v-for="u in group.users"
-              :key="u.id"
-              :label="u.name"
-              :value="u.id"
-            >
-              <div style="display:flex;align-items:center;gap:8px;">
-                <span style="font-weight:500;">{{ u.name }}</span>
-                <span style="color:#999;font-size:12px;">{{ u.department || '-' }} · {{ u._roleName || '-' }}</span>
-              </div>
-            </el-option>
-          </el-option-group>
-        </el-select>
+          <template #default="{ item }">
+            <div v-if="!item.isGroupHeader" style="display:flex;align-items:center;gap:8px;">
+              <span style="font-weight:500;">{{ item.rawName }}</span>
+              <span style="color:#999;font-size:12px;">{{ item.rawDept || '-' }} · {{ item.rawRole || '-' }}</span>
+            </div>
+          </template>
+        </el-select-v2>
         <div style="color: #999; font-size: 12px; margin-top: 4px;">
           已选择 {{ form.recipients.length }} 人（支持拼音首字母/全拼/部门/角色搜索）
         </div>
@@ -163,6 +157,7 @@
           v-model="form.departmentCards"
           multiple
           filterable
+          :filter-method="filterDeptCard"
           placeholder="搜索或选择检测部门（可多选）"
           style="width: 100%;"
           popper-class="dept-card-popper"
@@ -170,7 +165,7 @@
           clearable
         >
           <el-option
-            v-for="card in departmentCards"
+            v-for="card in filteredDepartmentCards"
             :key="card.departmentLevel3"
             :label="(card.departmentLevel2 || '') + ' · ' + (card.departmentLevel3 || '')"
             :value="card.departmentLevel3"
@@ -192,6 +187,9 @@
             </div>
           </el-option>
         </el-select>
+        <div v-if="deptCardSearchKeyword && filteredDepartmentCards.length === 0 && departmentCards.length > 0" style="color:#909399;font-size:12px;padding:4px 0;">
+          未找到匹配的部门
+        </div>
         <div style="font-size:12px;font-weight:500;color:#A32D2D;line-height:1.6;margin-top:4px;">
           <span style="background:#FCEBEB;padding:1px 6px;border-radius:3px;">注意</span>
           选择部门后，消息将发送给该部门的负责人（检测组长+检测组长助理），同组任意一人回复即为该组已处理。
@@ -201,11 +199,11 @@
 
       <!-- 抄送人选择 -->
       <el-form-item label="抄送人">
-        <el-select
+        <el-select-v2
           v-model="form.ccRecipients"
+          :options="filteredCCOptions"
           multiple
           filterable
-          reserve-keyword
           :filter-method="filterCCRecipient"
           placeholder="输入姓名/拼音/部门/角色搜索..."
           style="width: 100%; min-width: 600px;"
@@ -213,21 +211,15 @@
           :popper-append-to-body="false"
           :max-collapse-tags="0"
           class="recipient-select"
+          :height="320"
         >
-          <el-option-group v-for="group in filteredCCGroups" :key="group.label" :label="group.label">
-            <el-option
-              v-for="u in group.users"
-              :key="u.id"
-              :label="u.name"
-              :value="u.id"
-            >
-              <div style="display:flex;align-items:center;gap:8px;">
-                <span style="font-weight:500;">{{ u.name }}</span>
-                <span style="color:#999;font-size:12px;">{{ u.department || '-' }} · {{ u._roleName || '-' }}</span>
-              </div>
-            </el-option>
-          </el-option-group>
-        </el-select>
+          <template #default="{ item }">
+            <div v-if="!item.isGroupHeader" style="display:flex;align-items:center;gap:8px;">
+              <span style="font-weight:500;">{{ item.rawName }}</span>
+              <span style="color:#999;font-size:12px;">{{ item.rawDept || '-' }} · {{ item.rawRole || '-' }}</span>
+            </div>
+          </template>
+        </el-select-v2>
         <div style="color: #999; font-size: 12px; margin-top: 4px;">
           已选择 {{ form.ccRecipients.length }} 人
         </div>
@@ -479,9 +471,10 @@ import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { communicationAPI, storageAPI, departmentCardAPI, templateAPI, ROLE_OPTIONS, getRoleDisplayName } from '../api';
 import { supabase } from '../utils/supabase';
-import { buildSearchKeys, filterGroups } from '../utils/pinyinSearch';
+import { buildSearchKeys, matchUser } from '../utils/pinyinSearch';
 import { getLevel2Options, getLevel3Options, getRoleOptions, isDepartmentCardRole } from '../utils/departmentConfig';
 import { useAutoSave } from '../utils/autoSave';
+import { pinyin } from 'pinyin-pro';
 
 const router = useRouter();
 
@@ -739,6 +732,8 @@ const exitRecalledEdit = () => {
 
 // 部门名片数据
 const departmentCards = ref([]);
+const deptCardSearchKeyword = ref('')
+const filteredDepartmentCards = ref([])
 // 当前部门名片映射：{ cardKey: [holderIds] }（用于同步移除）
 let currentCardMap = {};
 
@@ -872,13 +867,58 @@ const ccPresetUserIds = ref([]);
 const ccDialogVisible = ref(false);
 const ccSearchResults = ref([]);
 
-const filteredGroups = computed(() => {
-  return filterGroups(searchQuery.value, recipientGroups.value);
-});
+// 展平 recipientGroups 为 el-select-v2 可用的选项数组（含 Group 表头 + 搜索过滤）
+function buildSelectV2Options(groups, query) {
+  const roleNameMap = {}
+  ROLE_OPTIONS.filter(r => r.value !== 'admin').forEach(r => { roleNameMap[r.value] = r.label })
 
-const filteredCCGroups = computed(() => {
-  return filterGroups(ccSearchQuery.value, recipientGroups.value);
-});
+  if (!query?.trim()) {
+    const result = []
+    for (const group of groups) {
+      result.push({ value: `__group_${group.label}`, label: group.label, type: 'Group', disabled: true, isGroupHeader: true })
+      for (const user of group.users) {
+        result.push({
+          value: user.id, label: user.name, rawName: user.name,
+          rawDept: (user.departmentLevel3 || user.departmentLevel2 || user.departmentLevel1) || '-', rawRole: user._roleName || '-',
+          _searchKeys: user._searchKeys
+        })
+      }
+    }
+    return result
+  }
+
+  const kw = query.trim()
+  const matchedUserIds = new Set()
+  const matchedGroupLabels = new Set()
+  for (const group of groups) {
+    for (const user of group.users) {
+      const keys = buildSearchKeys(user, roleNameMap)
+      if (matchUser(kw, keys._searchKeys)) {
+        matchedUserIds.add(user.id)
+        matchedGroupLabels.add(group.label)
+      }
+    }
+  }
+  const result = []
+  for (const group of groups) {
+    if (matchedGroupLabels.has(group.label)) {
+      result.push({ value: `__group_${group.label}`, label: group.label, type: 'Group', disabled: true, isGroupHeader: true })
+      for (const user of group.users) {
+        if (matchedUserIds.has(user.id)) {
+          result.push({
+            value: user.id, label: user.name, rawName: user.name,
+            rawDept: (user.departmentLevel3 || user.departmentLevel2 || user.departmentLevel1) || '-', rawRole: user._roleName || '-',
+            _searchKeys: user._searchKeys
+          })
+        }
+      }
+    }
+  }
+  return result
+}
+
+const filteredSelectOptions = computed(() => buildSelectV2Options(recipientGroups.value, searchQuery.value))
+const filteredCCOptions = computed(() => buildSelectV2Options(recipientGroups.value, ccSearchQuery.value))
 
 const filterRecipient = (query) => {
   searchQuery.value = query;
@@ -1169,6 +1209,32 @@ const pickFilesWithAPI = async () => {
   }
 };
 
+// 部门名片自定义模糊搜索
+function filterDeptCard(keyword) {
+  deptCardSearchKeyword.value = keyword
+  if (!keyword?.trim()) {
+    filteredDepartmentCards.value = [...departmentCards.value]
+    return
+  }
+  const trimmed = keyword.trim()
+  const keywords = trimmed.split(/[\s,，]+/)
+  filteredDepartmentCards.value = departmentCards.value.filter(card => {
+    const cardName = (card.departmentLevel2 || '') + '·' + (card.departmentLevel3 || '')
+    return keywords.every(kw => {
+      const lowerKw = kw.toLowerCase()
+      // 中文直接匹配（含部分匹配 + 不区分大小写）
+      if (cardName.toLowerCase().includes(lowerKw)) return true
+      // 拼音全拼匹配
+      const fullPinyin = pinyin(cardName, { pattern: 'pinyin', toneType: 'none' }).toLowerCase().replace(/\s/g, '')
+      if (fullPinyin.includes(lowerKw)) return true
+      // 拼音首字母匹配
+      const firstLetter = pinyin(cardName, { pattern: 'first', toneType: 'none' }).toLowerCase().replace(/\s/g, '')
+      if (firstLetter.includes(lowerKw)) return true
+      return false
+    })
+  })
+}
+
 onMounted(() => {
   // 恢复自动保存草稿
   restoreAutoSave();
@@ -1200,6 +1266,7 @@ onMounted(() => {
     loadAllUsers(),
     departmentCardAPI.getDepartmentCards().then(({ data }) => {
       departmentCards.value = data || [];
+      filteredDepartmentCards.value = data || [];
     }).catch(err => {
       console.error('加载部门名片失败:', err);
     })

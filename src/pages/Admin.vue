@@ -85,6 +85,18 @@
                 </el-button>
               </div>
               <div class="header-right">
+                <el-select v-model="filterDept1" placeholder="一级部门" clearable style="width:120px">
+                  <el-option v-for="d in dept1Options" :key="d" :label="d" :value="d" />
+                </el-select>
+                <el-select v-model="filterRole" placeholder="角色" clearable style="width:120px">
+                  <el-option label="全部角色" value="" />
+                  <el-option v-for="r in allRoleOptions" :key="r.value" :label="r.label" :value="r.value" />
+                </el-select>
+                <el-select v-model="filterStatus" placeholder="状态" clearable style="width:100px">
+                  <el-option label="全部" value="" />
+                  <el-option label="正常" value="active" />
+                  <el-option label="禁用" value="disabled" />
+                </el-select>
                 <el-input 
                   v-model="searchKeyword" 
                   placeholder="搜索姓名、工号、部门..." 
@@ -98,6 +110,12 @@
                 <el-button type="primary" @click="handleSearch" size="large">搜索</el-button>
               </div>
             </div>
+            </div>
+            <!-- 批量操作 -->
+            <div v-if="selectedUsers.length > 0" style="margin-bottom:12px;padding:0 4px;">
+              <span style="margin-right:8px;color:#606266;">已选 {{ selectedUsers.length }} 人</span>
+              <el-button size="small" type="warning" @click="batchDisable">批量禁用</el-button>
+              <el-button size="small" type="success" @click="batchEnable">批量启用</el-button>
             </div>
             <!-- 存储状态显示 -->
             <div v-if="storageStatus" class="storage-status-card beautiful-card" style="margin-top: 16px; padding: 16px;">
@@ -150,7 +168,8 @@
                 style="margin-top: 12px;"
               />
             </div>
-            <el-table :data="filteredUsers" border stripe height="550" style="width: 100%; margin-top: 16px;">
+            <el-table :data="pagedUsers" border stripe height="550" style="width: 100%; margin-top: 16px;" @selection-change="selectedUsers = $event">
+            <el-table-column type="selection" width="50" />
             <el-table-column label="姓名" width="90" sortable>
               <template #default="scope">
                 {{ scope.row.name || scope.row.username }}
@@ -179,9 +198,15 @@
                 <el-tag v-else type="success" size="small">正常</el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="160" fixed="right" align="center">
+            <el-table-column label="操作" width="200" fixed="right" align="center">
               <template #default="scope">
                 <div class="op-btns">
+                  <el-button
+                    size="small"
+                    type="primary"
+                    class="op-btn"
+                    @click="openEditModal(scope.row)"
+                  >编辑</el-button>
                   <el-button
                     v-if="!scope.row.isDisabled && scope.row.role !== 'admin'"
                     size="small"
@@ -214,6 +239,14 @@
               </template>
             </el-table-column>
           </el-table>
+          <div class="pagination-wrapper" style="margin-top:16px;display:flex;justify-content:center;">
+            <el-pagination
+              v-model:current-page="userPage"
+              :page-size="userPageSize"
+              :total="filteredUsers.length"
+              layout="prev, pager, next, total"
+            />
+          </div>
       </el-tab-pane>
 
       <el-tab-pane label="沟通记录" name="communications">
@@ -360,6 +393,31 @@
 
       <el-tab-pane label="数据看板" name="dashboard">
         <Dashboard />
+      </el-tab-pane>
+
+      <el-tab-pane label="操作日志" name="logs">
+        <div class="tab-content">
+          <div class="tab-header">
+            <span class="record-count">共 {{ adminLogs.length }} 条操作记录</span>
+          </div>
+          <el-table :data="adminLogs" border stripe max-height="600">
+            <el-table-column label="时间" width="160">
+              <template #default="scope">{{ formatTime(scope.row.created_at) }}</template>
+            </el-table-column>
+            <el-table-column label="操作人" width="120">
+              <template #default="scope">{{ scope.row.admin_name || '-' }}</template>
+            </el-table-column>
+            <el-table-column label="操作类型" width="120">
+              <template #default="scope">{{ scope.row.action }}</template>
+            </el-table-column>
+            <el-table-column label="目标用户" width="120">
+              <template #default="scope">{{ scope.row.target_user_name || '-' }}</template>
+            </el-table-column>
+            <el-table-column label="详情" min-width="200" show-overflow-tooltip>
+              <template #default="scope">{{ scope.row.detail || '-' }}</template>
+            </el-table-column>
+          </el-table>
+        </div>
       </el-tab-pane>
 
       <el-tab-pane label="存储管理" name="stats">
@@ -673,6 +731,40 @@
       </template>
     </el-dialog>
 
+    <!-- 编辑用户弹窗 -->
+    <el-dialog title="编辑用户" v-model="showEditModal" width="500px">
+      <el-form :model="editForm" label-width="100px">
+        <el-form-item label="姓名"><el-input v-model="editForm.name"></el-input></el-form-item>
+        <el-form-item label="工号"><el-input v-model="editForm.employeeId"></el-input></el-form-item>
+        <el-form-item label="一级部门">
+          <el-select v-model="editForm.departmentLevel1" style="width:100%" @change="onEditLevel1Change">
+            <el-option label="业务" value="业务" /><el-option label="实验室" value="实验室" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="二级部门">
+          <el-select v-model="editForm.departmentLevel2" style="width:100%" :disabled="!editForm.departmentLevel1">
+            <el-option v-for="opt in editLevel2Options" :key="opt.value" :label="opt.label" :value="opt.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="三级部门">
+          <el-input v-if="editLevel3Manual" v-model="editForm.departmentLevel3" placeholder="如：青岛、上海"></el-input>
+          <el-select v-else v-model="editForm.departmentLevel3" style="width:100%" :disabled="!editForm.departmentLevel1">
+            <el-option v-for="opt in editLevel3Options" :key="opt.value" :label="opt.label" :value="opt.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="角色">
+          <el-select v-model="editForm.role" style="width:100%" :disabled="!editForm.departmentLevel1">
+            <el-option v-for="opt in editRoleOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="电话"><el-input v-model="editForm.phone"></el-input></el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showEditModal = false">取消</el-button>
+        <el-button type="primary" @click="handleEditUser" :loading="saving">保存</el-button>
+      </template>
+    </el-dialog>
+
     <!-- 点赞/点踩详情弹窗（管理员） -->
     <el-dialog v-model="reactionDetailVisible" :title="reactionDetailTitle" width="600px" destroy-on-close>
       <el-table :data="reactionDetailList" border stripe size="small">
@@ -711,7 +803,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted, watch } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { userAPI, authAPI, communicationAPI, notificationAPI, reactionAPI, ROLE_OPTIONS, getRoleDisplayName, getRoleCategory, adminLogAPI, departmentAPI } from '../api';
 import Dashboard from './Dashboard.vue';
@@ -741,6 +833,23 @@ const commDetailLoading = ref(false);
 const commDetail = ref(null);
 const commRecipients = ref([]);
 const commReplies = ref([]);
+
+// ==================== 翻页 & 筛选 ====================
+const userPage = ref(1);
+const userPageSize = ref(50);
+const filterDept1 = ref('');
+const filterRole = ref('');
+const filterStatus = ref('');
+
+// ==================== 编辑用户弹窗 ====================
+const showEditModal = ref(false);
+const editForm = reactive({ id: '', name: '', employeeId: '', departmentLevel1: '', departmentLevel2: '', departmentLevel3: '', role: '', phone: '' });
+
+// ==================== 批量操作 ====================
+const selectedUsers = ref([]);
+
+// ==================== 操作日志 ====================
+const adminLogs = ref([]);
 
 // ==================== 存储管理 ====================
 const storageStatus = ref(null);
@@ -774,11 +883,27 @@ const adminLevel3Options = computed(() => getLevel3Options(userForm.departmentLe
 const adminRoleOptions = computed(() => getRoleOptions(userForm.departmentLevel1));
 const isAdminLevel3Manual = computed(() => isLevel3ManualInput(userForm.departmentLevel1));
 
+// ==================== 编辑用户弹窗 联动计算属性 ====================
+const editLevel2Options = computed(() => getLevel2Options(editForm.departmentLevel1));
+const editLevel3Options = computed(() => getLevel3Options(editForm.departmentLevel1));
+const editRoleOptions = computed(() => getRoleOptions(editForm.departmentLevel1));
+const editLevel3Manual = computed(() => isLevel3ManualInput(editForm.departmentLevel1));
+
+const onEditLevel1Change = () => {
+  editForm.departmentLevel2 = '';
+  editForm.departmentLevel3 = '';
+  editForm.role = '';
+};
+
 const onAdminLevel1Change = () => {
   userForm.departmentLevel2 = '';
   userForm.departmentLevel3 = '';
   userForm.role = '';
 };
+
+watch([searchKeyword, filterDept1, filterRole, filterStatus], () => {
+  userPage.value = 1
+})
 
 const fuzzyMatch = (text, query) => {
   if (!query) return true;
@@ -795,15 +920,33 @@ const fuzzyMatch = (text, query) => {
 const commSearchKeyword = ref('');
 
 const filteredUsers = computed(() => {
-  if (!searchKeyword.value) return users.value;
-  const kw = searchKeyword.value;
-  return users.value.filter(u => {
-    const keys = buildSearchKeys(u, ROLE_OPTIONS)
-    return matchUser(kw, keys._searchKeys)
-  });
-});
+  let result = users.value
+  if (searchKeyword.value) {
+    const kw = searchKeyword.value
+    result = result.filter(u => {
+      const keys = buildSearchKeys(u, ROLE_OPTIONS)
+      return matchUser(kw, keys._searchKeys)
+    })
+  }
+  if (filterDept1.value) result = result.filter(u => u.department_level1 === filterDept1.value)
+  if (filterRole.value) result = result.filter(u => u.role === filterRole.value)
+  if (filterStatus.value === 'disabled') result = result.filter(u => u.isDisabled)
+  if (filterStatus.value === 'active') result = result.filter(u => !u.isDisabled)
+  return result
+})
 
 const totalUsers = computed(() => users.value.length);
+
+const dept1Options = computed(() => {
+  const depts = new Set(users.value.map(u => u.department_level1).filter(Boolean))
+  return [...depts]
+})
+
+const pagedUsers = computed(() => {
+  const from = (userPage.value - 1) * userPageSize.value
+  const to = from + userPageSize.value
+  return filteredUsers.value.slice(from, to)
+})
 
 // 按一级部门划分（最准确），无一级部门时降级为按角色判断
 const isBizUser = (u) => u.department_level1 === '业务' || (!u.department_level1 && ['business', 'business_assistant'].includes(u.role));
@@ -951,6 +1094,35 @@ const handleCreateUser = async () => {
   }
 };
 
+// ==================== 编辑用户 ====================
+const openEditModal = (user) => {
+  editForm.id = user.id
+  editForm.name = user.name || ''
+  editForm.employeeId = user.employeeId || ''
+  editForm.departmentLevel1 = user.department_level1 || ''
+  editForm.departmentLevel2 = user.department_level2 || ''
+  editForm.departmentLevel3 = user.department_level3 || ''
+  editForm.role = user.role || ''
+  editForm.phone = user.phone || ''
+  showEditModal.value = true
+}
+
+const handleEditUser = async () => {
+  if (!editForm.name || !editForm.employeeId) { ElMessage.error('姓名和工号必填'); return }
+  saving.value = true
+  try {
+    await userAPI.adminUpdate(editForm.id, {
+      name: editForm.name, employee_id: editForm.employeeId,
+      department_level1: editForm.departmentLevel1, department_level2: editForm.departmentLevel2,
+      department_level3: editForm.departmentLevel3, role: editForm.role, phone: editForm.phone
+    })
+    ElMessage.success('已更新')
+    showEditModal.value = false
+    loadUsers()
+  } catch (error) { ElMessage.error('更新失败：' + (error.message || '未知错误')) }
+  finally { saving.value = false }
+}
+
 const handleDisable = async (user) => {
   try {
     await ElMessageBox.confirm(
@@ -977,6 +1149,22 @@ const handleEnable = async (user) => {
     ElMessage.error('操作失败：' + (error.message || '未知错误'));
   }
 };
+
+// ==================== 批量操作 ====================
+const batchDisable = async () => {
+  try {
+    await userAPI.batchDisable(selectedUsers.value.map(u => u.id))
+    ElMessage.success(`已禁用 ${selectedUsers.value.length} 人`)
+    selectedUsers.value = []; loadUsers()
+  } catch (error) { ElMessage.error('批量禁用失败') }
+}
+const batchEnable = async () => {
+  try {
+    await userAPI.batchEnable(selectedUsers.value.map(u => u.id))
+    ElMessage.success(`已启用 ${selectedUsers.value.length} 人`)
+    selectedUsers.value = []; loadUsers()
+  } catch (error) { ElMessage.error('批量启用失败') }
+}
 
 // 删除用户账号（清除注册信息，保留沟通记录）
 const handleDeleteAccount = async (user) => {
@@ -1291,6 +1479,15 @@ const loadUsers = async () => {
     console.error(error);
   }
 };
+
+// ==================== 加载操作日志 ====================
+const loadAdminLogs = async () => {
+  try {
+    const { data, error } = await supabase.from('admin_logs').select('*').order('created_at', { ascending: false }).limit(200)
+    if (error) throw error
+    adminLogs.value = data || []
+  } catch (error) { console.error('加载操作日志失败:', error) }
+}
 
 const loadCommunications = async (page = commPage.value) => {
   try {
@@ -1761,6 +1958,7 @@ onMounted(() => {
   loadCommunications();
   loadNotifications();
   loadStorageStatus();
+  loadAdminLogs();
 });
 
 // ==================== 一键备份功能 ====================
@@ -1779,29 +1977,41 @@ const handleBackup = async () => {
       allUsers = data || [];
     }
 
-    // 2. 获取所有沟通记录（带详情）
-    const { data: allCommunications, error: commError } = await supabase
-      .from('communications')
-      .select(`
-        *,
-        sender:sender_id(name, employee_id, role),
-        communication_recipients(
-          recipient:recipient_id(name, employee_id, role),
-          is_read,
-          has_replied,
-          is_completed,
-          is_flagged
-        ),
-        replies(
-          id,
-          content,
-          created_at,
-          sender:sender_id(name, employee_id)
-        )
-      `)
-      .order('created_at', { ascending: false });
-
-    if (commError) throw commError;
+    // 2. 获取所有沟通记录（带详情）- 分页拉取防止超时
+    let allCommunications = []
+    let commPageBatch = 1
+    const pageSize = 500
+    let hasMore = true
+    while (hasMore) {
+      const from = (commPageBatch - 1) * pageSize
+      const to = commPageBatch * pageSize - 1
+      const { data, error } = await supabase
+        .from('communications')
+        .select(`
+          *,
+          sender:sender_id(name, employee_id, role),
+          communication_recipients(
+            recipient:recipient_id(name, employee_id, role),
+            is_read,
+            has_replied,
+            is_completed,
+            is_flagged
+          ),
+          replies(
+            id,
+            content,
+            created_at,
+            sender:sender_id(name, employee_id)
+          )
+        `)
+        .order('created_at', { ascending: false })
+        .range(from, to)
+      if (error) throw error
+      if (!data || data.length === 0) { hasMore = false; break }
+      allCommunications = [...allCommunications, ...data]
+      commPageBatch++
+      if (data.length < pageSize) hasMore = false
+    }
 
     // 3. 获取所有通知
     const { data: allNotifications, error: notifError } = await supabase
@@ -1921,12 +2131,6 @@ const viewReplyReactions = async (replyId) => {
     ElMessage.error('加载点赞详情失败');
   }
 };
-
-onMounted(() => {
-  loadUsers();
-  loadCommunications();
-  loadNotifications();
-});
 </script>
 
 <style scoped>

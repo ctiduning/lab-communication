@@ -87,6 +87,18 @@ router.beforeEach(async (to, from, next) => {
   const { data: { session } } = await supabase.auth.getSession()
   const isAuthenticated = !!session
 
+  // ===== 检查账号是否被禁用 =====
+  if (isAuthenticated) {
+    const { data: profile } = await supabase
+      .from('profiles').select('is_disabled').eq('id', session.user.id).single()
+    if (profile?.is_disabled) {
+      await supabase.auth.signOut()
+      localStorage.clear()
+      next('/login')
+      return
+    }
+  }
+
   if (to.meta.requiresAuth && !isAuthenticated) {
     localStorage.removeItem('token')
     localStorage.removeItem('user')
