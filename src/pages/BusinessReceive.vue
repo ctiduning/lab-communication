@@ -1922,6 +1922,40 @@ const subscribeMessages = () => {
     )
     .on(
       'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'communication_recipients' },
+      async (payload) => {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (!authUser || payload.new.recipient_id !== authUser.id) return;
+        // 有新的收件人记录指向当前用户 → 获取完整消息并展示
+        const response = await communicationAPI.getById(payload.new.communication_id);
+        if (response.data) {
+          const recipients = response.data.recipientDetails || [];
+          const myRec = recipients.find(r => r.recipient_id === authUser.id);
+          const formatted = {
+            ...response.data,
+            myRead: myRec?.is_read || false,
+            hasReplied: myRec?.has_replied || false,
+            myCompleted: myRec?.is_completed || false,
+            isCompleted: response.data.isCompleted || false,
+            hasFlagged: myRec?.is_flagged || false,
+            replyCount: response.data.replies?.length || 0,
+            allRecipientsCompleted: recipients.every(r => r.is_completed)
+          };
+          messages.value.unshift(formatted);
+          ElMessage.info('收到新消息');
+          // 桌面通知
+          if ('Notification' in window && Notification.permission === 'granted') {
+            const senderName = getSenderName(response.data.senderId) || '系统';
+            const n = new Notification('新消息', { body: `来自 ${senderName}` });
+            n.onclick = () => { window.focus(); location.href = '/#/home?tab=receive'; };
+          } else if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission();
+          }
+        }
+      }
+    )
+    .on(
+      'postgres_changes',
       { event: 'UPDATE', schema: 'public', table: 'communication_recipients' },
       (payload) => handleRecipientUpdate(payload.new)
     )

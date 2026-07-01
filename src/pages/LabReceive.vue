@@ -1681,6 +1681,27 @@ const subscribeMessages = () => {
     )
     .on(
       'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'communication_recipients' },
+      async (payload) => {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (!authUser || payload.new.recipient_id !== authUser.id) return;
+        loadMessages();
+        if ('Notification' in window && Notification.permission === 'granted') {
+          const { data: comm } = await supabase
+            .from('communications')
+            .select('sender_id')
+            .eq('id', payload.new.communication_id)
+            .single();
+          const senderName = comm ? getSenderName(comm.sender_id) || '系统' : '系统';
+          const n = new Notification('新消息', { body: `来自 ${senderName}` });
+          n.onclick = () => { window.focus(); location.href = '/#/home?tab=lab-receive'; };
+        } else if ('Notification' in window && Notification.permission === 'default') {
+          Notification.requestPermission();
+        }
+      }
+    )
+    .on(
+      'postgres_changes',
       { event: 'UPDATE', schema: 'public', table: 'communication_recipients' },
       () => {
         // 收件人状态变化时重新加载
