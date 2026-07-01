@@ -1176,7 +1176,7 @@ onMounted(() => {
 
 .select-btn {
   width: 22px;
-  height: 20px;
+  height: 22px;
   border-radius: 50%;
   border: 2px solid #ccc;
   display: flex;
@@ -1204,6 +1204,7 @@ onMounted(() => {
   color: #999;
   font-size: 14px;
   line-height: 1;
+  margin-top: -1px;
 }
 
 .check-icon {
