@@ -6,3 +6,19 @@ dist
 .env
 .env.local
 .env.*.local
+
+# 临时文件和项目文档
+*.patch
+*.txt
+*.docx
+*.pptx
+spec_optimization.md
+trae-review.md
+计划-Trae审核.md
+CHANGELOG-V4-完整记录.md
+CHANGELOG-2026-*.md
+api_additions.js
+router_modified.js
+migrations
+deliverables
+project-docs

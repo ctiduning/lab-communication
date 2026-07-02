@@ -327,7 +327,7 @@
                         <el-button size="small" type="primary" @click="submitInlineReply(reply)" :loading="inlineReplyLoading">发送</el-button>
                         <el-button size="small" @click="cancelInlineReply">取消</el-button>
                         <div style="width:100%;display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">
-                          <el-tag v-for="(qr, qi) in quickReplies" :key="qi" size="small" style="cursor:pointer;margin:2px;" @click="inlineReplyContent = qr">{{ qr }}</el-tag>
+                          <el-tag v-for="qr in quickReplies" :key="qr.id" size="small" style="cursor:pointer;margin:2px;" @click="inlineReplyContent = qr.content">{{ qr.content }}</el-tag>
                         </div>
                       </div>
                     </div>
@@ -376,7 +376,7 @@
                         <el-button size="small" type="primary" @click="submitInlineReply(reply)" :loading="inlineReplyLoading">发送</el-button>
                         <el-button size="small" @click="cancelInlineReply">取消</el-button>
                         <div style="width:100%;display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">
-                          <el-tag v-for="(qr, qi) in quickReplies" :key="qi" size="small" style="cursor:pointer;margin:2px;" @click="inlineReplyContent = qr">{{ qr }}</el-tag>
+                          <el-tag v-for="qr in quickReplies" :key="qr.id" size="small" style="cursor:pointer;margin:2px;" @click="inlineReplyContent = qr.content">{{ qr.content }}</el-tag>
                         </div>
                       </div>
                     </div>
@@ -687,8 +687,8 @@
         </div>
         <el-divider />
         <div v-if="quickReplies.length === 0" style="text-align:center;color:#999;padding:20px;font-size:13px;">暂无快捷回复，上方添加</div>
-        <div v-for="(qr, idx) in quickReplies" :key="idx" style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid #f0f0f0;font-size:13px;">
-          <span style="flex:1;">{{ qr }}</span>
+        <div v-for="(qr, idx) in quickReplies" :key="qr.id" style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid #f0f0f0;font-size:13px;">
+          <span style="flex:1;">{{ qr.content }}</span>
           <el-button size="small" link type="primary" @click="editQuickReply(idx)">编辑</el-button>
           <el-button size="small" link type="danger" @click="deleteQuickReply(idx)">删除</el-button>
         </div>
@@ -749,7 +749,7 @@ const forwardSearchQuery = ref('')
 const forwardRecipientGroups = ref([])
 
 // 快捷回复（从API加载）
-const quickReplies = ref(['收到，已安排', '样品已收到，正在检测', '报告已出具，请查收', '预计 X 个工作日出报告', '数据确认中，稍后回复'])
+const quickReplies = ref([])
 const showQuickReplyManager = ref(false)
 const editingQuickReply = ref('')
 const editingQuickReplyIndex = ref(-1)
@@ -758,7 +758,7 @@ async function loadQuickReplies() {
   try {
     const { data } = await quickReplyAPI.getMyQuickReplies()
     if (data && data.length > 0) {
-      quickReplies.value = data.map(q => q.content)
+      quickReplies.value = data.map(q => ({ id: q.id, content: q.content }))
     }
   } catch {}
 }
@@ -769,28 +769,45 @@ function openAddQuickReply() {
   showQuickReplyManager.value = true
 }
 
-function saveQuickReply() {
+async function saveQuickReply() {
   if (!editingQuickReply.value.trim()) return
   const content = editingQuickReply.value.trim()
-  if (editingQuickReplyIndex.value >= 0) {
-    quickReplies.value[editingQuickReplyIndex.value] = content
-  } else {
-    quickReplies.value.push(content)
+  try {
+    if (editingQuickReplyIndex.value >= 0) {
+      // 编辑：调 API 更新
+      const item = quickReplies.value[editingQuickReplyIndex.value]
+      await quickReplyAPI.update(item.id, content)
+      quickReplies.value[editingQuickReplyIndex.value] = { id: item.id, content }
+      ElMessage.success('已更新')
+    } else {
+      // 新增：调 API 创建
+      const { data } = await quickReplyAPI.create(content)
+      quickReplies.value.push({ id: data.id, content })
+      ElMessage.success('已添加')
+    }
+    editingQuickReply.value = ''
+    editingQuickReplyIndex.value = -1
+    showQuickReplyManager.value = false
+  } catch (e) {
+    ElMessage.error('操作失败：' + (e.message || '未知错误'))
   }
-  editingQuickReply.value = ''
-  editingQuickReplyIndex.value = -1
-  showQuickReplyManager.value = false
-  quickReplyAPI.create(content).catch(() => {})
 }
 
 function editQuickReply(index) {
-  editingQuickReply.value = quickReplies.value[index]
+  editingQuickReply.value = quickReplies.value[index].content
   editingQuickReplyIndex.value = index
   showQuickReplyManager.value = true
 }
 
-function deleteQuickReply(index) {
-  quickReplies.value.splice(index, 1)
+async function deleteQuickReply(index) {
+  const item = quickReplies.value[index]
+  try {
+    await quickReplyAPI.remove(item.id)
+    quickReplies.value.splice(index, 1)
+    ElMessage.success('已删除')
+  } catch (e) {
+    ElMessage.error('删除失败：' + (e.message || '未知错误'))
+  }
 }
 
 const typeMap = {

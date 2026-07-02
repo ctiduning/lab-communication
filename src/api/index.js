@@ -1278,7 +1278,7 @@ export const communicationAPI = {
         .from('communications')
         .select(`
           id, content, created_at, sender_id,
-          sender:profiles!communications_sender_id_fkey(name),
+          sender:sender_id(name),
           communication_recipients(recipient_id)
         `)
         .eq('id', communicationId)
