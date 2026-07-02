@@ -651,10 +651,18 @@
             <div class="fwd-title" style="font-size:16px;font-weight:700;margin-bottom:12px;">以下为 {{ forwardedOriginalMsg.senderName }} 发送的原消息</div>
             <el-descriptions :column="2" border size="small" class="fwd-descriptions">
               <el-descriptions-item label="沟通类型">{{ getTypeName(forwardedOriginalMsg.type) }}</el-descriptions-item>
+              <el-descriptions-item label="是否V1V2客户">{{ forwardedOriginalMsg.vip === 'yes' ? '是' : '否' }}</el-descriptions-item>
               <el-descriptions-item label="客户名称">{{ forwardedOriginalMsg.customerName || '-' }}</el-descriptions-item>
               <el-descriptions-item label="样品短号">{{ forwardedOriginalMsg.sampleCode || '-' }}</el-descriptions-item>
+              <el-descriptions-item label="样品基质">{{ forwardedOriginalMsg.sampleMatrix || '-' }}</el-descriptions-item>
+              <el-descriptions-item label="样品数量">{{ forwardedOriginalMsg.sampleCount || '-' }}</el-descriptions-item>
+              <el-descriptions-item label="测试项目">{{ forwardedOriginalMsg.testItems || '-' }}</el-descriptions-item>
+              <el-descriptions-item label="到样日期">{{ forwardedOriginalMsg.sampleDate || '-' }}</el-descriptions-item>
+              <el-descriptions-item label="测试费用">{{ forwardedOriginalMsg.chargeStatus || '-' }}</el-descriptions-item>
+              <el-descriptions-item label="加急费用">{{ forwardedOriginalMsg.urgentFee || '-' }}</el-descriptions-item>
               <el-descriptions-item label="发送时间">{{ formatTime(forwardedOriginalMsg.createdAt) }}</el-descriptions-item>
-              <el-descriptions-item v-if="forwardedOriginalMsg.content" label="内容" :span="2">{{ forwardedOriginalMsg.content }}</el-descriptions-item>
+              <el-descriptions-item v-if="forwardedOriginalMsg.remark" label="备注" :span="2">{{ forwardedOriginalMsg.remark }}</el-descriptions-item>
+              <el-descriptions-item label="沟通内容" :span="2">{{ forwardedOriginalMsg.content || '-' }}</el-descriptions-item>
             </el-descriptions>
             <div style="font-size: 12px; color: #909399; margin-top: 8px;">
               原接收人：{{ (forwardedOriginalMsg.recipientDetails || []).map(r => r.name || '').join('、') || '-' }}
@@ -668,10 +676,18 @@
           <div class="fwd-title" style="font-size:16px;font-weight:700;margin-bottom:12px;">以下为 {{ forwardedOriginalMsg.senderName }} 发送的原消息</div>
           <el-descriptions :column="2" border size="small" class="fwd-descriptions">
             <el-descriptions-item label="沟通类型">{{ getTypeName(forwardedOriginalMsg.type) }}</el-descriptions-item>
+            <el-descriptions-item label="是否V1V2客户">{{ forwardedOriginalMsg.vip === 'yes' ? '是' : '否' }}</el-descriptions-item>
             <el-descriptions-item label="客户名称">{{ forwardedOriginalMsg.customerName || '-' }}</el-descriptions-item>
             <el-descriptions-item label="样品短号">{{ forwardedOriginalMsg.sampleCode || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="样品基质">{{ forwardedOriginalMsg.sampleMatrix || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="样品数量">{{ forwardedOriginalMsg.sampleCount || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="测试项目">{{ forwardedOriginalMsg.testItems || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="到样日期">{{ forwardedOriginalMsg.sampleDate || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="测试费用">{{ forwardedOriginalMsg.chargeStatus || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="加急费用">{{ forwardedOriginalMsg.urgentFee || '-' }}</el-descriptions-item>
             <el-descriptions-item label="发送时间">{{ formatTime(forwardedOriginalMsg.createdAt) }}</el-descriptions-item>
-            <el-descriptions-item v-if="forwardedOriginalMsg.content" label="内容" :span="2">{{ forwardedOriginalMsg.content }}</el-descriptions-item>
+            <el-descriptions-item v-if="forwardedOriginalMsg.remark" label="备注" :span="2">{{ forwardedOriginalMsg.remark }}</el-descriptions-item>
+            <el-descriptions-item label="沟通内容" :span="2">{{ forwardedOriginalMsg.content || '-' }}</el-descriptions-item>
           </el-descriptions>
           <div style="font-size: 12px; color: #909399; margin-top: 8px;">
             原接收人：{{ (forwardedOriginalMsg.recipientDetails || []).map(r => r.name || '').join('、') || '-' }}

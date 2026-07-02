@@ -548,11 +548,16 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   height: 60px;
+  position: relative;
 }
 
 .logo {
-  font-size: 18px;
+  font-size: 22px;
   margin: 0;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
 }
 
 .logo-mobile {
