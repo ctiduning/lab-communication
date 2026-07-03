@@ -703,7 +703,9 @@
           <el-descriptions-item label="加急费用">{{ selectedMessage.urgentFee || '-' }}</el-descriptions-item>
           <el-descriptions-item label="发送时间">{{ formatTime(selectedMessage.createdAt) }}</el-descriptions-item>
           <el-descriptions-item label="备注" :span="2">{{ selectedMessage.remark || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="沟通内容" :span="2">{{ selectedMessage.content || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="沟通内容" :span="2">
+            <div style="white-space: pre-wrap; word-break: break-word; line-height: 1.6;">{{ selectedMessage.content || '-' }}</div>
+          </el-descriptions-item>
         </el-descriptions>
 
         <!-- 撤回信息（仅撤回消息显示） -->
