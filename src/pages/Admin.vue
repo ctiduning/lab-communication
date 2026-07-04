@@ -310,16 +310,25 @@
         <div v-if="commDetailLoading" style="text-align:center;padding:40px;color:#909399;">加载中...</div>
         <template v-else-if="commDetail">
           <div style="margin-bottom:12px;">
-            <el-tag size="small">{{ getTypeLabel(commDetail.type) }}</el-tag>
-            <el-tag v-if="commDetail.is_recalled" type="warning" size="small" style="margin-left:6px;">已撤回</el-tag>
-            <el-tag v-else-if="commDetail.replyCount > 0" type="success" size="small" style="margin-left:6px;">有回复</el-tag>
-            <el-tag v-else type="warning" size="small" style="margin-left:6px;">待回复</el-tag>
+            <el-tag v-if="commDetail.is_recalled" type="warning" size="small">已撤回</el-tag>
+            <el-tag v-else-if="commDetail.replyCount > 0" type="success" size="small">有回复</el-tag>
+            <el-tag v-else type="warning" size="small">待回复</el-tag>
           </div>
           <el-descriptions :column="2" border>
             <el-descriptions-item label="发起人">{{ commDetail.senderName }}</el-descriptions-item>
             <el-descriptions-item label="发送时间">{{ formatTime(commDetail.createdAt) }}</el-descriptions-item>
-            <el-descriptions-item v-if="commDetail.customerName" label="客户名称">{{ commDetail.customerName }}</el-descriptions-item>
-            <el-descriptions-item v-if="commDetail.sampleCode" label="样品编号">{{ commDetail.sampleCode }}</el-descriptions-item>
+            <el-descriptions-item label="沟通类型">{{ getTypeLabel(commDetail.type) }}</el-descriptions-item>
+            <el-descriptions-item label="是否V1V2客户">{{ commDetail.vip === 'yes' ? '是' : '否' }}</el-descriptions-item>
+            <el-descriptions-item label="客户名称">{{ commDetail.customerName || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="样品短号">{{ commDetail.sampleCode || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="样品基质">{{ commDetail.sampleMatrix || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="样品数量">{{ commDetail.sampleCount || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="测试项目">{{ commDetail.testItems || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="到样日期">{{ commDetail.sampleDate || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="想要的测试周期">{{ commDetail.requestedCycle || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="测试费用">{{ commDetail.chargeStatus || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="加急费用">{{ commDetail.urgentFee || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="备注" :span="2">{{ commDetail.remark || '-' }}</el-descriptions-item>
           </el-descriptions>
           <div style="margin-top:14px;">
             <h4 style="margin:0 0 6px;font-size:14px;color:#606266;">沟通内容</h4>
@@ -1546,7 +1555,17 @@ const openCommDetail = async (row) => {
       .eq('id', row.id).single();
     if (error) throw error;
     if (!data) { ElMessage.error('记录不存在'); commDetailVisible.value = false; return; }
-    commDetail.value = { id: data.id, type: data.type, content: data.content, customerName: data.customer_name, sampleCode: data.sample_code, senderName: data.sender?.name || '-', createdAt: data.created_at, is_recalled: data.is_recalled || false, replyCount: (data.replies || []).length };
+    commDetail.value = {
+      id: data.id, type: data.type, content: data.content,
+      customerName: data.customer_name, sampleCode: data.sample_code,
+      vip: data.vip, sampleMatrix: data.sample_matrix,
+      sampleCount: data.sample_count, testItems: data.test_items,
+      sampleDate: data.sample_date, requestedCycle: data.requested_cycle,
+      chargeStatus: data.charge_status, urgentFee: data.urgent_fee,
+      remark: data.remark,
+      senderName: data.sender?.name || '-', createdAt: data.created_at,
+      is_recalled: data.is_recalled || false, replyCount: (data.replies || []).length
+    };
     commRecipients.value = (data.communication_recipients || []).map(r => ({ recipient_id: r.recipient_id, name: r.recipient?.name || '-', is_cc: r.is_cc || false }));
     commReplies.value = (data.replies || []).map(r => ({ id: r.id, content: r.content, senderName: r.sender?.name || '-', createdAt: r.created_at }));
   } catch (error) {
