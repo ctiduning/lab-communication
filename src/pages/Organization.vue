@@ -567,6 +567,50 @@ const usersWithKeys = computed(() => activeUsers.value.map(u => buildSearchKeys(
 const isBizUser = (u) => u.department_level1 === '业务'
 const isLabUser = (u) => u.department_level1 === '实验室'
 
+// 自定义角色排序索引（数字越小越靠前）
+const ROLE_SORT_ORDER = {
+  business: 0, '业务': 0,
+  business_assistant: 1, '业务助理': 1,
+  supervisor: 2, '实验室主管': 2,
+  supervisor_assistant: 3, '实验室主管助理': 3,
+  cs_leader: 4, '客服组长': 4,
+  cs_leader_assistant: 5, '客服组长助理': 5,
+  customer_service: 6, '客服': 6,
+  sample_prep_leader: 7, '制样组组长': 7,
+  inspection_leader: 8, '检测组长': 8,
+  inspection_leader_assistant: 9, '检测组长助理': 9,
+  inspection_engineer: 10, '检测工程师': 10,
+  report_leader: 11, '报告组组长': 11,
+  report_leader_assistant: 12, '报告组长助理': 12,
+  data_review: 13, '数据二审': 13,
+  report_compiler: 14, '报告编制': 14,
+  tech_support: 15, '技术支持': 15,
+  admin: 16, '管理员': 16
+};
+
+// 组内人员排序：先按角色顺序，再按名字拼音
+const sortPeople = (arr) => {
+  return arr.sort((a, b) => {
+    const ra = ROLE_SORT_ORDER[a.role] ?? 99;
+    const rb = ROLE_SORT_ORDER[b.role] ?? 99;
+    if (ra !== rb) return ra - rb;
+    return (a.name || '').localeCompare(b.name || '', 'zh-CN');
+  });
+};
+
+// L3 三级部门自定义排序（综合组→客服组→制样组→拼音排序→报告组）
+const L3_CUSTOM_ORDER = { '综合组': 0, '客服组': 1, '制样组': 2, '报告组': 999 };
+const sortL3Keys = (keys) => {
+  return keys.sort((a, b) => {
+    const oa = L3_CUSTOM_ORDER[a];
+    const ob = L3_CUSTOM_ORDER[b];
+    if (oa !== undefined && ob !== undefined) return oa - ob;
+    if (oa !== undefined) return -1;
+    if (ob !== undefined) return 1;
+    return a.localeCompare(b, 'zh-CN');
+  });
+};
+
 // 业务端（按属地分组 - 使用三级部门字段）
 const businessRegionGroups = computed(() => {
   const bizUsers = usersWithKeys.value.filter(u => isBizUser(u))
@@ -576,12 +620,15 @@ const businessRegionGroups = computed(() => {
     if (!groups[region]) groups[region] = []
     groups[region].push(u)
   })
-  for (const region in groups) {
+  // 属地拼音排序 + 组内人员排序
+  const sorted = {}
+  Object.keys(groups).sort((a, b) => a.localeCompare(b, 'zh-CN')).forEach(region => {
+    sorted[region] = sortPeople(groups[region])
     if (expandedSections['biz_' + region] === undefined) {
       expandedSections['biz_' + region] = true
     }
-  }
-  return groups
+  })
+  return sorted
 })
 
 const businessUsers = computed(() => usersWithKeys.value.filter(u => isBizUser(u)))
@@ -597,20 +644,19 @@ const labLevel2Groups = computed(() => {
     if (!groups[l2][l3]) groups[l2][l3] = []
     groups[l2][l3].push(u)
   })
-  // 每个三级组内按角色排序：检测组长→检测组长助理→检测工程师
-  for (const l2 of Object.keys(groups)) {
-    for (const l3 of Object.keys(groups[l2])) {
-      groups[l2][l3].sort((a, b) => {
-        const roleOrder = { inspection_leader: 0, inspection_leader_assistant: 1, inspection_engineer: 2 }
-        return (roleOrder[a.role] ?? 99) - (roleOrder[b.role] ?? 99)
-      })
+  // L2 拼音排序; 每个 L2 内 L3 自定义排序; 组内人员角色+拼音排序
+  const sorted = {}
+  Object.keys(groups).sort((a, b) => a.localeCompare(b, 'zh-CN')).forEach(l2 => {
+    sorted[l2] = {}
+    sortL3Keys(Object.keys(groups[l2])).forEach(l3 => {
+      sorted[l2][l3] = sortPeople(groups[l2][l3])
       const key = 'lab_' + l2 + '_' + l3
       if (expandedSections[key] === undefined) {
         expandedSections[key] = true
       }
-    }
-  }
-  return groups
+    })
+  })
+  return sorted
 })
 
 const supervisors = computed(() => usersWithKeys.value.filter(u => u.role === 'supervisor'))
