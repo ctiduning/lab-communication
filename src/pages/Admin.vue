@@ -698,19 +698,23 @@
         </el-form-item>
         <!-- 二级部门 -->
         <el-form-item label="二级部门">
-          <el-select v-model="userForm.departmentLevel2" placeholder="请先选择一级部门" style="width:100%" :disabled="!userForm.departmentLevel1">
-            <el-option
-              v-for="opt in adminLevel2Options"
-              :key="opt.value"
-              :label="opt.label"
-              :value="opt.value"
-            />
-          </el-select>
+          <div style="display:flex;gap:4px;width:100%;">
+            <el-input v-if="adminLevel2Manual" v-model="userForm.departmentLevel2" placeholder="手动输入二级部门"></el-input>
+            <el-select v-else v-model="userForm.departmentLevel2" placeholder="请先选择一级部门" style="flex:1" :disabled="!userForm.departmentLevel1" filterable>
+              <el-option
+                v-for="opt in adminLevel2Options"
+                :key="opt.value"
+                :label="opt.label"
+                :value="opt.value"
+              />
+            </el-select>
+            <el-button size="small" @click="adminLevel2Manual = !adminLevel2Manual" :disabled="!userForm.departmentLevel1" :type="adminLevel2Manual ? 'warning' : 'default'">{{ adminLevel2Manual ? '选择' : '手动' }}</el-button>
+          </div>
         </el-form-item>
         <!-- 三级部门 -->
         <el-form-item label="三级部门">
           <el-input v-if="isAdminLevel3Manual" v-model="userForm.departmentLevel3" placeholder="请填写属地，如：青岛、上海"></el-input>
-          <el-select v-else v-model="userForm.departmentLevel3" placeholder="请先选择一级部门" style="width:100%" :disabled="!userForm.departmentLevel1">
+          <el-select v-else v-model="userForm.departmentLevel3" placeholder="请先选择一级部门" style="width:100%" :disabled="!userForm.departmentLevel1" filterable>
             <el-option
               v-for="opt in adminLevel3Options"
               :key="opt.value"
@@ -721,14 +725,18 @@
         </el-form-item>
         <!-- 角色 -->
         <el-form-item label="角色">
-          <el-select v-model="userForm.role" placeholder="请先选择一级部门" style="width: 100%;" :disabled="!userForm.departmentLevel1">
-            <el-option
-              v-for="opt in adminRoleOptions"
-              :key="opt.value"
-              :label="opt.label"
-              :value="opt.value"
-            ></el-option>
-          </el-select>
+          <div style="display:flex;gap:4px;width:100%;">
+            <el-input v-if="adminRoleManual" v-model="userForm.role" placeholder="手动输入角色名称"></el-input>
+            <el-select v-else v-model="userForm.role" placeholder="请先选择一级部门" style="flex:1" :disabled="!userForm.departmentLevel1" filterable>
+              <el-option
+                v-for="opt in adminRoleOptions"
+                :key="opt.value"
+                :label="opt.label"
+                :value="opt.value"
+              ></el-option>
+            </el-select>
+            <el-button size="small" @click="adminRoleManual = !adminRoleManual" :disabled="!userForm.departmentLevel1" :type="adminRoleManual ? 'warning' : 'default'">{{ adminRoleManual ? '选择' : '手动' }}</el-button>
+          </div>
         </el-form-item>
         <el-form-item label="电话">
           <el-input v-model="userForm.phone"></el-input>
@@ -751,20 +759,28 @@
           </el-select>
         </el-form-item>
         <el-form-item label="二级部门">
-          <el-select v-model="editForm.departmentLevel2" style="width:100%" :disabled="!editForm.departmentLevel1">
-            <el-option v-for="opt in editLevel2Options" :key="opt.value" :label="opt.label" :value="opt.value" />
-          </el-select>
+          <div style="display:flex;gap:4px;width:100%;">
+            <el-input v-if="editLevel2Manual" v-model="editForm.departmentLevel2" placeholder="手动输入二级部门"></el-input>
+            <el-select v-else v-model="editForm.departmentLevel2" style="flex:1" :disabled="!editForm.departmentLevel1" filterable>
+              <el-option v-for="opt in editLevel2Options" :key="opt.value" :label="opt.label" :value="opt.value" />
+            </el-select>
+            <el-button size="small" @click="editLevel2Manual = !editLevel2Manual" :disabled="!editForm.departmentLevel1" :type="editLevel2Manual ? 'warning' : 'default'">{{ editLevel2Manual ? '选择' : '手动' }}</el-button>
+          </div>
         </el-form-item>
         <el-form-item label="三级部门">
           <el-input v-if="editLevel3Manual" v-model="editForm.departmentLevel3" placeholder="如：青岛、上海"></el-input>
-          <el-select v-else v-model="editForm.departmentLevel3" style="width:100%" :disabled="!editForm.departmentLevel1">
+          <el-select v-else v-model="editForm.departmentLevel3" style="width:100%" :disabled="!editForm.departmentLevel1" filterable>
             <el-option v-for="opt in editLevel3Options" :key="opt.value" :label="opt.label" :value="opt.value" />
           </el-select>
         </el-form-item>
         <el-form-item label="角色">
-          <el-select v-model="editForm.role" style="width:100%" :disabled="!editForm.departmentLevel1">
-            <el-option v-for="opt in editRoleOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
-          </el-select>
+          <div style="display:flex;gap:4px;width:100%;">
+            <el-input v-if="editRoleManual" v-model="editForm.role" placeholder="手动输入角色名称"></el-input>
+            <el-select v-else v-model="editForm.role" style="flex:1" :disabled="!editForm.departmentLevel1" filterable>
+              <el-option v-for="opt in editRoleOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+            </el-select>
+            <el-button size="small" @click="editRoleManual = !editRoleManual" :disabled="!editForm.departmentLevel1" :type="editRoleManual ? 'warning' : 'default'">{{ editRoleManual ? '选择' : '手动' }}</el-button>
+          </div>
         </el-form-item>
         <el-form-item label="电话"><el-input v-model="editForm.phone"></el-input></el-form-item>
       </el-form>
@@ -892,22 +908,33 @@ const adminLevel3Options = computed(() => getLevel3Options(userForm.departmentLe
 const adminRoleOptions = computed(() => getRoleOptions(userForm.departmentLevel1));
 const isAdminLevel3Manual = computed(() => isLevel3ManualInput(userForm.departmentLevel1));
 
+// 手动输入切换
+const adminLevel2Manual = ref(false);
+const adminRoleManual = ref(false);
+
 // ==================== 编辑用户弹窗 联动计算属性 ====================
 const editLevel2Options = computed(() => getLevel2Options(editForm.departmentLevel1));
 const editLevel3Options = computed(() => getLevel3Options(editForm.departmentLevel1));
 const editRoleOptions = computed(() => getRoleOptions(editForm.departmentLevel1));
 const editLevel3Manual = computed(() => isLevel3ManualInput(editForm.departmentLevel1));
 
+const editLevel2Manual = ref(false);
+const editRoleManual = ref(false);
+
 const onEditLevel1Change = () => {
   editForm.departmentLevel2 = '';
   editForm.departmentLevel3 = '';
   editForm.role = '';
+  editLevel2Manual.value = false;
+  editRoleManual.value = false;
 };
 
 const onAdminLevel1Change = () => {
   userForm.departmentLevel2 = '';
   userForm.departmentLevel3 = '';
   userForm.role = '';
+  adminLevel2Manual.value = false;
+  adminRoleManual.value = false;
 };
 
 watch([searchKeyword, filterDept1, filterRole, filterStatus], () => {
