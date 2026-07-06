@@ -267,7 +267,7 @@ import { ref, computed, onMounted, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { supabase } from '../utils/supabase'
-import { departmentCardAPI } from '../api'
+import { departmentCardAPI, ROLE_OPTIONS } from '../api'
 import { buildSearchKeys, matchUser } from '../utils/pinyinSearch'
 
 const router = useRouter()
@@ -677,10 +677,25 @@ const loadUsers = async () => {
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
-      .order('name')
 
     if (error) throw error
-    users.value = data || []
+
+    // 构建角色排序索引（按 ROLE_OPTIONS 顺序）
+    const roleOrder = {};
+    ROLE_OPTIONS.forEach((opt, index) => {
+      roleOrder[opt.value] = index;
+      roleOrder[opt.label] = index; // 兼容中文角色名
+    });
+
+    // 排序：先按角色顺序，再按名字拼音
+    const sorted = (data || []).sort((a, b) => {
+      const roleA = roleOrder[a.role] ?? 999;
+      const roleB = roleOrder[b.role] ?? 999;
+      if (roleA !== roleB) return roleA - roleB;
+      return (a.name || '').localeCompare(b.name || '', 'zh-CN');
+    });
+
+    users.value = sorted;
   } catch (error) {
     console.error('加载用户失败:', error)
     ElMessage.error('加载通讯录失败')
