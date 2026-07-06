@@ -336,8 +336,32 @@
           </div>
           <div style="margin-top:14px;">
             <h4 style="margin:0 0 6px;font-size:14px;color:#606266;">接收人（{{ commRecipients.length }} 人）</h4>
-            <div v-if="commRecipients.length" style="display:flex;flex-wrap:wrap;gap:6px;">
-              <el-tag v-for="r in commRecipients" :key="r.recipient_id" :type="r.is_cc ? 'info' : ''" size="small">{{ r.name }}<span v-if="r.is_cc" style="margin-left:3px;font-size:10px;">（抄送）</span></el-tag>
+            <div v-if="commRecipients.length">
+              <div v-for="(group, dept) in commRecipientGroups" :key="dept" style="margin-bottom:10px;border:1px solid #ebeef5;border-radius:8px;overflow:hidden;">
+                <div style="padding:6px 10px;background:#f5f7fa;font-size:13px;font-weight:500;color:#606266;">{{ dept }}</div>
+                <el-table :data="group" border size="small" style="width:100%;">
+                  <el-table-column prop="name" label="姓名" width="90"></el-table-column>
+                  <el-table-column label="角色" width="100">
+                    <template #default="scope">
+                      <el-tag size="small" :type="scope.row.is_cc ? 'info' : ''">{{ getRoleDisplayName(scope.row.role) }}{{ scope.row.is_cc ? ' (抄送)' : '' }}</el-tag>
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="回复状态" min-width="120">
+                    <template #default="scope">
+                      <el-tag v-if="scope.row.has_replied" type="success" size="small">已回复（{{ scope.row.replied_by }}）</el-tag>
+                      <el-tag v-else-if="scope.row.is_cc" type="info" size="small">抄送</el-tag>
+                      <el-tag v-else type="danger" size="small">待回复</el-tag>
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="完成状态" width="80">
+                    <template #default="scope">
+                      <el-tag v-if="scope.row.is_completed" type="success" size="small">已完结</el-tag>
+                      <el-tag v-else-if="!scope.row.is_cc" type="warning" size="small">进行中</el-tag>
+                      <el-tag v-else type="info" size="small">-</el-tag>
+                    </template>
+                  </el-table-column>
+                </el-table>
+              </div>
             </div>
             <span v-else style="color:#909399;font-size:13px;">无</span>
           </div>
@@ -864,6 +888,25 @@ const commDetailLoading = ref(false);
 const commDetail = ref(null);
 const commRecipients = ref([]);
 const commReplies = ref([]);
+
+// 接收人按部门分组计算属性
+const commRecipientGroups = computed(() => {
+  const groups = {};
+  commRecipients.value.forEach(r => {
+    const dept = r.department || '-';
+    if (!groups[dept]) groups[dept] = [];
+    groups[dept].push(r);
+  });
+  // 部门按拼音排序，组内已回复排前
+  const sorted = {};
+  Object.keys(groups).sort((a, b) => a.localeCompare(b, 'zh-CN')).forEach(dept => {
+    sorted[dept] = groups[dept].sort((a, b) => {
+      if (a.has_replied !== b.has_replied) return a.has_replied ? -1 : 1;
+      return (a.name || '').localeCompare(b.name || '', 'zh-CN');
+    });
+  });
+  return sorted;
+});
 
 // ==================== 翻页 & 筛选 ====================
 const userPage = ref(1);
@@ -1584,7 +1627,7 @@ const openCommDetail = async (row) => {
   try {
     const { data, error } = await supabase
       .from('communications')
-      .select(`*, sender:sender_id(id, name), communication_recipients(recipient_id, is_cc, recipient:recipient_id(name)), replies(id, content, created_at, sender:sender_id(name))`)
+      .select(`*, sender:sender_id(id, name), communication_recipients(recipient_id, is_cc, has_replied, replied_by, is_completed, recipient:recipient_id(name, role, department_level3)), replies(id, content, created_at, sender:sender_id(name))`)
       .eq('id', row.id).single();
     if (error) throw error;
     if (!data) { ElMessage.error('记录不存在'); commDetailVisible.value = false; return; }
@@ -1599,7 +1642,16 @@ const openCommDetail = async (row) => {
       senderName: data.sender?.name || '-', createdAt: data.created_at,
       is_recalled: data.is_recalled || false, replyCount: (data.replies || []).length
     };
-    commRecipients.value = (data.communication_recipients || []).map(r => ({ recipient_id: r.recipient_id, name: r.recipient?.name || '-', is_cc: r.is_cc || false }));
+    commRecipients.value = (data.communication_recipients || []).map(r => ({
+      recipient_id: r.recipient_id,
+      name: r.recipient?.name || '-',
+      role: r.recipient?.role || '',
+      department: r.recipient?.department_level3 || '-',
+      is_cc: r.is_cc || false,
+      has_replied: r.has_replied || false,
+      replied_by: r.replied_by || '',
+      is_completed: r.is_completed || false
+    }));
     commReplies.value = (data.replies || []).map(r => ({ id: r.id, content: r.content, senderName: r.sender?.name || '-', createdAt: r.created_at }));
   } catch (error) {
     console.error('加载沟通详情失败:', error);
