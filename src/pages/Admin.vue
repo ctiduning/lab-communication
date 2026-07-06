@@ -725,9 +725,13 @@
         </el-form-item>
         <!-- 角色 -->
         <el-form-item label="角色">
-          <div style="display:flex;gap:4px;width:100%;">
-            <el-input v-if="adminRoleManual" v-model="userForm.role" placeholder="手动输入角色名称"></el-input>
-            <el-select v-else v-model="userForm.role" placeholder="请先选择一级部门" style="flex:1" :disabled="!userForm.departmentLevel1" filterable>
+          <div style="display:flex;flex-direction:column;gap:4px;width:100%;">
+            <div style="display:flex;gap:4px;align-items:center;">
+              <el-checkbox v-model="adminRoleManual" :disabled="!userForm.departmentLevel1" size="small">手动输入</el-checkbox>
+              <span style="font-size:12px;color:#909399;" v-if="!adminRoleManual">从下方列表选择</span>
+            </div>
+            <el-input v-if="adminRoleManual" v-model="userForm.role" placeholder="直接输入角色名称"></el-input>
+            <el-select v-else v-model="userForm.role" placeholder="请先选择一级部门" style="width:100%" :disabled="!userForm.departmentLevel1" filterable>
               <el-option
                 v-for="opt in adminRoleOptions"
                 :key="opt.value"
@@ -735,7 +739,6 @@
                 :value="opt.value"
               ></el-option>
             </el-select>
-            <el-button size="small" @click="adminRoleManual = !adminRoleManual" :disabled="!userForm.departmentLevel1" :type="adminRoleManual ? 'warning' : 'default'">{{ adminRoleManual ? '选择' : '手动' }}</el-button>
           </div>
         </el-form-item>
         <el-form-item label="电话">
@@ -774,12 +777,15 @@
           </el-select>
         </el-form-item>
         <el-form-item label="角色">
-          <div style="display:flex;gap:4px;width:100%;">
-            <el-input v-if="editRoleManual" v-model="editForm.role" placeholder="手动输入角色名称"></el-input>
-            <el-select v-else v-model="editForm.role" style="flex:1" :disabled="!editForm.departmentLevel1" filterable>
+          <div style="display:flex;flex-direction:column;gap:4px;width:100%;">
+            <div style="display:flex;gap:4px;align-items:center;">
+              <el-checkbox v-model="editRoleManual" :disabled="!editForm.departmentLevel1" size="small">手动输入</el-checkbox>
+              <span style="font-size:12px;color:#909399;" v-if="!editRoleManual">从下方列表选择</span>
+            </div>
+            <el-input v-if="editRoleManual" v-model="editForm.role" placeholder="直接输入角色名称"></el-input>
+            <el-select v-else v-model="editForm.role" style="width:100%" :disabled="!editForm.departmentLevel1" filterable>
               <el-option v-for="opt in editRoleOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
             </el-select>
-            <el-button size="small" @click="editRoleManual = !editRoleManual" :disabled="!editForm.departmentLevel1" :type="editRoleManual ? 'warning' : 'default'">{{ editRoleManual ? '选择' : '手动' }}</el-button>
           </div>
         </el-form-item>
         <el-form-item label="电话"><el-input v-model="editForm.phone"></el-input></el-form-item>
