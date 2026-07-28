@@ -252,8 +252,8 @@
       <el-tab-pane label="沟通记录" name="communications">
         <div class="tab-content">
           <div class="tab-header">
-            <span class="record-count">共 {{ communications.length }} 条记录</span>
-            <el-input v-model="commSearchKeyword" placeholder="搜索内容、客户、发起人..." clearable style="width: 250px; margin-left: auto;" />
+            <span class="record-count">共 {{ commTotal }} 条记录</span>
+            <el-input v-model="commSearchKeyword" placeholder="搜索内容、客户、发起人..." clearable style="width: 250px; margin-left: auto;" @input="onCommSearch" />
           </div>
           <el-table :data="filteredCommunications" border stripe max-height="600" @row-click="openCommDetail" style="cursor:pointer;">
             <el-table-column label="时间" width="160">
@@ -1040,17 +1040,8 @@ const isLabUser = (u) => u.department_level1 === '实验室' || (!u.department_l
 const businessUserCount = computed(() => users.value.filter(u => isBizUser(u)).length);
 const labUserCount = computed(() => users.value.filter(u => isLabUser(u)).length);
 
-const filteredCommunications = computed(() => {
-  if (!commSearchKeyword.value) return communications.value;
-  const kw = commSearchKeyword.value;
-  return communications.value.filter(c =>
-    fuzzyMatch(c.content, kw) ||
-    fuzzyMatch(c.customerName, kw) ||
-    fuzzyMatch(c.senderName, kw) ||
-    fuzzyMatch(c.sampleCode, kw) ||
-    fuzzyMatch(c.recipientNames, kw)
-  );
-});
+// 服务端已按关键词过滤、按时间最新→最晚排序并分页，这里直接透传当前页数据
+const filteredCommunications = computed(() => communications.value);
 
 const getRoleTag = (user) => {
   // 按一级部门划分（最准确）
@@ -1574,19 +1565,52 @@ const loadAdminLogs = async () => {
   } catch (error) { console.error('加载操作日志失败:', error) }
 }
 
+// 搜索框输入或清空时：回到第 1 页，重新向服务端发起（含关键词过滤）查询
+const onCommSearch = () => {
+  commPage.value = 1;
+  loadCommunications(1);
+};
+
 const loadCommunications = async (page = commPage.value) => {
   try {
-    // 先查总数
-    const { count, error: countError } = await supabase
+    // 服务端关键词过滤：关键词为空时与原来行为完全一致（不过滤）
+    const kw = (commSearchKeyword.value || '').trim();
+    let orFilter = '';
+    if (kw) {
+      // 转义 LIKE 通配符，避免用户输入的 % / _ 被当作模式匹配符
+      const escaped = kw.replace(/%/g, '\\%').replace(/_/g, '\\_');
+      // 先解析发信人表（profiles）：把"发信人姓名/工号"匹配转成 sender_id 集合，
+      // 避免在 communications 主查询的 .or() 里混入外键嵌入列导致 PostgREST 跨表 400
+      const { data: senders, error: se } = await supabase
+        .from('profiles')
+        .select('id')
+        .or(`name.ilike.%${escaped}%,employee_id.ilike.%${escaped}%`);
+      const senderIds = se ? [] : (senders || []).map(s => s.id);
+
+      // 主查询 OR 只用 communications 自身列（单表 OR，绝不会 400）
+      const orParts = [
+        `content.ilike.%${escaped}%`,
+        `customer_name.ilike.%${escaped}%`,
+        `sample_code.ilike.%${escaped}%`
+      ];
+      if (senderIds.length) orParts.push(`sender_id.in.(${senderIds.join(',')})`);
+      orFilter = orParts.join(',');
+    }
+
+    // 先查总数（必须与数据查询同步加相同的过滤，否则 commTotal 错误）
+    let countQuery = supabase
       .from('communications')
       .select('*', { count: 'exact', head: true });
+    if (orFilter) countQuery = countQuery.or(orFilter);
+    const { count, error: countError } = await countQuery;
     if (countError) throw countError;
     commTotal.value = count || 0;
 
     const from = (page - 1) * commPageSize.value;
     const to = page * commPageSize.value - 1;
 
-    const { data, error } = await supabase
+    // 过滤 → 排序 → 分页（顺序很关键：先按关键词过滤再排序取页）
+    let dataQuery = supabase
       .from('communications')
       .select(`
         *,
@@ -1596,7 +1620,9 @@ const loadCommunications = async (page = commPage.value) => {
       `)
       .order('created_at', { ascending: false })
       .range(from, to);
+    if (orFilter) dataQuery = dataQuery.or(orFilter);
 
+    const { data, error } = await dataQuery;
     if (error) throw error;
     communications.value = (data || []).map(c => ({
       id: c.id,
