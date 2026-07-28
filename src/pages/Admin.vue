@@ -1500,6 +1500,21 @@ const handleExcelImport = async (file) => {
       }
       ElMessage.success(resultMsg);
       loadUsers();
+
+      // 记录批量导入注册操作日志（不阻塞主流程）
+      try {
+        const failSummary = failList.length
+          ? `；失败名单：${failList.slice(0, 10).join('；')}${failList.length > 10 ? '…' : ''}`
+          : '';
+        await adminLogAPI.log(
+          'import_users',
+          null,
+          `批量导入 ${usersToCreate.length} 人`,
+          `成功创建 ${successCount} 个，更新 ${updateCount} 个，失败 ${failList.length} 个${failSummary}`
+        );
+      } catch (logErr) {
+        console.warn('写入导入操作日志失败（不影响导入结果）:', logErr);
+      }
     } catch (err) {
       if (err !== 'cancel') ElMessage.error('导入失败：' + (err.message || err));
     }
