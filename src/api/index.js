@@ -2376,18 +2376,34 @@ export const adminLogAPI = {
   // 记录操作
   async log(action, targetUserId = null, targetUserName = '', detail = '') {
     const userId = await getCurrentUserId();
-    if (!userId) return;
-    const { error } = await supabase
-      .from('admin_logs')
-      .insert({
-        admin_id: userId,
-        admin_name: (await supabase.from('profiles').select('name').eq('id', userId).single())?.data?.name || '',
-        action,
-        target_user_id: targetUserId,
-        target_user_name: targetUserName,
-        detail
-      });
-    if (error) console.error('记录操作日志失败:', error);
+    if (!userId) {
+      console.warn('[adminLog] 未获取到当前管理员ID，跳过操作日志写入');
+      return;
+    }
+    const adminName = (await supabase.from('profiles').select('name').eq('id', userId).single())?.data?.name || '';
+    const base = {
+      admin_id: userId,
+      admin_name: adminName,
+      action,
+      detail
+    };
+    // 列缺失判定：错误码优先 + 正则兜底，覆盖新旧两种文案
+    const isColumnMissing = (e) =>
+      e?.code === 'PGRST204' || e?.code === '42703' ||
+      /does not exist|could not find the .+ column|schema cache/i.test(e?.message || '');
+    // 先尝试完整写入（适配 target_user_id / target_user_name 版表结构）
+    let { error } = await supabase.from('admin_logs').insert({
+      ...base,
+      target_user_id: targetUserId,
+      target_user_name: targetUserName
+    });
+    // 若因列不存在(表是 target_type/target_id 旧版)而 400，降级为只写核心列，target 信息并入 detail
+    if (error && isColumnMissing(error)) {
+      console.warn('[adminLog] 完整写入失败(列不匹配)，降级写入核心字段:', error.message);
+      const mergedDetail = [detail, targetUserName ? `目标用户: ${targetUserName}` : ''].filter(Boolean).join('；');
+      ({ error } = await supabase.from('admin_logs').insert({ ...base, detail: mergedDetail }));
+    }
+    if (error) console.error('[adminLog] 记录操作日志失败:', error);
   },
 
   // 查询操作日志（管理员用）
