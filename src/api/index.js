@@ -2395,10 +2395,16 @@ export function describeAdminLogError(error) {
     const target = /sequence/i.test(message) ? '序列' : '表';
     // PostgREST 通常会在 hint 里直接给出可执行的 GRANT 语句，原样透出，价值极高
     const hintText = hint ? `。Supabase 给出的修复提示：${hint}` : '';
+    // ⚠️ 会话过期也会走到这里：cachedUserId 是模块级缓存，只靠 onAuthStateChange 清除。
+    //    若会话静默失效而事件没触发（后台页久挂、refresh token 静默失败、
+    //    另一标签页清了 localStorage），请求角色会退化为 anon，
+    //    而 anon 无表级权限，报的同样是 permission denied for table。
+    //    不提示这一句的话，客户会以为"补了 GRANT 还是不行"，又绕回原地。
     return `${target}级权限缺失（不是 RLS 问题，改策略无效）：`
       + `需在 Supabase SQL Editor 执行 supabase_admin_logs.sql 补 GRANT，`
       + `核心是 GRANT SELECT, INSERT ON public.admin_logs TO authenticated`
-      + `以及 GRANT USAGE, SELECT ON SEQUENCE public.admin_logs_id_seq TO authenticated${hintText}`;
+      + `以及 GRANT USAGE, SELECT ON SEQUENCE public.admin_logs_id_seq TO authenticated${hintText}`
+      + `。若此前该功能正常，请先确认登录是否已过期，重新登录后再试`;
   }
 
   // 2) 真正的 RLS 策略拒绝：报文里明确出现 row-level security

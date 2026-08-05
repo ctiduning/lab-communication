@@ -83,7 +83,9 @@ describe('1. describeAdminLogError 错误码映射', () => {
     ['NO_AUTH_USER 未登录', { code: 'NO_AUTH_USER', message: '未获取到当前管理员ID' }, /未获取到当前登录用户/],
     ['网络异常', { code: '', message: 'TypeError: Failed to fetch' }, /网络异常/],
     ['兜底', { code: 'XXXXX', message: 'boom' }, /数据库返回错误/],
-    ['空入参不抛异常', undefined, /数据库返回错误/],
+    // 2026-08-05 QA 更新：a1a40c8 起，无 message 的错误改为更具体的「数据库返回未知错误（无 message）」，
+    // 不再复用「数据库返回错误」文案。此处同步期望值（源码行为是改进，非缺陷）。
+    ['空入参不抛异常', undefined, /数据库返回未知错误/],
   ];
 
   it.each(cases)('%s', async (_name, err, expected) => {
@@ -169,11 +171,13 @@ describe('2. adminLogAPI.log 的 5 条失败分支必须显式弹错（无静默
     expect(elMessageError).not.toHaveBeenCalled();
   });
 
-  it('弹窗配置：duration=6000 且 showClose=true', async () => {
+  // 2026-08-05 QA 更新：a1a40c8 起提示语加长（含 Supabase hint），展示时长由 6000 提升至 8000。
+  // 属有意的 UX 调整，同步期望值。
+  it('弹窗配置：duration=8000 且 showClose=true', async () => {
     state.userId = null;
     const { adminLogAPI } = await loadApi();
     await adminLogAPI.log('create_user', null, '李四', 'x');
-    expect(elMessageError.mock.calls[0][0]).toMatchObject({ duration: 6000, showClose: true });
+    expect(elMessageError.mock.calls[0][0]).toMatchObject({ duration: 8000, showClose: true });
   });
 });
 
