@@ -11,7 +11,7 @@
     </div>
     
     <div class="page-content">
-      <el-tabs v-model="activeTab" type="card" class="beautiful-tabs">
+      <el-tabs v-model="activeTab" type="card" class="beautiful-tabs" @tab-change="handleTabChange">
         <el-tab-pane label="用户管理" name="users">
           <div class="beautiful-card">
             <div class="tab-header">
@@ -432,8 +432,20 @@
         <div class="tab-content">
           <div class="tab-header">
             <span class="record-count">共 {{ adminLogs.length }} 条操作记录</span>
+            <el-button size="small" :loading="logsLoading" @click="loadAdminLogs" style="margin-left: 12px;">
+              刷新
+            </el-button>
           </div>
-          <el-table :data="adminLogs" border stripe max-height="600">
+          <!-- 读取失败时显式展示错误，避免"空表格 + 无提示"无从排查 -->
+          <el-alert
+            v-if="logsError"
+            type="error"
+            :title="logsError"
+            :closable="false"
+            show-icon
+            style="margin-bottom: 12px;"
+          />
+          <el-table :data="adminLogs" border stripe max-height="600" v-loading="logsLoading">
             <el-table-column label="时间" width="160">
               <template #default="scope">{{ formatTime(scope.row.created_at) }}</template>
             </el-table-column>
@@ -449,6 +461,11 @@
             <el-table-column label="详情" min-width="200" show-overflow-tooltip>
               <template #default="scope">{{ scope.row.detail || '-' }}</template>
             </el-table-column>
+            <template #empty>
+              <span v-if="logsError" style="color: #f56c6c;">{{ logsError }}</span>
+              <span v-else-if="logsLoading">加载中...</span>
+              <span v-else>暂无操作日志记录</span>
+            </template>
           </el-table>
         </div>
       </el-tab-pane>
@@ -860,7 +877,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted, watch } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { userAPI, authAPI, communicationAPI, notificationAPI, reactionAPI, ROLE_OPTIONS, getRoleDisplayName, getRoleCategory, adminLogAPI, departmentAPI } from '../api';
+import { userAPI, authAPI, communicationAPI, notificationAPI, reactionAPI, ROLE_OPTIONS, getRoleDisplayName, getRoleCategory, adminLogAPI, departmentAPI, describeAdminLogError } from '../api';
 import Dashboard from './Dashboard.vue';
 import { supabase } from '../utils/supabase';
 import { buildSearchKeys, matchUser } from '../utils/pinyinSearch';
@@ -924,6 +941,8 @@ const selectedUsers = ref([]);
 
 // ==================== 操作日志 ====================
 const adminLogs = ref([]);
+const logsLoading = ref(false);
+const logsError = ref('');
 
 // ==================== 存储管理 ====================
 const storageStatus = ref(null);
@@ -1573,11 +1592,29 @@ const loadUsers = async () => {
 
 // ==================== 加载操作日志 ====================
 const loadAdminLogs = async () => {
+  logsLoading.value = true
+  logsError.value = ''
   try {
     const { data, error } = await supabase.from('admin_logs').select('*').order('created_at', { ascending: false }).limit(200)
     if (error) throw error
     adminLogs.value = data || []
-  } catch (error) { console.error('加载操作日志失败:', error) }
+  } catch (error) {
+    // 显式暴露失败原因（RLS 拦截 / 表不存在 / 登录态失效等），不再静默吞错误
+    const code = error?.code ? `[${error.code}] ` : ''
+    const message = error?.message || '未知错误'
+    const text = `加载操作日志失败：${code}${message}（${describeAdminLogError(error)}）`
+    adminLogs.value = []
+    logsError.value = text
+    console.error('加载操作日志失败:', error)
+    ElMessage.error({ message: text, duration: 6000, showClose: true })
+  } finally {
+    logsLoading.value = false
+  }
+}
+
+// 切换到「操作日志」Tab 时重新拉取，修复"仅 onMounted 加载一次、首次失败后永远为空"的缺陷
+const handleTabChange = (tabName) => {
+  if (tabName === 'logs') loadAdminLogs()
 }
 
 // 搜索框输入或清空时：回到第 1 页，重新向服务端发起（含关键词过滤）查询

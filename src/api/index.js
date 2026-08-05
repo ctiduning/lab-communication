@@ -1,4 +1,5 @@
 import { supabase } from '../utils/supabase'
+import { ElMessage } from 'element-plus'
 
 // ==========================================
 // 安全布尔值转换：处理数据库可能返回字符串 "true"/"false" 的情况
@@ -2372,15 +2373,76 @@ export function getRoleTagClass(role) {
 // ==========================================
 // 管理员操作日志
 // ==========================================
+// 把 PostgREST / Postgres 错误码翻译成人话，便于管理员自查（RLS、缺表、登录态等）
+export function describeAdminLogError(error) {
+  const code = error?.code || '';
+  const message = error?.message || '';
+  if (code === '42501' || /row-level security|violates row-level/i.test(message)) {
+    return 'RLS 策略拒绝：当前账号在 profiles 表中的 role 可能不是 admin';
+  }
+  // 注意顺序：列缺失必须先判，否则 42703/PGRST204 的文案
+  // （column "x" of relation "admin_logs" does not exist）会被下面的"表不存在"正则抢先命中
+  if (code === 'PGRST204' || code === '42703' || /could not find the .+ column|schema cache|^column .+ does not exist/i.test(message)) {
+    return '表结构与写入字段不匹配（列缺失）';
+  }
+  // 表不存在：正则用 ^ 锚定，确保只匹配 relation 开头的文案，不误吞 column 开头的列缺失文案
+  if (code === '42P01' || /^relation .*does not exist/i.test(message)) {
+    return 'admin_logs 表不存在：请先在 Supabase 执行 supabase_admin_logs.sql';
+  }
+  if (code === 'PGRST301' || code === '401' || /jwt|not authenticated/i.test(message)) {
+    return '登录态无效或已过期，请重新登录';
+  }
+  if (code === 'NO_AUTH_USER') {
+    return '未获取到当前登录用户，请重新登录后重试';
+  }
+  if (/failed to fetch|network/i.test(message)) {
+    return '网络异常，未能连接 Supabase';
+  }
+  return '数据库返回错误';
+}
+
 export const adminLogAPI = {
   // 记录操作
   async log(action, targetUserId = null, targetUserName = '', detail = '') {
-    const userId = await getCurrentUserId();
-    if (!userId) {
-      console.warn('[adminLog] 未获取到当前管理员ID，跳过操作日志写入');
+    // 统一的失败提示：console 保留完整对象便于排查，UI 显式弹出错误码 + 原因，杜绝静默失败
+    const notifyFailure = (stage, error) => {
+      const code = error?.code ? `[${error.code}] ` : '';
+      const msg = error?.message || error?.hint || '未知错误';
+      const text = `操作日志写入失败（${stage}）：${code}${msg}（${describeAdminLogError(error)}）`;
+      console.error('[adminLog] 记录操作日志失败:', { action, stage, error });
+      ElMessage.error({ message: text, duration: 6000, showClose: true });
+    };
+
+    // 1) 登录态检查：拿不到管理员 ID 时同样要给出 UI 反馈，而不是静默 return
+    let userId = null;
+    try {
+      userId = await getCurrentUserId();
+    } catch (authError) {
+      notifyFailure('获取登录态', authError);
       return;
     }
-    const adminName = (await supabase.from('profiles').select('name').eq('id', userId).single())?.data?.name || '';
+    if (!userId) {
+      console.warn('[adminLog] 未获取到当前管理员ID，跳过操作日志写入');
+      notifyFailure('获取登录态', { code: 'NO_AUTH_USER', message: '未获取到当前管理员ID' });
+      return;
+    }
+
+    // 2) 查询管理员姓名：失败不阻断日志写入，仅降级为空名
+    let adminName = '';
+    try {
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('name')
+        .eq('id', userId)
+        .single();
+      if (profileError) {
+        console.warn('[adminLog] 读取管理员姓名失败（不阻断日志写入）:', profileError.message);
+      }
+      adminName = profile?.name || '';
+    } catch (profileException) {
+      console.warn('[adminLog] 读取管理员姓名异常（不阻断日志写入）:', profileException?.message || profileException);
+    }
+
     const base = {
       admin_id: userId,
       admin_name: adminName,
@@ -2391,19 +2453,30 @@ export const adminLogAPI = {
     const isColumnMissing = (e) =>
       e?.code === 'PGRST204' || e?.code === '42703' ||
       /does not exist|could not find the .+ column|schema cache/i.test(e?.message || '');
-    // 先尝试完整写入（适配 target_user_id / target_user_name 版表结构）
-    let { error } = await supabase.from('admin_logs').insert({
-      ...base,
-      target_user_id: targetUserId,
-      target_user_name: targetUserName
-    });
-    // 若因列不存在(表是 target_type/target_id 旧版)而 400，降级为只写核心列，target 信息并入 detail
-    if (error && isColumnMissing(error)) {
-      console.warn('[adminLog] 完整写入失败(列不匹配)，降级写入核心字段:', error.message);
-      const mergedDetail = [detail, targetUserName ? `目标用户: ${targetUserName}` : ''].filter(Boolean).join('；');
-      ({ error } = await supabase.from('admin_logs').insert({ ...base, detail: mergedDetail }));
+
+    try {
+      // 先尝试完整写入（适配 target_user_id / target_user_name 版表结构）
+      let { error } = await supabase.from('admin_logs').insert({
+        ...base,
+        target_user_id: targetUserId,
+        target_user_name: targetUserName
+      });
+      // 若因列不存在(表是 target_type/target_id 旧版)而 400，降级为只写核心列，target 信息并入 detail
+      if (error && isColumnMissing(error)) {
+        console.warn('[adminLog] 完整写入失败(列不匹配)，降级写入核心字段:', error.message);
+        const mergedDetail = [detail, targetUserName ? `目标用户: ${targetUserName}` : ''].filter(Boolean).join('；');
+        ({ error } = await supabase.from('admin_logs').insert({ ...base, detail: mergedDetail }));
+        if (error) {
+          notifyFailure('降级写入核心字段后仍失败', error);
+          return;
+        }
+      } else if (error) {
+        notifyFailure('写入 admin_logs', error);
+        return;
+      }
+    } catch (insertException) {
+      notifyFailure('写入请求异常', insertException);
     }
-    if (error) console.error('[adminLog] 记录操作日志失败:', error);
   },
 
   // 查询操作日志（管理员用）
