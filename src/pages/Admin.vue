@@ -445,7 +445,7 @@
             show-icon
             style="margin-bottom: 12px;"
           />
-          <el-table :data="adminLogs" border stripe max-height="600" v-loading="logsLoading">
+          <el-table :data="parsedLogs" border stripe max-height="600" v-loading="logsLoading">
             <el-table-column label="时间" width="160">
               <template #default="scope">{{ formatTime(scope.row.created_at) }}</template>
             </el-table-column>
@@ -458,8 +458,20 @@
             <el-table-column label="目标用户" width="120">
               <template #default="scope">{{ scope.row.target_user_name || '-' }}</template>
             </el-table-column>
-            <el-table-column label="详情" min-width="200" show-overflow-tooltip>
-              <template #default="scope">{{ scope.row.detail || '-' }}</template>
+            <el-table-column label="详情" min-width="200" :show-overflow-tooltip="true">
+              <template #default="scope">
+                <!-- 结构化日志：点摘要开抽屉看完整名单；历史纯文本日志保持原文 -->
+                <el-button
+                  v-if="scope.row._structured"
+                  link
+                  type="primary"
+                  class="log-detail-link"
+                  @click="openLogDetail(scope.row)"
+                >
+                  {{ buildDetailSummary(scope.row._parsed) }}
+                </el-button>
+                <span v-else>{{ scope.row.detail || '-' }}</span>
+              </template>
             </el-table-column>
             <template #empty>
               <span v-if="logsError" style="color: #f56c6c;">{{ logsError }}</span>
@@ -871,13 +883,68 @@
         暂无点赞/点踩记录
       </div>
     </el-dialog>
+
+    <!-- 操作日志详情抽屉：展示注册/导入的成功、更新、失败三组名单（无数据的组不渲染） -->
+    <el-drawer
+      v-model="detailDrawerVisible"
+      title="操作日志详情"
+      direction="rtl"
+      size="480px"
+      :close-on-click-modal="true"
+      :close-on-press-escape="true"
+      destroy-on-close
+    >
+      <div v-if="currentDetail" class="log-detail-body">
+        <p v-if="currentDetail.summary" class="log-detail-summary">{{ currentDetail.summary }}</p>
+        <p v-if="currentDetail.target" class="log-detail-target">目标用户：{{ currentDetail.target }}</p>
+
+        <div v-if="currentDetail.success.length" class="log-detail-card log-detail-card--success">
+          <div class="log-detail-card__head">
+            <span class="log-detail-card__title">成功</span>
+            <el-tag type="success" size="small" effect="light">{{ currentDetail.success.length }} 人</el-tag>
+          </div>
+          <ul class="log-detail-list">
+            <li v-for="(item, idx) in currentDetail.success" :key="'s-' + idx">{{ item }}</li>
+          </ul>
+        </div>
+
+        <div v-if="currentDetail.updated.length" class="log-detail-card log-detail-card--updated">
+          <div class="log-detail-card__head">
+            <span class="log-detail-card__title">更新</span>
+            <el-tag type="info" size="small" effect="light">{{ currentDetail.updated.length }} 人</el-tag>
+          </div>
+          <ul class="log-detail-list">
+            <li v-for="(item, idx) in currentDetail.updated" :key="'u-' + idx">{{ item }}</li>
+          </ul>
+        </div>
+
+        <div v-if="currentDetail.failed.length" class="log-detail-card log-detail-card--failed">
+          <div class="log-detail-card__head">
+            <span class="log-detail-card__title">失败</span>
+            <el-tag type="danger" size="small" effect="light">{{ currentDetail.failed.length }} 人</el-tag>
+          </div>
+          <ul class="log-detail-list">
+            <li v-for="(item, idx) in currentDetail.failed" :key="'f-' + idx">
+              <span class="log-detail-fail-name">{{ item.name }}</span>
+              <span class="log-detail-fail-sep">—</span>
+              <span class="log-detail-fail-reason">{{ item.reason }}</span>
+            </li>
+          </ul>
+        </div>
+
+        <el-empty
+          v-if="!currentDetail.success.length && !currentDetail.updated.length && !currentDetail.failed.length"
+          description="本条日志无名单明细"
+        />
+      </div>
+    </el-drawer>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, computed, onMounted, watch } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { userAPI, authAPI, communicationAPI, notificationAPI, reactionAPI, ROLE_OPTIONS, getRoleDisplayName, getRoleCategory, adminLogAPI, departmentAPI, describeAdminLogError } from '../api';
+import { userAPI, authAPI, communicationAPI, notificationAPI, reactionAPI, ROLE_OPTIONS, getRoleDisplayName, getRoleCategory, adminLogAPI, departmentAPI, describeAdminLogError, buildLogDetail, parseLogDetail } from '../api';
 import Dashboard from './Dashboard.vue';
 import { supabase } from '../utils/supabase';
 import { buildSearchKeys, matchUser } from '../utils/pinyinSearch';
@@ -943,6 +1010,38 @@ const selectedUsers = ref([]);
 const adminLogs = ref([]);
 const logsLoading = ref(false);
 const logsError = ref('');
+
+// 详情抽屉
+const detailDrawerVisible = ref(false);
+const currentDetail = ref(null);
+
+// 派生一次结构化解析结果，避免在模板里反复调用 parseLogDetail。
+// _structured=true 表示 detail 是 v1 契约 JSON，可渲染分组卡片；
+// 为 false 时（历史纯文本日志）保持原文展示，不加任何标记。
+const parsedLogs = computed(() => adminLogs.value.map((row) => {
+  const result = parseLogDetail(row.detail);
+  if (result.ok) {
+    return { ...row, _structured: true, _parsed: result.data };
+  }
+  return { ...row, _structured: false };
+}));
+
+// 打开某条日志的详情抽屉
+const openLogDetail = (row) => {
+  if (!row || !row._structured) return;
+  currentDetail.value = row._parsed;
+  detailDrawerVisible.value = true;
+};
+
+// 摘要文案：'成功 3 · 更新 1 · 失败 2'，数量为 0 的分组不显示；三者全 0 显示「无明细」
+const buildDetailSummary = (parsed) => {
+  if (!parsed) return '无明细';
+  const parts = [];
+  if (parsed.success.length) parts.push(`成功 ${parsed.success.length}`);
+  if (parsed.updated.length) parts.push(`更新 ${parsed.updated.length}`);
+  if (parsed.failed.length) parts.push(`失败 ${parsed.failed.length}`);
+  return parts.length ? parts.join(' · ') : '无明细';
+};
 
 // ==================== 存储管理 ====================
 const storageStatus = ref(null);
@@ -1177,7 +1276,14 @@ const handleCreateUser = async () => {
       mustChangePwd: true
     });
     ElMessage.success('用户创建成功，初始密码：' + userForm.password);
-    await adminLogAPI.log('create_user', null, userForm.name + '(' + userForm.employeeId + ')', '创建用户');
+    // 结构化 detail：把「成功了谁」写进成功名单，详情抽屉可直接渲染
+    const createdLabel = `${userForm.name}(${userForm.employeeId})`;
+    await adminLogAPI.log('create_user', null, createdLabel, buildLogDetail({
+      summary: '创建用户',
+      success: [createdLabel],
+      updated: [],
+      failed: []
+    }));
     showCreateModal.value = false;
     Object.keys(userForm).forEach(key => {
       if (key === 'role') userForm[key] = 'business';
@@ -1186,6 +1292,19 @@ const handleCreateUser = async () => {
     loadUsers();
   } catch (error) {
     ElMessage.error(error.message || '创建失败');
+    // 失败同样落日志：原先只弹窗不记录，导致"注册失败了谁、为什么"在后台完全查不到
+    const failedLabel = `${userForm.name}(${userForm.employeeId})`;
+    try {
+      await adminLogAPI.log('create_user', null, failedLabel, buildLogDetail({
+        summary: '创建用户失败',
+        success: [],
+        updated: [],
+        failed: [{ name: failedLabel, reason: error.message || '未知错误' }]
+      }));
+    } catch (logErr) {
+      // 写日志失败不能盖掉原始创建失败的提示
+      console.warn('写入创建用户失败日志失败（不影响主流程）:', logErr);
+    }
   }
 };
 
@@ -1439,12 +1558,17 @@ const handleExcelImport = async (file) => {
 
       let successCount = 0;
       let updateCount = 0;
+      // failList 从「字符串数组」升级为「{ name, reason } 对象数组」，
+      // 供 buildLogDetail 组装结构化失败名单；下方所有消费点都已同步改造。
       let failList = [];
+      const successList = [];
+      const updatedList = [];
       for (const u of usersToCreate) {
+        const userLabel = `${u.name}(${u.employeeId})`;
         try {
           const defaultPwd = 'Ct1@2026';
           if (!u.email) {
-            failList.push(`${u.name}(${u.employeeId}): 缺少邮箱，请在 Excel 中补充"邮箱"列`);
+            failList.push({ name: userLabel, reason: '缺少邮箱，请在 Excel 中补充"邮箱"列' });
             continue;
           }
           const email = u.email;
@@ -1465,6 +1589,7 @@ const handleExcelImport = async (file) => {
               mustChangePwd: true
             });
             successCount++;
+            successList.push(userLabel);
           } catch (registerErr) {
             // 如果用户已存在（邮箱/用户名重复），尝试更新其 profile
             if (registerErr.message && registerErr.message.includes('已被注册')) {
@@ -1490,6 +1615,7 @@ const handleExcelImport = async (file) => {
                   })
                   .eq('id', existingId);
                 updateCount++;
+                updatedList.push(userLabel);
                 // 同步 auth.users 邮箱，失败不阻塞
                 try {
                   await supabase.rpc('admin_update_user_email', {
@@ -1507,29 +1633,33 @@ const handleExcelImport = async (file) => {
             }
           }
         } catch (err) {
-          failList.push(`${u.name}(${u.employeeId}): ${err.message || '未知错误'}`);
+          failList.push({ name: userLabel, reason: err.message || '未知错误' });
         }
       }
 
       let resultMsg = `成功创建 ${successCount} 个账号`;
       if (updateCount > 0) resultMsg += `，更新 ${updateCount} 个已有账号`;
       if (failList.length > 0) {
-        resultMsg += `\n失败 ${failList.length} 个：\n${failList.slice(0, 5).join('\n')}`;
+        // failList 已是对象数组，必须显式拼 name/reason，否则弹窗输出 [object Object]
+        resultMsg += `\n失败 ${failList.length} 个：\n${failList.slice(0, 5).map(f => `${f.name}: ${f.reason}`).join('\n')}`;
         if (failList.length > 5) resultMsg += `\n... 共 ${failList.length} 个失败`;
       }
       ElMessage.success(resultMsg);
       loadUsers();
 
       // 记录批量导入注册操作日志（不阻塞主流程）
+      // detail 改为结构化 JSON：成功/更新/失败三组名单全量落库，不再截断
       try {
-        const failSummary = failList.length
-          ? `；失败名单：${failList.slice(0, 10).join('；')}${failList.length > 10 ? '…' : ''}`
-          : '';
         await adminLogAPI.log(
           'import_users',
           null,
           `批量导入 ${usersToCreate.length} 人`,
-          `成功创建 ${successCount} 个，更新 ${updateCount} 个，失败 ${failList.length} 个${failSummary}`
+          buildLogDetail({
+            summary: `批量导入 ${usersToCreate.length} 人`,
+            success: successList,
+            updated: updatedList,
+            failed: failList
+          })
         );
       } catch (logErr) {
         console.warn('写入导入操作日志失败（不影响导入结果）:', logErr);
@@ -2517,6 +2647,96 @@ const viewReplyReactions = async (replyId) => {
   color: #606266;
   font-size: 14px;
   font-weight: 500;
+}
+
+/* ==================== 操作日志详情 ==================== */
+
+.log-detail-link {
+  padding: 0;
+  height: auto;
+  font-weight: 500;
+}
+
+.log-detail-body {
+  padding: 4px 4px 24px;
+}
+
+.log-detail-summary {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.log-detail-target {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: #909399;
+}
+
+.log-detail-card {
+  border-radius: 10px;
+  border: 1px solid #e8ecf1;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  background: #fafbfc;
+}
+
+.log-detail-card--success {
+  border-color: #c2e7b0;
+  background: #f4fbf0;
+}
+
+.log-detail-card--updated {
+  border-color: #b3d8ff;
+  background: #f2f8ff;
+}
+
+.log-detail-card--failed {
+  border-color: #fbc4c4;
+  background: #fef4f4;
+}
+
+.log-detail-card__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.log-detail-card__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.log-detail-list {
+  margin: 0;
+  padding-left: 18px;
+  list-style: disc;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.log-detail-list li {
+  font-size: 13px;
+  line-height: 1.9;
+  color: #606266;
+  word-break: break-all;
+}
+
+.log-detail-fail-name {
+  color: #303133;
+  font-weight: 500;
+}
+
+.log-detail-fail-sep {
+  margin: 0 6px;
+  color: #c0c4cc;
+}
+
+.log-detail-fail-reason {
+  color: #f56c6c;
 }
 
 /* ==================== 统计页面样式 ==================== */

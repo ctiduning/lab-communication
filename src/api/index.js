@@ -2454,6 +2454,147 @@ export function describeAdminLogError(error) {
     : '数据库返回未知错误（无 message）';
 }
 
+// ==========================================
+// 操作日志 detail 结构化契约（v1）
+// ------------------------------------------
+// admin_logs.detail 是 TEXT 列，这里约定把「成功/更新/失败」三组名单
+// 以 JSON 字符串形式写进去，不改表结构、不动 GRANT/RLS。
+// 契约形状：
+//   { v: 1, summary: '批量导入 12 人',
+//     success: ['张三(1001)'], updated: ['李四(1002)'],
+//     failed: [{ name: '王五(1003)', reason: '邮箱已被注册' }] }
+// 历史旧日志是纯文本（如 '创建用户'、'成功创建 5 个…'），
+// parseLogDetail 会判定为不可结构化，展示层按原文渲染，保证向后兼容。
+// ==========================================
+
+/**
+ * 名单统一转成字符串数组：挡住非数组入参，剔除 null / undefined，其余强转字符串。
+ * 写入（buildLogDetail）与读取（parseLogDetail）共用，保证两端归一化口径一致。
+ * @param {*} list - 任意入参
+ * @returns {string[]}
+ */
+function normalizeNameList(list) {
+  return (Array.isArray(list) ? list : [])
+    .filter((item) => item !== null && item !== undefined)
+    .map((item) => String(item));
+}
+
+/**
+ * 失败名单统一转成 { name, reason } 对象数组。
+ * reason 缺失/为空时兜底 '未知错误'，避免详情里出现 undefined；
+ * 误传字符串元素时整串当 name，原因兜底。
+ * @param {*} list - 任意入参
+ * @returns {Array<{name: string, reason: string}>}
+ */
+function normalizeFailedList(list) {
+  return (Array.isArray(list) ? list : [])
+    .filter((item) => item !== null && item !== undefined)
+    .map((item) => (typeof item === 'object'
+      ? { name: String(item.name ?? ''), reason: String(item.reason || '未知错误') }
+      : { name: String(item), reason: '未知错误' }));
+}
+
+/**
+ * 组装结构化的操作日志 detail 字符串。
+ * 纯函数，无副作用；对入参做归一化，杜绝 undefined / 非数组 / 缺 reason 等脏数据落库。
+ *
+ * @param {Object}   [options]              - 组装参数
+ * @param {string}   [options.summary='']   - 一句话摘要，如 '批量导入 12 人'
+ * @param {string[]} [options.success=[]]   - 成功名单，元素形如 '张三(1001)'
+ * @param {string[]} [options.updated=[]]   - 更新名单，元素形如 '李四(1002)'
+ * @param {Array<{name: string, reason: string}>} [options.failed=[]] - 失败名单
+ * @returns {string} JSON 字符串，可直接作为 adminLogAPI.log 的 detail 参数
+ */
+export function buildLogDetail({ summary = '', success = [], updated = [], failed = [] } = {}) {
+  return JSON.stringify({
+    v: 1,
+    summary: String(summary ?? ''),
+    success: normalizeNameList(success),
+    updated: normalizeNameList(updated),
+    failed: normalizeFailedList(failed)
+  });
+}
+
+/**
+ * 解析操作日志 detail，判断其是否为结构化（v1 契约）内容。
+ * 纯函数，永不抛异常；任何无法识别的输入一律返回 { ok: false }，
+ * 由调用方回退成「原文展示」，从而兼容历史纯文本日志。
+ *
+ * 判定为不可结构化的情况：
+ *   - 空值：null / undefined / ''
+ *   - JSON.parse 抛错：如 '创建用户'、'成功创建 5 个，更新 0 个…'
+ *   - parse 结果为 null（'null'）、数组（'[]'）、数字（'123'）、布尔、字符串
+ *   - parse 出的对象里 success / updated / failed 一个都没有
+ *
+ * @param {string|null|undefined} detail - admin_logs.detail 原始值
+ * @returns {{ok: boolean, data?: {v?: number, summary: string, success: string[], updated: string[], failed: Array<{name: string, reason: string}>}}}
+ */
+export function parseLogDetail(detail) {
+  if (detail === null || detail === undefined) return { ok: false };
+  if (typeof detail !== 'string') return { ok: false };
+  const trimmed = detail.trim();
+  if (!trimmed) return { ok: false };
+
+  let parsed = null;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch {
+    // 纯文本旧日志走这里，属于预期路径，不打日志噪音
+    return { ok: false };
+  }
+
+  // 必须是「普通对象」：null / 数组 / 数字 / 字符串 / 布尔全部判为不可结构化
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return { ok: false };
+  }
+
+  // 三个名单字段一个都没有 → 不是本契约的日志，按原文展示
+  const hasContract = Object.prototype.hasOwnProperty.call(parsed, 'success')
+    || Object.prototype.hasOwnProperty.call(parsed, 'updated')
+    || Object.prototype.hasOwnProperty.call(parsed, 'failed');
+  if (!hasContract) return { ok: false };
+
+  // 缺失字段补空数组，脏元素同样走归一化，展示层可以无脑 .length / v-for
+  return {
+    ok: true,
+    data: {
+      ...parsed,
+      summary: typeof parsed.summary === 'string' ? parsed.summary : '',
+      success: normalizeNameList(parsed.success),
+      updated: normalizeNameList(parsed.updated),
+      failed: normalizeFailedList(parsed.failed)
+    }
+  };
+}
+
+/**
+ * 降级写入时把「目标用户」并入 detail。
+ * 结构化 detail（JSON 对象）挂到 target 字段上再序列化，避免字符串拼接把 JSON 撑坏；
+ * 纯文本 detail 维持历史行为，用「；目标用户: xxx」拼接。
+ *
+ * @param {string} detail          - 原始 detail（可能是 JSON 字符串，也可能是纯文本）
+ * @param {string} targetUserName  - 目标用户展示名，为空时不追加
+ * @returns {string} 合并后的 detail
+ */
+export function buildMergedDetail(detail, targetUserName = '') {
+  const name = targetUserName ? String(targetUserName) : '';
+  if (!name) return detail || '';
+
+  if (typeof detail === 'string' && detail.trim()) {
+    try {
+      const parsed = JSON.parse(detail);
+      if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        parsed.target = name;
+        return JSON.stringify(parsed);
+      }
+    } catch {
+      // 非 JSON，落到下面的纯文本拼接分支
+    }
+  }
+
+  return [detail, `目标用户: ${name}`].filter(Boolean).join('；');
+}
+
 export const adminLogAPI = {
   // 记录操作
   async log(action, targetUserId = null, targetUserName = '', detail = '') {
@@ -2526,7 +2667,11 @@ export const adminLogAPI = {
       // 若因列不存在(表是 target_type/target_id 旧版)而 400，降级为只写核心列，target 信息并入 detail
       if (error && isColumnMissing(error)) {
         console.warn('[adminLog] 完整写入失败(列不匹配)，降级写入核心字段:', error.message);
-        const mergedDetail = [detail, targetUserName ? `目标用户: ${targetUserName}` : ''].filter(Boolean).join('；');
+        // detail 可能是结构化 JSON（buildLogDetail 产物）。
+        // 若直接拼接「；目标用户: xxx」会把 JSON 撑坏，导致前端 parse 失败、
+        // 结构化名单退化成一坨原文。这里改为：能 parse 成对象就挂到 target 字段上再序列化，
+        // 否则（纯文本 detail）维持原有的字符串拼接行为。
+        const mergedDetail = buildMergedDetail(detail, targetUserName);
         ({ error } = await supabase.from('admin_logs').insert({ ...base, detail: mergedDetail }));
         if (error) {
           notifyFailure('降级写入核心字段后仍失败', error);
