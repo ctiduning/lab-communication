@@ -1599,14 +1599,16 @@ const loadAdminLogs = async () => {
     if (error) throw error
     adminLogs.value = data || []
   } catch (error) {
-    // 显式暴露失败原因（RLS 拦截 / 表不存在 / 登录态失效等），不再静默吞错误
+    // 显式暴露失败原因（表级 GRANT 缺失 / RLS 拦截 / 表不存在 / 登录态失效等），不再静默吞错误
+    // 原始 code / message / hint 必须原样带出——hint 里常常直接就是可执行的修复 SQL
     const code = error?.code ? `[${error.code}] ` : ''
     const message = error?.message || '未知错误'
-    const text = `加载操作日志失败：${code}${message}（${describeAdminLogError(error)}）`
+    const hint = error?.hint ? `｜Supabase 提示：${error.hint}` : ''
+    const text = `加载操作日志失败：${code}${message}${hint}（${describeAdminLogError(error)}）`
     adminLogs.value = []
     logsError.value = text
-    console.error('加载操作日志失败:', error)
-    ElMessage.error({ message: text, duration: 6000, showClose: true })
+    console.error('加载操作日志失败:', { code: error?.code, message: error?.message, hint: error?.hint, error })
+    ElMessage.error({ message: text, duration: 8000, showClose: true })
   } finally {
     logsLoading.value = false
   }

@@ -2373,22 +2373,65 @@ export function getRoleTagClass(role) {
 // ==========================================
 // 管理员操作日志
 // ==========================================
-// 把 PostgREST / Postgres 错误码翻译成人话，便于管理员自查（RLS、缺表、登录态等）
+// 把 PostgREST / Postgres 错误码翻译成人话，便于管理员自查（表级权限、RLS、缺表、登录态等）
+//
+// ⚠️ 维护铁律：任何时候都必须把 Supabase 返回的原始 error.message / error.code / error.hint
+//    原样带给用户，绝不能只显示自己编的推测文案。
+//    历史教训：本函数曾把所有 42501 一律翻译成"RLS 策略拒绝：role 可能不是 admin"，
+//    而真实原因是【表级 GRANT 缺失】，两者修复方式完全不同。
+//    这句写死的文案把排查方向带偏了整整 10 轮。
+//
+// 42501 有两种截然不同的形态，必须分开判：
+//   permission denied for table/sequence xxx        → 表级 GRANT 缺失，要 GRANT
+//   new row violates row-level security policy      → RLS 策略拒绝，要改 POLICY
 export function describeAdminLogError(error) {
   const code = error?.code || '';
   const message = error?.message || '';
-  if (code === '42501' || /row-level security|violates row-level/i.test(message)) {
-    return 'RLS 策略拒绝：当前账号在 profiles 表中的 role 可能不是 admin';
+  const hint = error?.hint || '';
+
+  // 1) 表级/序列级权限缺失：字面就是 permission denied for table|sequence
+  //    必须排在 RLS 判定之前，否则会被 42501 一把抓走，导致给出错误的修复建议。
+  if (/permission denied for (table|sequence|relation|schema)/i.test(message)) {
+    const target = /sequence/i.test(message) ? '序列' : '表';
+    // PostgREST 通常会在 hint 里直接给出可执行的 GRANT 语句，原样透出，价值极高
+    const hintText = hint ? `。Supabase 给出的修复提示：${hint}` : '';
+    return `${target}级权限缺失（不是 RLS 问题，改策略无效）：`
+      + `需在 Supabase SQL Editor 执行 supabase_admin_logs.sql 补 GRANT，`
+      + `核心是 GRANT SELECT, INSERT ON public.admin_logs TO authenticated`
+      + `以及 GRANT USAGE, SELECT ON SEQUENCE public.admin_logs_id_seq TO authenticated${hintText}`;
   }
-  // 注意顺序：列缺失必须先判，否则 42703/PGRST204 的文案
-  // （column "x" of relation "admin_logs" does not exist）会被下面的"表不存在"正则抢先命中
-  if (code === 'PGRST204' || code === '42703' || /could not find the .+ column|schema cache|^column .+ does not exist/i.test(message)) {
-    return '表结构与写入字段不匹配（列缺失）';
+
+  // 2) 真正的 RLS 策略拒绝：报文里明确出现 row-level security
+  if (/row-level security|violates row-level/i.test(message)) {
+    return 'RLS 策略拒绝（表级权限正常，是行级策略把这行挡了）：'
+      + '请检查 admin_logs 的 INSERT 策略 WITH CHECK 条件，确认 admin_id 等于当前登录用户 auth.uid()';
   }
-  // 表不存在：正则用 ^ 锚定，确保只匹配 relation 开头的文案，不误吞 column 开头的列缺失文案
+  // 3) 其余 42501：不猜原因，原样透出 Supabase 的说法，避免又编一句错的把人带偏
+  if (code === '42501') {
+    return `权限被拒绝（42501），Supabase 原文：${message || '无附加说明'}`
+      + (hint ? `；提示：${hint}` : '');
+  }
+
+  // 4) 缓存里找不到这张表（PGRST205）——必须排在"列缺失"之前判，
+  //    否则会被下面那条 /schema cache/ 正则抢走，误报成"列缺失"。
+  //    注意区分：PGRST205 是【表】不在缓存，PGRST204 才是【列】对不上。
+  if (code === 'PGRST205' || /could not find the table .+ in the schema cache/i.test(message)) {
+    return 'PostgREST 缓存里找不到 admin_logs 表：请在 SQL Editor 执行 '
+      + "NOTIFY pgrst, 'reload schema'; 刷新缓存"
+      + '（新版 Dashboard 已无 Reload schema 按钮，这句 SQL 即等价操作）';
+  }
+
+  // 5) 列缺失：必须先于"表不存在"判，否则 42703 的文案
+  //    （column "x" of relation "admin_logs" does not exist）会被下面的正则抢先命中
+  if (code === 'PGRST204' || code === '42703' || /could not find the .+ column|^column .+ does not exist/i.test(message)) {
+    return `表结构与写入字段不匹配（列缺失）：请执行 supabase_admin_logs.sql 补列。原文：${message}`;
+  }
+
+  // 6) 表不存在：正则用 ^ 锚定，确保只匹配 relation 开头的文案，不误吞 column 开头的列缺失文案
   if (code === '42P01' || /^relation .*does not exist/i.test(message)) {
     return 'admin_logs 表不存在：请先在 Supabase 执行 supabase_admin_logs.sql';
   }
+
   if (code === 'PGRST301' || code === '401' || /jwt|not authenticated/i.test(message)) {
     return '登录态无效或已过期，请重新登录';
   }
@@ -2398,7 +2441,11 @@ export function describeAdminLogError(error) {
   if (/failed to fetch|network/i.test(message)) {
     return '网络异常，未能连接 Supabase';
   }
-  return '数据库返回错误';
+
+  // 7) 兜底：不再返回"数据库返回错误"这种等于没说的话，原样透出 Supabase 的信息
+  return message
+    ? `数据库返回错误，Supabase 原文：${message}${hint ? `；提示：${hint}` : ''}`
+    : '数据库返回未知错误（无 message）';
 }
 
 export const adminLogAPI = {
@@ -2407,10 +2454,12 @@ export const adminLogAPI = {
     // 统一的失败提示：console 保留完整对象便于排查，UI 显式弹出错误码 + 原因，杜绝静默失败
     const notifyFailure = (stage, error) => {
       const code = error?.code ? `[${error.code}] ` : '';
-      const msg = error?.message || error?.hint || '未知错误';
-      const text = `操作日志写入失败（${stage}）：${code}${msg}（${describeAdminLogError(error)}）`;
-      console.error('[adminLog] 记录操作日志失败:', { action, stage, error });
-      ElMessage.error({ message: text, duration: 6000, showClose: true });
+      const msg = error?.message || '未知错误';
+      // 原始 hint 常常直接给出可执行的修复语句（例如 PostgREST 的 GRANT 建议），必须透出
+      const hint = error?.hint ? `｜Supabase 提示：${error.hint}` : '';
+      const text = `操作日志写入失败（${stage}）：${code}${msg}${hint}（${describeAdminLogError(error)}）`;
+      console.error('[adminLog] 记录操作日志失败:', { action, stage, code: error?.code, message: error?.message, hint: error?.hint, error });
+      ElMessage.error({ message: text, duration: 8000, showClose: true });
     };
 
     // 1) 登录态检查：拿不到管理员 ID 时同样要给出 UI 反馈，而不是静默 return
@@ -2450,9 +2499,16 @@ export const adminLogAPI = {
       detail
     };
     // 列缺失判定：错误码优先 + 正则兜底，覆盖新旧两种文案
-    const isColumnMissing = (e) =>
-      e?.code === 'PGRST204' || e?.code === '42703' ||
-      /does not exist|could not find the .+ column|schema cache/i.test(e?.message || '');
+    // 注意：这里刻意【排除】PGRST205（表不在缓存）与 42501（权限不足），
+    // 这两种情况降级重写也一样会失败，重试只会多刷一条无意义的报错。
+    const isColumnMissing = (e) => {
+      const m = e?.message || '';
+      if (e?.code === 'PGRST205' || e?.code === '42501') return false;
+      if (/permission denied/i.test(m)) return false;
+      if (/could not find the table .+ in the schema cache/i.test(m)) return false;
+      return e?.code === 'PGRST204' || e?.code === '42703' ||
+        /column .+ does not exist|could not find the .+ column/i.test(m);
+    };
 
     try {
       // 先尝试完整写入（适配 target_user_id / target_user_name 版表结构）
@@ -2480,14 +2536,18 @@ export const adminLogAPI = {
   },
 
   // 查询操作日志（管理员用）
+  // 用 select('*') 而不是显式列清单：admin_logs 历史上存在两版结构
+  // （target_user_id/target_user_name 版 与 target_type/target_id 版），
+  // 写死列名会在结构不匹配时直接 42703 报错。'*' 对两版结构都能读，
+  // 与 Admin.vue 里 loadAdminLogs 的查询方式保持一致。
   async getAll(limit = 200) {
     const { data, error } = await supabase
       .from('admin_logs')
-      .select('id, action, admin_id, admin_name, target_type, target_id, target_user_name, detail, created_at')
+      .select('*')
       .order('created_at', { ascending: false })
       .limit(limit);
     if (error) throw error;
-    return { data };
+    return { data: data || [] };
   }
 };
 
