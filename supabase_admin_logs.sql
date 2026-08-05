@@ -1,20 +1,20 @@
 -- ============================================================
 -- 管理员操作日志表 admin_logs —— 标准重建脚本（幂等，可反复执行）
 -- ============================================================
--- 用途（任一情况跑这一份即可，无需区分）：
---   1. 首次建表
---   2. 环境重置 / 迁移
+-- 用途（任一情况跑这一份即可）：
+--   1. 首次建表  2. 环境重置/迁移
 --   3. 修复「操作日志为空」「42501 写不进」「PGRST204 列缺失」
---
--- 设计要点（覆盖历史所有坑）：
---   - DROP TABLE CASCADE 重建：解决「旧表字段不全、IF NOT EXISTS 跳过重�建」
---   - DO 块遍历 pg_policies 删所有策略：解决「旧策略名字对不上、按名删不掉」
---   - 写入策略 self-based (admin_id=auth.uid())：解决 42501 写不进
+-- 覆盖的历史坑：
+--   - DROP TABLE CASCADE 重建：解决旧表字段不全、IF NOT EXISTS 跳过重�建
+--   - DROP CASCADE 连带删掉全部旧策略（含名字对不上的残留策略）：解决 42501
+--   - 写入策略 self-based (admin_id=auth.uid())：彻底放开写入
 --   - UPDATE profiles.role='admin'：解决读取被拦导致 Tab 空
 --   - NOTIFY pgrst：解决改表后 schema 缓存陈旧导致的 PGRST204
+-- ⚠️ 若执行报 40P01 deadlock：关掉其他 SQL 窗口/前端页面（避免并发锁竞争），
+--    或把本脚本拆成「仅 DROP 一句」和「剩余全部」两段分别执行。
 -- ============================================================
 
--- 1. 彻底删除旧表（CASCADE 连带清掉旧索引、旧策略）
+-- 1. 彻底删除旧表（CASCADE 连带清掉旧索引、旧策略——含名字对不上的残留策略）
 DROP TABLE IF EXISTS admin_logs CASCADE;
 
 -- 2. 按标准结构重建（含前端 log() 写入所需的全部列）
@@ -35,31 +35,20 @@ CREATE INDEX idx_admin_logs_created_at ON admin_logs(created_at DESC);
 -- 3. 启用 RLS
 ALTER TABLE admin_logs ENABLE ROW LEVEL SECURITY;
 
--- 4. 暴力清空所有现存策略（不依赖策略名字，解决「按名删不掉」的残留旧策略）
-DO $$
-DECLARE
-  pol RECORD;
-BEGIN
-  FOR pol IN SELECT policyname FROM pg_policies WHERE tablename = 'admin_logs'
-  LOOP
-    EXECUTE format('DROP POLICY IF EXISTS %I ON admin_logs', pol.policyname);
-  END LOOP;
-END $$;
-
--- 5. 写入策略：本人写自己（不依赖 role，彻底解决 42501 写不进）
+-- 4. 写入策略：本人写自己（不依赖 role，彻底解决 42501 写不进）
 CREATE POLICY "admin_logs_insert_self"
   ON admin_logs FOR INSERT
   WITH CHECK (admin_id = auth.uid());
 
--- 6. 读取策略：仅管理员可见
+-- 5. 读取策略：仅管理员可见
 CREATE POLICY "admin_logs_select_admin"
   ON admin_logs FOR SELECT
   USING ( EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin') );
 
--- 7. 确保当前登录账号为管理员（解决读取被拦导致 Tab 空）
+-- 6. 确保当前登录账号为管理员（解决读取被拦导致 Tab 空）
 UPDATE profiles SET role = 'admin' WHERE id = auth.uid();
 
--- 8. 刷新 PostgREST schema 缓存（不跑这步会持续报 PGRST204 列缺失）
+-- 7. 刷新 PostgREST schema 缓存（不跑这步会持续报 PGRST204 列缺失）
 NOTIFY pgrst, 'reload schema';
 
 -- ============================================================
